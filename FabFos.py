@@ -1225,6 +1225,7 @@ def write_fosmid_end_failures(args, sample_id, ends_stats):
 
 
 def main():
+    # TODO: Include an init function to initialize a new directory to be a master FabFos repository
     args = get_options()
     args = review_arguments(args)
     args = find_executables(args)
@@ -1264,6 +1265,7 @@ def main():
         num_reads_assembly = find_num_reads(trimmed_reads)
         read_stats["number_trimmed_reads"] = str((num_filtered_reads - num_reads_assembly)*100/num_reads_assembly)
         reads = prep_reads_for_assembly(sample_id, args, trimmed_reads)
+        # TODO: Include an optional minimus2 module to further assemble the contigs
         assemble_fosmids(sample_id, args, reads, 71, 241, trimmed_reads)
         fosmid_fasta = args.output_dir[sample_id] + os.sep + sample_id + "_contigs.fasta"
         fosmid_assembly = read_fasta(fosmid_fasta)
