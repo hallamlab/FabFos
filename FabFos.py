@@ -76,6 +76,8 @@ def get_options():
     parser.add_argument("-i", "--interleaved", required=False, default=False, action="store_true",
                         help="Flag indicating the reads are interleaved "
                              "(i.e. forward and reverse pairs are in the same file)")
+    parser.add_argument("--use_assembly", default=False, action="store_true",
+                        help="Flag indicates the assembly found should be used for end-mapping and assembly stats.")
     parser.add_argument("-e", "--ends", required=False, default=None,
                         help="FASTA file containing fosmid ends - these will be used for alignment to fosmid contigs."
                              " [.fasta]")
@@ -450,6 +452,7 @@ class Miffed:
         self.seq_type = fields[10]
         self.read_length = fields[11]
         self.instrument = fields[12]
+        self.assembled = False
 
     def ensure_completeness(self, miffed):
         if self.sample is None:
@@ -504,10 +507,14 @@ def parse_miffed(args):
             if os.path.isdir(args.output_dir[miffed_entry.sample]):
                 files = glob.glob(args.output_dir[miffed_entry.sample] + "*")
                 if len(files) != 0:
-                    stdprint("WARNING: output path for " + str(miffed_entry.sample) +
-                             " is not empty! Skipping this library.",
-                             "err", "\n")
-                    excluded.append(miffed_entry.sample)
+                    stdprint("WARNING: output path for " + str(miffed_entry.sample) + " is not empty!", "err", " ")
+                    fosmid_fasta = args.output_dir[miffed_entry.sample] + os.sep + miffed_entry.sample + "_contigs.fasta"
+                    if os.path.isfile(fosmid_fasta) and args.use_assembly:
+                        stdprint("Using assembly found: " + fosmid_fasta, "err", "\n")
+                        libraries[miffed_entry.sample].assembled = True
+                    else:
+                        stdprint("Skipping library " + str(miffed_entry.sample), "err", "\n")
+                        excluded.append(miffed_entry.sample)
             else:
                 os.makedirs(args.output_dir[miffed_entry.sample])
             project_metadata_file = args.fabfos_path + os.sep + miffed_entry.project + os.sep + \
@@ -1248,25 +1255,36 @@ def main():
     # Sequence processing and filtering:
     for sample_id in args.output_dir.keys():
         read_stats = dict()
-        stdprint("Processing raw data for " + sample_id, "out", "\n")
-        stdprint("Outputs for " + sample_id + " will be found in " + args.output_dir[sample_id], "out", "\n")
-        raw_reads = find_raw_reads(args, sample_id)
-        num_raw_reads = find_num_reads(raw_reads.values())
-        read_stats["num_raw_reads"] = str(num_raw_reads)
-        stdprint("Number of raw reads = " + str(num_raw_reads), "out", "\n")
-        filtered_reads = filter_backbone(sample_id, args, raw_reads)
-        num_filtered_reads = find_num_reads(filtered_reads)
-        stdprint(str(num_raw_reads - num_filtered_reads) + " reads removed from backbone filtering (" +
-                 str(((num_raw_reads - num_filtered_reads)*100)/num_raw_reads) + "%).",
-                 "out",
-                 "\n")
-        read_stats["percent_off_target"] = str(((num_raw_reads - num_filtered_reads)*100)/num_raw_reads)
-        trimmed_reads = quality_trimming(sample_id, args, filtered_reads)
-        num_reads_assembly = find_num_reads(trimmed_reads)
-        read_stats["number_trimmed_reads"] = str((num_filtered_reads - num_reads_assembly)*100/num_reads_assembly)
-        reads = prep_reads_for_assembly(sample_id, args, trimmed_reads)
-        # TODO: Include an optional minimus2 module to further assemble the contigs
-        assemble_fosmids(sample_id, args, reads, 71, 241, trimmed_reads)
+        if not libraries[sample_id].assembled:
+            stdprint("Processing raw data for " + sample_id, "out", "\n")
+            stdprint("Outputs for " + sample_id + " will be found in " + args.output_dir[sample_id], "out", "\n")
+            raw_reads = find_raw_reads(args, sample_id)
+            num_raw_reads = find_num_reads(raw_reads.values())
+            read_stats["num_raw_reads"] = str(num_raw_reads)
+            stdprint("Number of raw reads = " + str(num_raw_reads), "out", "\n")
+            filtered_reads = filter_backbone(sample_id, args, raw_reads)
+            num_filtered_reads = find_num_reads(filtered_reads)
+            stdprint(str(num_raw_reads - num_filtered_reads) + " reads removed from backbone filtering (" +
+                     str(((num_raw_reads - num_filtered_reads)*100)/num_raw_reads) + "%).",
+                     "out",
+                     "\n")
+            read_stats["percent_off_target"] = str(((num_raw_reads - num_filtered_reads)*100)/num_raw_reads)
+            if num_filtered_reads < 1600:
+                # The number of reads remaining is too low for assembly (< 20X for a single fosmid)
+                stdprint("WARNING: Number of reads remaining will provide less than 20X coverage for a single fosmid"
+                         " - skipping this sample", "err", "\n")
+                continue
+            trimmed_reads = quality_trimming(sample_id, args, filtered_reads)
+            num_reads_assembly = find_num_reads(trimmed_reads)
+            read_stats["number_trimmed_reads"] = str((num_filtered_reads - num_reads_assembly)*100/num_reads_assembly)
+            reads = prep_reads_for_assembly(sample_id, args, trimmed_reads)
+            # TODO: Include an optional minimus2 module to further assemble the contigs
+            assemble_fosmids(sample_id, args, reads, 71, 241, trimmed_reads)
+            clean_intermediates(sample_id, args)
+        else:
+            read_stats["num_raw_reads"] = "NA"
+            read_stats["percent_off_target"] = "NA"
+            read_stats["number_trimmed_reads"] = "NA"
         fosmid_fasta = args.output_dir[sample_id] + os.sep + sample_id + "_contigs.fasta"
         fosmid_assembly = read_fasta(fosmid_fasta)
         assembly_stats = get_assembly_stats(sample_id, args, fosmid_assembly)
@@ -1278,7 +1296,6 @@ def main():
             clone_map = prune_and_scaffold_fosmids(args, sample_id, clone_map, multi_fosmid_map)
             write_fosmid_assignments(args, sample_id, clone_map)
             write_fosmid_end_failures(args, sample_id, ends_stats)
-        clean_intermediates(sample_id, args)
         project_metadata_file = args.fabfos_path + os.sep + libraries[sample_id].project + os.sep + \
                                 "FabFos_" + libraries[sample_id].project + "_metadata.tsv"
         update_metadata(project_metadata_file, sample_id, libraries[sample_id], read_stats, assembly_stats, ends_stats)
