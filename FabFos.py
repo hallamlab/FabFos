@@ -28,6 +28,154 @@ __email__ = "c.morganlang@gmail.com"
 __status__ = "Unstable"
 
 
+#################################### Classes begin ################################################
+
+
+class FosmidClone:
+    def __init__(self, contig, sequence):
+        self.contig = contig
+        self.clone = ""
+        self.evidence = ""
+        self.ends = ""
+        self.strand = ""
+        self.sequence = sequence
+        self.seq_length = 0
+
+    def extract_sequence(self, start, end):
+        if end < start:
+            self.sequence = reverse_complement(self.sequence)
+            self.sequence = self.sequence[end-1:start-1]
+        else:
+            self.sequence = self.sequence[start-1:end-1]
+        self.seq_length = len(self.sequence)
+
+    def get_info(self):
+        info_string = "contig = " + str(self.contig) + \
+                      "\tclone = " + str(self.clone) + \
+                      "\tevidence = " + str(self.evidence) + \
+                      "\tends = " + str(self.ends) + \
+                      "\tstrand = " + str(self.strand) + \
+                      "\tlength = " + str(self.seq_length)
+        return info_string
+
+
+class Sample:
+    def __init__(self, sample_id):
+        # General sample information
+        self.id = sample_id
+        self.output_dir = ""
+        self.assembled_fosmids = ""
+        self.forward_reads = None
+        self.reverse_reads = None
+
+        # Control flow
+        self.overwrite = False
+        self.assemble = True
+        self.map_ends = True
+        self.exclude = False
+
+        # Nanopore-specific
+        self.nanopore = ""
+        self.error_correction = True
+
+
+class Miffed(Sample):
+    def __init__(self, sample_id):
+        Sample.__init__(self, sample_id)
+        self.project = ""
+        self.selector = ""
+        self.vector = ""
+        self.screen = ""
+        self.selection = ""
+        self.num_fosmids = ""
+        self.seq_submission_date = ""
+        self.glycerol_plate = ""
+        self.seq_center = ""
+        self.seq_type = ""
+        self.read_length = ""
+        self.instrument = ""
+
+    def populate_info(self, fields):
+        self.project = fields[1]
+        self.selector = fields[2]
+        self.vector = fields[3]
+        self.screen = fields[4]
+        self.selection = fields[5]
+        self.num_fosmids = fields[6]
+        self.seq_submission_date = fields[7]
+        self.glycerol_plate = fields[8]
+        self.seq_center = fields[9]
+        self.seq_type = fields[10]
+        self.read_length = fields[11]
+        self.instrument = fields[12]
+
+    def ensure_completeness(self, miffed):
+        if self.id is None:
+            stdprint("WARNING: sample name missing in " + miffed + ". Exiting!", "err", "\n")
+            sys.exit()
+        if self.project is None:
+            stdprint("WARNING: " + self.id + " is not associated with a project!. Skipping this library!",
+                     "err", "\n")
+            return False
+        if self.selector is None:
+            stdprint(
+                "WARNING: " + self.id + " is not associated with a human (selector). Skipping this library!",
+                "err", "\n")
+            return False
+        if self.vector is None:
+            stdprint(
+                "WARNING: " + self.id + " is not associated with a vector (e.g. PCC1). Skipping this library!",
+                "err", "\n")
+            return False
+        if self.screen != "in silico" and self.screen != "functional":
+            stdprint("WARNING: " + self.screen + " was provided for screen in sample " + self.id +
+                     ". Is this correct?", "err", "\n")
+        return True
+
+
+class Alignment:
+    def __init__(self, fields):
+        self.sseqid = fields[0]
+        self.slen = int(fields[1])
+        self.qseqid = fields[2]
+        self.pident = float(fields[3])
+        self.length = int(fields[4])
+        self.sstrand = fields[5]
+        self.sstart = int(fields[6])
+        self.send = int(fields[7])
+        self.bitscore = float(fields[8])
+        self.qstart = int(fields[9])
+        self.qend = int(fields[10])
+        self.name = ""
+        self.direction = ""
+
+    def get_query(self):
+        return self.qseqid
+
+    def get_info(self):
+        info_string = "contig = " + str(self.sseqid) + \
+                      "\tcontig-length = " + str(self.slen) + \
+                      "\tclone = " + str(self.name) + \
+                      "\tstrand = " + str(self.sstrand) + \
+                      "\tdirection = " + str(self.direction) + \
+                      "\tstart = " + str(self.sstart) + \
+                      "\tend = " + str(self.send) + \
+                      "\talignment-length = " + str(self.length) + \
+                      "\tpercent-identity = " + str(self.pident)
+        return info_string
+
+
+class EndAlignment(Alignment):
+    def parse_fosmid_end_name(self):
+        full_name = self.qseqid.split('.')[1]
+        prefix = self.qseqid.split('.')[0]
+        direction, name = full_name.split('_')
+        self.direction = direction[-1]
+        self.name = prefix + '.' + name
+
+#################################### Classes end ################################################
+
+
 def get_dict_keys(dictionary):
     """
     A function for returning the sorted list of dictionary keys, regardless of the Python version.
@@ -55,13 +203,13 @@ def stdprint(obj, channel, cap=""):
 
 
 def get_options():
-    parser = argparse.ArgumentParser(description="Pipeline for processing and organizing fosmid seqeunce information."
-                                                 "NOTE: maximum of 2 sequence files--user must concatenate files if >2")
+    parser = argparse.ArgumentParser(description="Pipeline for processing and organizing fosmid sequence information.\n"
+                                                 "NOTE: a maximum of 2 sequence files are permitted.")
     parser.add_argument("-m", "--miffed", type=str, required=True,
                         help="The minimum information for fosmid environmental data (e.g., sample ID, "
                              "sequencing platform, environment, project) in a comma-separated file. [.csv]")
-    parser.add_argument("-b", "--backbone", type=str, required=True,
-                        help="Path to the fosmid backbone database [.fasta]")
+    parser.add_argument("-b", "--background", type=str, required=True,
+                        help="Path to the fosmid background database [.fasta]")
     parser.add_argument("-r", "--reads", type=str, required=True,
                         help="Path to the sequenced reads directory. This parameter is for the single-end reads "
                              "(Sanger), the forward strand file, or the interleaved paired-end file. [.fastq]")
@@ -76,11 +224,15 @@ def get_options():
     parser.add_argument("-i", "--interleaved", required=False, default=False, action="store_true",
                         help="Flag indicating the reads are interleaved "
                              "(i.e. forward and reverse pairs are in the same file)")
-    parser.add_argument("--use_assembly", default=False, action="store_true",
-                        help="Flag indicates the assembly found should be used for end-mapping and assembly stats.")
     parser.add_argument("-e", "--ends", required=False, default=None,
                         help="FASTA file containing fosmid ends - these will be used for alignment to fosmid contigs."
                              " [.fasta]")
+    nanopore = parser.add_argument_group(title="nanopore")
+    nanopore.add_argument("--nanopore_reads", help="A FASTA file containing nanopore reads to be used in assembly.",
+                          type=str, required=False)
+    nanopore.add_argument("--skip_correction", help="Do not perform error-correction of nanopore reads using proovread",
+                          action="store_true", default=False, required=False)
+
     args = parser.parse_args()
     return args
 
@@ -118,8 +270,8 @@ def review_arguments(args):
         raise IOError("ERROR: " + args.reverse + " is not a valid directory!")
         # raise FileNotFoundError("ERROR: " + args.reads + " does not exist!")
 
-    if not os.path.isfile(args.backbone):
-        sys.exit("ERROR: " + args.backbone + " does not exist!")
+    if not os.path.isfile(args.background):
+        sys.exit("ERROR: " + args.background + " does not exist!")
     # Add new information:
     args.os = os_type()
     if sys.version_info > (2, 9):
@@ -173,12 +325,12 @@ def find_executables(args):
     :return: args with executables list included
     """
     required_execs = ["bwa", "samtools", "megahit", "bam2fastq", "trimmomatic", "fq2fa", "blastn", "makeblastdb",
-                      "splitFASTA", "getNx"]
+                      "splitFASTA", "getNx", "proovread", "canu"]
     args.executables = dict()
     for executable in required_execs:
         args.executables[executable] = which(executable)
         if args.executables[executable] is None:
-            raise EnvironmentError("ERROR: unable to find executable for " + executable)
+            raise EnvironmentError("Unable to find executable for " + executable)
     return args
 
 
@@ -187,7 +339,7 @@ def check_index(path, bwa_path):
     index_parts = [path+e for e in extensions]
     for part in index_parts:
         if not os.path.isfile(part):
-            stdprint("\nUnable to find indexed backbone database. Indexing now... ", "err")
+            stdprint("\nUnable to find BWA index for " + path + ". Indexing now... ", "err")
             index_command = [bwa_path, "index", path]
             index_dir = os.path.dirname(os.path.abspath(path))
             index_command += ["1>", index_dir + os.sep + "bwa_index.stdout"]
@@ -201,22 +353,22 @@ def check_index(path, bwa_path):
     return
 
 
-def filter_backbone(sample_id, args, raw_reads):
+def filter_backbone(sample, args, raw_reads):
     """
-    Function to generate fastq files that do not contain any sequences in `backbone`.
+    Function to generate fastq files that do not contain any sequences in `background`.
     Depends on bwa, samtools, and bam2fastq
-    :param sample_id: The unique identifier for this fosmid library
+    :param sample: Miffed object with information of current sample
     :param args: parsed command-line arguments from get_options()
     :param raw_reads: Dictionary containing forward and reverse fastq file names
     :return: list of fastq files containing the filtered reads
     """
     stdprint("Filtering off-target reads... ", "out")
-    check_index(args.backbone, args.executables["bwa"])
-    align_command = [args.executables["bwa"], "mem", "-t", args.threads, args.backbone, raw_reads["forward"]]
+    check_index(args.background, args.executables["bwa"])
+    align_command = [args.executables["bwa"], "mem", "-t", args.threads, args.background, raw_reads["forward"]]
     if args.reverse:
         align_command.append(raw_reads["reverse"])
     align_command.append("1>")
-    sam_file = args.output_dir[sample_id] + sample_id + ".sam"
+    sam_file = sample.output_dir + sample.id + ".sam"
     align_command.append(sam_file)
     align_command += ["2>", "/dev/null"]
     p_mem = subprocess.Popen(' '.join(align_command), shell=True, preexec_fn=os.setsid)
@@ -225,11 +377,11 @@ def filter_backbone(sample_id, args, raw_reads):
     # Use samtools to convert sam to bam
     bam_convert = [args.executables["samtools"], "view", "-bS", "-@", args.threads, sam_file, "|"]
     # Piping to samtools sort
-    bam_file = args.output_dir[sample_id] + os.sep + sample_id + "_sorted"
+    bam_file = sample.output_dir + os.sep + sample.id + "_sorted"
     bam_convert.append(args.executables["samtools"])
     bam_convert += ["sort", "-@", args.threads, "-", bam_file]
-    p_samtools_stdout = open(args.output_dir[sample_id] + os.sep + "samtools.stdout", 'w')
-    p_samtools_stderr = open(args.output_dir[sample_id] + os.sep + "samtools.stderr", 'w')
+    p_samtools_stdout = open(sample.output_dir + os.sep + "samtools.stdout", 'w')
+    p_samtools_stderr = open(sample.output_dir + os.sep + "samtools.stderr", 'w')
     p_samtools = subprocess.Popen(' '.join(bam_convert), shell=True, preexec_fn=os.setsid,
                                   stdout=p_samtools_stdout, stderr=p_samtools_stderr)
     p_samtools.wait()
@@ -238,29 +390,162 @@ def filter_backbone(sample_id, args, raw_reads):
 
     # extract the unaligned reads using bam2fastq
     fastq_extract = [args.executables["bam2fastq"], "-o",
-                     args.output_dir[sample_id] + os.sep + sample_id + "_BackboneFiltered_R#.fastq", "--no-aligned",
+                     sample.output_dir + os.sep + sample.id + "_BackboneFiltered_R#.fastq", "--no-aligned",
                      bam_file + ".bam"]
-    fastq_extract += ["1>", args.output_dir[sample_id] + os.sep + "bam2fastq.stdout"]
-    fastq_extract += ["2>", args.output_dir[sample_id] + os.sep + "bam2fastq.stderr"]
+    fastq_extract += ["1>", sample.output_dir + os.sep + "bam2fastq.stdout"]
+    fastq_extract += ["2>", sample.output_dir + os.sep + "bam2fastq.stderr"]
     p_bam2fastq = subprocess.Popen(' '.join(fastq_extract), shell=True, preexec_fn=os.setsid)
     p_bam2fastq.wait()
-    filtered_reads = glob.glob(args.output_dir[sample_id] + os.sep + sample_id + "_BackboneFiltered*fastq")
+    filtered_reads = glob.glob(sample.output_dir + os.sep + sample.id + "_BackboneFiltered*fastq")
     stdprint("done.", "out", "\n")
     return filtered_reads
 
 
-def quality_trimming(sample_id, args, filtered_reads):
+def get_reference_names_from_sam(sam_file):
+    reference_names = set()
+
+    try:
+        sam = open(sam_file, 'r')
+    except:
+        raise IOError("Unable to open " + sam_file + " for reading!")
+
+    line = sam.readline()
+    # Skip the header lines:
+    while line[0] == "@":
+        line = sam.readline()
+    # Read the alignments:
+    while line:
+        fields = line.strip().split("\t")
+        if fields[2] != "*":
+            reference_names.add(fields[2])
+        line = sam.readline()
+
+    sam.close()
+
+    return reference_names
+
+
+def write_new_fasta(fasta_dict, fasta_name, headers=None):
+    """
+    Function for writing sequences stored in dictionary to file in FASTA format; optional filtering with headers list
+    :param fasta_dict: A dictionary containing headers as keys and sequences as values
+    :param fasta_name: Name of the FASTA file to write to
+    :param headers: Optional list of sequence headers. Only fasta_dict keys in headers will be written
+    :return:
+    """
+    headers = list(headers)
+    try:
+        fa_out = open(fasta_name, 'w')
+    except:
+        raise IOError("Unable to open " + fasta_name + " for writing!")
+
+    for name in fasta_dict.keys():
+        seq = fasta_dict[name]
+        if headers is None:
+            fa_out.write(name + "\n")
+            fa_out.write(seq + "\n")
+        elif name[1:] in headers:
+            fa_out.write(name + "\n")
+            fa_out.write(seq + "\n")
+
+    fa_out.close()
+    return
+
+
+def extract_nanopore_for_sample(args, sample, filtered_reads, raw_nanopore_fasta):
+    """
+    Function aligns the Illumina reads to long reads and creates a new FASTA file of reads that were aligned to
+    :param args:
+    :param sample:
+    :param filtered_reads:
+    :param raw_nanopore_fasta:
+    :return: Name of the output FASTA file
+    """
+    stdprint("Aligning Illumina reads to long reads... ", "out")
+
+    select_nanopore = sample.output_dir + os.sep + sample.id + "_select_nanopore.fasta"
+    check_index(args.nanopore_reads, args.executables["bwa"])
+
+    filtered_forward = ""
+    filtered_reverse = ""
+    for fastq in filtered_reads:
+        if fastq.find("BackboneFiltered_R_1"):
+            filtered_forward = fastq
+        if fastq.find("BackboneFiltered_R_2"):
+            filtered_reverse = fastq
+        else:
+            raise AssertionError("Unknown file found in filtered reads list: " + fastq)
+
+    align_command = [args.executables["bwa"], "mem", "-t", args.threads, args.nanopore_reads, filtered_forward]
+    if args.reverse:
+        align_command.append(filtered_reverse)
+    align_command.append("1>")
+    sam_file = sample.output_dir + sample.id + "_nanopore_hits.sam"
+    align_command.append(sam_file)
+    align_command += ["2>", "/dev/null"]
+    p_mem = subprocess.Popen(' '.join(align_command), shell=True, preexec_fn=os.setsid)
+    p_mem.wait()
+    stdprint("done.", "out", "\n")
+
+    # Parse the SAM file and find the names of the nanopore reads that were mapped to
+    stdprint("Parsing SAM file for names of the long reads that were mapped to... ", "out")
+    mapped_long_reads = get_reference_names_from_sam(sam_file)
+    os.remove(sam_file)
+    stdprint("done.", "out", "\n")
+
+    stdprint("Writing sequences to " + select_nanopore + "... ", "out")
+    write_new_fasta(raw_nanopore_fasta, select_nanopore, mapped_long_reads)
+    stdprint("done.", "out", "\n")
+
+    return select_nanopore
+
+
+def correct_nanopore(args, sample):
+    """
+    A function to correct errors in the nanoopore reads using short, accurate Illumina reads and proovread
+    :param sample: Miffed object with information of current sample
+    :param args: command-line arguments list
+    :return: Name of the corrected and trimmed nanopore reads
+    """
+    stdprint("Correcting errors in " + args.nanopore_reads + " using proovread... ", "out")
+
+    proovread_prefix = sample.output_dir + sample.id + "_proovread."
+    proovread_command = [args.executables["proovread"], "--threads", args.threads]
+    proovread_command += ["--long-reads=" + args.nanopore_reads]
+    proovread_command += ["--short-reads=" + sample.forward_reads]
+    if args.reverse:
+        proovread_command += ["--short-reads=" + sample.reverse_reads]
+    proovread_command += ["-p", sample.output_dir + os.sep + "proovread"]  # prefix to output files
+    try:
+        correct_stderr = open(proovread_prefix + "stderr", 'w')
+    except:
+        raise IOError("ERROR: cannot open file: " + proovread_prefix + "stderr")
+    try:
+        correct_stdout = open(proovread_prefix + "stdout", 'w')
+    except:
+        raise IOError("ERROR: cannot open file: " + proovread_prefix + "stdout")
+
+    p_correct = subprocess.Popen(' '.join(proovread_command), shell=True, preexec_fn=os.setsid,
+                                 stderr=correct_stderr, stdout=correct_stdout)
+    p_correct.wait()
+    correct_stderr.close()
+    correct_stdout.close()
+    stdprint("done.", "out", "\n")
+    return sample.output_dir + os.sep + "proovread" + os.sep + "proovread.trimmed.fa"
+
+
+def quality_trimming(sample, args, filtered_reads):
     """
     Wrapper for trimmomatic
-    :param sample_id: The unique identifier for the sample - used for output directory creation and file naming
+    :param sample: Miffed object with information of current sample
     :param args: command-line arguments list
-    :param filtered_reads: list of backbone-filtered fastq files
+    :param filtered_reads: list of background-filtered fastq files
     :return: list of quality-trimmed fastq files
     """
     stdprint("Trimming reads... ", "out")
     trimmomatic_command = ["java", "-jar", args.executables["trimmomatic"], "PE", "-threads", args.threads]
     trimmomatic_command += filtered_reads
-    trim_prefix = args.output_dir[sample_id] + os.sep + sample_id + "_trim_"
+    trim_prefix = sample.output_dir + os.sep + sample.id + "_trim_"
     trimmomatic_outputs = [trim_prefix + "pe.1.fq", trim_prefix + "se.1.fq",
                            trim_prefix + "pe.2.fq", trim_prefix + "se.2.fq"]
     trimmomatic_command += trimmomatic_outputs
@@ -285,10 +570,33 @@ def quality_trimming(sample_id, args, filtered_reads):
     return trimmomatic_outputs
 
 
-def assemble_fosmids(sample_id, args, reads, k_min, k_max,  trimmed_reads):
+def determine_k_values(reads):
+    k_min = 71
+    k_max = 241
+    max_read_length = 0
+    read_lengths = list()
+    fasta = reads[0]
+
+    read_seqs = read_fasta(fasta)
+    for read in read_seqs.values():
+        read_length = len(read)
+        read_lengths.append(read_length)
+        if read_length > max_read_length:
+            max_read_length = read_length
+    if max_read_length < k_max:
+        if max_read_length % 2 == 0:
+            k_max = max_read_length - 1
+        else:
+            k_max = max_read_length
+        if max_read_length < k_min:
+            k_min = k_max
+    return k_min, k_max
+
+
+def assemble_fosmids(sample, args, reads, k_min, k_max,  trimmed_reads):
     """
     Wrapper function for MEGAHIT assembler - multi-sized de Bruijn graph based assembler for metagenomes
-    :param sample_id: The unique identifier for the sample - used for output directory creation
+    :param sample: Miffed object with information of current sample
     :param args: command-line arguments list
     :param reads: List containing paired-end and single-end input reads for MEGAHIT
     :param k_min: 71; painstakingly determined to be optimal for fosmids sequenced with Illumina
@@ -320,13 +628,13 @@ def assemble_fosmids(sample_id, args, reads, k_min, k_max,  trimmed_reads):
     # spades_command = ["/home/cmorganlang/bin/SPAdes-3.6.0-Linux/bin/spades.py"]
     # spades_command += ["-1", forward]
     # spades_command += ["-2", reverse]
-    # spades_command += ["-s", args.output_dir[sample_id] + "singletons.fastq"]
+    # spades_command += ["-s", sample.output_dir + "singletons.fastq"]
     # spades_command += ["--careful"]
     # spades_command += ["--memory", str(25)]
     # spades_command += ["--threads", str(args.threads)]
     # spades_command += ["--cov-cutoff", str(10)]
     # spades_command += ["-k", "71,81,91,101,111,121"]
-    # spades_command += ["-o", args.output_dir[sample_id] + "assembly"]
+    # spades_command += ["-o", sample.output_dir + "assembly"]
     # p_spades = subprocess.Popen(' '.join(spades_command), shell=True, preexec_fn=os.setsid)
     # p_spades.wait()
 
@@ -338,7 +646,7 @@ def assemble_fosmids(sample_id, args, reads, k_min, k_max,  trimmed_reads):
     megahit_command += ["--k-step", str(10)]
     megahit_command += ["--merge-level", "20,0.98"]
     megahit_command += ["--memory", str(0.25)]
-    megahit_output_dir = args.output_dir[sample_id] + "assembly"
+    megahit_output_dir = sample.output_dir + "assembly"
     megahit_command += ["--out-dir", megahit_output_dir]
     megahit_command += ["--num-cpu-threads", args.threads]
     megahit_command.append("--verbose")
@@ -352,20 +660,20 @@ def assemble_fosmids(sample_id, args, reads, k_min, k_max,  trimmed_reads):
 
     # Clean-up intermediate output files from MEGAHIT
     stdprint("Cleaning up assembly outputs... ", "out", "")
-    contigs_file = args.output_dir[sample_id] + "assembly" + os.sep + "final.contigs.fa"
+    contigs_file = sample.output_dir + "assembly" + os.sep + "final.contigs.fa"
     if not os.path.isfile(contigs_file):
-        sys.exit("ERROR: MEGAHIT assembly was not created! Check " + args.output_dir[sample_id] + "assembly" + os.sep +
+        sys.exit("ERROR: MEGAHIT assembly was not created! Check " + sample.output_dir + "assembly" + os.sep +
                  "log for an error.")
     shutil.move(contigs_file,
-                args.output_dir[sample_id] + os.sep + sample_id + "_contigs.fasta")
-    shutil.move(args.output_dir[sample_id] + "assembly" + os.sep + "log",
-                args.output_dir[sample_id] + os.sep + "megahit.log")
-    shutil.rmtree(args.output_dir[sample_id] + "assembly" + os.sep)
+                sample.output_dir + os.sep + sample.id + "_contigs.fasta")
+    shutil.move(sample.output_dir + "assembly" + os.sep + "log",
+                sample.output_dir + os.sep + "megahit.log")
+    shutil.rmtree(sample.output_dir + "assembly" + os.sep)
     stdprint("done.", "out", "\n")
     return
 
 
-def prep_reads_for_assembly(sample_id, args, trimmed_reads):
+def prep_reads_for_assembly(sample, args, trimmed_reads):
     stdprint("Preparing quality FASTQ files for assembly... ", "out")
     paired_files = list()
     orphan_files = list()
@@ -376,23 +684,23 @@ def prep_reads_for_assembly(sample_id, args, trimmed_reads):
             orphan_files.append(fastq)
     paired_merge = [args.executables["fq2fa"], "--merge"]
     paired_merge += paired_files
-    paired_merge.append(args.output_dir[sample_id] + sample_id + "_paired.fa")
+    paired_merge.append(sample.output_dir + sample.id + "_paired.fa")
     p_pemerge = subprocess.Popen(' '.join(paired_merge), shell=True, preexec_fn=os.setsid)
     p_pemerge.wait()
 
-    orphans = open(args.output_dir[sample_id] + "singletons.fastq", 'w')
+    orphans = open(sample.output_dir + "singletons.fastq", 'w')
     for unpaired_file in orphan_files:
         with open(unpaired_file) as orphan_file:
             for line in orphan_file:
                 orphans.write(line)
     orphans.close()
     unpaired_fq2fa = [args.executables["fq2fa"],
-                      args.output_dir[sample_id] + "singletons.fastq",
-                      args.output_dir[sample_id] + sample_id + "_unpaired.fa"]
+                      sample.output_dir + "singletons.fastq",
+                      sample.output_dir + sample.id + "_unpaired.fa"]
     p_sefq2fa = subprocess.Popen(' '.join(unpaired_fq2fa), shell=True, preexec_fn=os.setsid)
     p_sefq2fa.wait()
 
-    reads = glob.glob(args.output_dir[sample_id] + os.sep + sample_id + "_*paired.fa")
+    reads = glob.glob(sample.output_dir + os.sep + sample.id + "_*paired.fa")
 
     stdprint("done.", "out", "\n")
     return reads
@@ -415,6 +723,7 @@ def find_raw_reads(args, sample_id):
     regex_sample = re.compile(sample_id)
     for fastq in forward_reads:
         if regex_sample.search(os.path.basename(fastq)) and raw_reads["forward"] == "":
+            fastq = os.path.join(os.getcwd(), fastq)
             raw_reads["forward"] = fastq
         # Ensure there is a single forward fastq file for sample_id
         elif regex_sample.search(os.path.basename(fastq)) and raw_reads["forward"] != "":
@@ -425,6 +734,7 @@ def find_raw_reads(args, sample_id):
         reverse_reads += glob.glob(args.reverse + os.sep + "*fq")
         for fastq in reverse_reads:
             if re.search(sample_id, fastq) and raw_reads["reverse"] == "":
+                fastq = os.path.join(os.getcwd(), fastq)
                 raw_reads["reverse"] = fastq
             # Ensure there is a single reverse fastq file for sample_id
             elif regex_sample.search(os.path.basename(fastq)) and raw_reads["reverse"] != "":
@@ -437,43 +747,44 @@ def find_raw_reads(args, sample_id):
     return raw_reads
 
 
-class Miffed:
-    def __init__(self, fields):
-        self.sample = fields[0]
-        self.project = fields[1]
-        self.selector = fields[2]
-        self.vector = fields[3]
-        self.screen = fields[4]
-        self.selection = fields[5]
-        self.num_fosmids = fields[6]
-        self.seq_submission_date = fields[7]
-        self.glycerol_plate = fields[8]
-        self.seq_center = fields[9]
-        self.seq_type = fields[10]
-        self.read_length = fields[11]
-        self.instrument = fields[12]
-        self.assembled = False
+def get_exclude_input(sample_id):
+    response = raw_input("Should this sample be excluded from analysis? [y|n]")
+    if response == "y":
+        exclude = True
+        stdprint("Excluding " + str(sample_id), "err", "\n")
+    elif response == "n":
+        exclude = False
+    else:
+        stdprint("Unknown response", "err", "\n")
+        exclude = get_exclude_input(sample_id)
+    return exclude
 
-    def ensure_completeness(self, miffed):
-        if self.sample is None:
-            stdprint("WARNING: sample name missing in " + miffed + ". Exiting!", "err", "\n")
-            sys.exit()
-        if self.project is None:
-            stdprint("WARNING: " + self.sample + " is not associated with a project!. Skipping this library!",
-                     "err", "\n")
-            return False
-        if self.selector is None:
-            stdprint("WARNING: " + self.sample + " is not associated with a human (selector). Skipping this library!",
-                     "err", "\n")
-            return False
-        if self.vector is None:
-            stdprint("WARNING: " + self.sample + " is not associated with a vector (e.g. PCC1). Skipping this library!",
-                     "err", "\n")
-            return False
-        if self.screen != "in silico" and self.screen != "functional":
-            stdprint("WARNING: " + self.screen + " was provided for screen in sample " + self.sample +
-                     ". Is this correct?", "err", "\n")
-        return True
+
+def get_overwrite_input(sample_id):
+    response = raw_input("Output directory for " + sample_id + " already exists with files. Overwrite? [y|n]")
+    if response == "y":
+        overwrite = True
+        stdprint("Overwriting " + str(sample_id), "err", "\n")
+    elif response == "n":
+        overwrite = False
+    else:
+        stdprint("Unknown response", "err", "\n")
+        overwrite = get_overwrite_input(sample_id)
+    return overwrite
+
+
+def get_assemble_input(sample):
+    response = raw_input("Assembled fosmids for " + sample.id + " already exists. Do you want to re-assemble? [y|n]")
+    if response == "y":
+        assemble = True
+        stdprint("Re-assembling " + str(sample.id), "err", "\n")
+    elif response == "n":
+        assemble = False
+        stdprint("Using " + str(sample.assembled_fosmids), "err", "\n")
+    else:
+        stdprint("Unknown response", "err", "\n")
+        assemble = get_overwrite_input(sample.id)
+    return assemble
 
 
 def parse_miffed(args):
@@ -485,71 +796,80 @@ def parse_miffed(args):
     """
     miffed = open(args.miffed, 'r')
     line = miffed.readline()
-    libraries = dict()
-    args.output_dir = dict()
-    # excluded contains the libraries that will not be processed for missing MIFFED or non-empty output directories
-    excluded = list()
+    libraries = list()
+
     while line:
         if not line[0] == '#':
             if ',' not in line:
                 sys.exit("ERROR: MIFFED input file doesn't seem to be in csv format!")
             fields = line.strip().split(',')
-            if len(fields) != 13:
-                raise AssertionError(str(len(fields)) + " fields in " + args.miffed + "\n" + line)
-            miffed_entry = Miffed(fields)
+            if len(fields) < 13:
+                raise AssertionError(str(len(fields)) + " fields in " + args.miffed +
+                                     " when at least 13 are expected\n" + line)
+            miffed_entry = Miffed(fields[0])
+            miffed_entry.populate_info(fields)
+            miffed_entry.output_dir = os.sep.join([args.fabfos_path, miffed_entry.project, miffed_entry.id]) + os.sep
+            miffed_entry.assembled_fosmids = miffed_entry.output_dir + os.sep + miffed_entry.id + "_contigs.fasta"
             complete = miffed_entry.ensure_completeness(args.miffed)
             if complete is False:
-                excluded.append(miffed_entry.sample)
-            libraries[miffed_entry.sample] = miffed_entry
-            args.output_dir[miffed_entry.sample] = args.fabfos_path + os.sep + miffed_entry.project + \
-                                                   os.sep + miffed_entry.sample + os.sep
+                miffed_entry.exclude = True
+            if args.nanopore_reads:
+                miffed_entry.nanopore = True
+            if args.skip_correction is True:
+                miffed_entry.error_correction = False
+
             # Check to ensure the output directory exist or ensure it is empty:
-            if os.path.isdir(args.output_dir[miffed_entry.sample]):
-                files = glob.glob(args.output_dir[miffed_entry.sample] + "*")
+            if os.path.isdir(miffed_entry.output_dir):
+                files = glob.glob(miffed_entry.output_dir + "*")
                 if len(files) != 0:
-                    stdprint("WARNING: output path for " + str(miffed_entry.sample) + " is not empty!", "err", " ")
-                    fosmid_fasta = args.output_dir[miffed_entry.sample] + os.sep + miffed_entry.sample + "_contigs.fasta"
-                    if os.path.isfile(fosmid_fasta) and args.use_assembly:
-                        stdprint("Using assembly found: " + fosmid_fasta, "err", "\n")
-                        libraries[miffed_entry.sample].assembled = True
-                    else:
-                        stdprint("Skipping library " + str(miffed_entry.sample), "err", "\n")
-                        excluded.append(miffed_entry.sample)
+                    miffed_entry.overwrite = get_overwrite_input(miffed_entry.id)
+                    if not miffed_entry.overwrite:
+                        # Check to see if sample should be excluded entirely or not
+                        miffed_entry.exclude = get_exclude_input(miffed_entry.id)
+
+                        if not miffed_entry.exclude:
+                            if os.path.isfile(miffed_entry.assembled_fosmids):
+                                miffed_entry.assemble = get_assemble_input(miffed_entry)
+
+                    if miffed_entry.overwrite:
+                        try:
+                            shutil.rmtree(miffed_entry.output_dir)
+                            os.makedirs(miffed_entry.output_dir)
+                        except Exception as e:
+                            stdprint(e, "err", "\n")
+                            raise
             else:
-                os.makedirs(args.output_dir[miffed_entry.sample])
+                os.makedirs(miffed_entry.output_dir)
+
             project_metadata_file = args.fabfos_path + os.sep + miffed_entry.project + os.sep + \
                                     "FabFos_" + miffed_entry.project + "_metadata.tsv"
             if not os.path.isfile(project_metadata_file):
                 project_metadata = open(project_metadata_file, 'w')
                 project_metadata.write(args.metadata_header)
                 project_metadata.close()
+            libraries.append(miffed_entry)
         line = miffed.readline()
     miffed.close()
-    for library in excluded:
-        # if library != "Zach-s-Beaver-positives-plate-1_S2":
-        #     args.output_dir.pop(library)
-        args.output_dir.pop(library)
     return libraries, args
 
 
-def clean_intermediates(sample_id, args):
+def clean_intermediates(sample):
     """
     Function removes largely useless alignment files
-    :param sample_id: The unique identifier for the sample - used for output directory creation
-    :param args: parsed command-line arguments from get_options()
+    :param sample: Miffed object with information of current sample
     :return:
     """
     # Remove the alignment files
-    working_dir = args.output_dir[sample_id] + os.sep
-    os.remove(working_dir + sample_id + ".sam")
-    os.remove(working_dir + sample_id + "_sorted.bam")
+    working_dir = sample.output_dir + os.sep
+    os.remove(working_dir + sample.id + ".sam")
+    os.remove(working_dir + sample.id + "_sorted.bam")
 
     # Remove bam2fastq outputs:
     for std_file in glob.glob(working_dir + "bam2fastq*"):
         os.remove(std_file)
 
     # Remove trimmomatic outputs
-    trimmomatic_outputs = glob.glob(working_dir + sample_id + "_trim*fq")
+    trimmomatic_outputs = glob.glob(working_dir + sample.id + "_trim*fq")
     for trim_out in trimmomatic_outputs:
         os.remove(trim_out)
 
@@ -602,12 +922,12 @@ def find_num_reads(file_list):
     return num_reads
 
 
-def map_ends(args, sample_id):
+def map_ends(args, sample):
     """
     Function for using blastn to align fosmid ends in a file to find the well of each contig
     """
     # Index the contigs
-    sample_prefix = args.output_dir[sample_id] + os.sep + sample_id
+    sample_prefix = sample.output_dir + os.sep + sample.id
     blastdb_command = [args.executables["makeblastdb"]]
     blastdb_command += ["-in", sample_prefix + "_contigs.fasta"]
     blastdb_command += ["-dbtype", "nucl"]
@@ -620,8 +940,8 @@ def map_ends(args, sample_id):
     blastn_command = [args.executables["blastn"]]
     blastn_command += ["-db", sample_prefix]
     blastn_command += ["-outfmt", "\"6",
-                       "sseqid", "slen", "qseqid", "pident", "length", "sstrand", "sstart", "send", "bitscore"
-                       "\""]
+                       "sseqid", "slen", "qseqid", "pident", "length", "sstrand",
+                       "sstart", "send", "bitscore", "qstart", "qend", "\""]
     blastn_command += ["-query", args.ends]
     blastn_command += ["-perc_identity", str(95)]
     blastn_command += ["-out", sample_prefix + "_endsMapped.tbl"]
@@ -642,48 +962,10 @@ def get_fosmid_end_name(string):
     return name
 
 
-class EndAlignment:
-    def __init__(self, fields):
-        self.sseqid = fields[0]
-        self.slen = int(fields[1])
-        self.qseqid = fields[2]
-        self.pident = float(fields[3])
-        self.length = int(fields[4])
-        self.sstrand = fields[5]
-        self.sstart = int(fields[6])
-        self.send = int(fields[7])
-        self.bitscore = float(fields[8])
-        self.name = ""
-        self.direction = ""
-
-    def parse_fosmid_end_name(self):
-        full_name = self.qseqid.split('.')[1]
-        prefix = self.qseqid.split('.')[0]
-        direction, name = full_name.split('_')
-        self.direction = direction[-1]
-        self.name = prefix + '.' + name
-
-    def get_query(self):
-        return self.qseqid
-
-    def get_info(self):
-        info_string = "contig = " + str(self.sseqid) + \
-                      "\tcontig-length = " + str(self.slen) + \
-                      "\tclone = " + str(self.name) + \
-                      "\tstrand = " + str(self.sstrand) + \
-                      "\tdirection = " + str(self.direction) + \
-                      "\tstart = " + str(self.sstart) + \
-                      "\tend = " + str(self.send) + \
-                      "\talignment-length = " + str(self.length) + \
-                      "\tpercent-identity = " + str(self.pident)
-        return info_string
-
-
-def parse_end_alignments(args, sample_id, fosmid_assembly, ends_stats):
+def parse_end_alignments(sample, fosmid_assembly, ends_stats):
     """
     Function parses BLAST alignments of fosmid ends mapped to the MEGAHIT assemblies
-    :param args: parsed command-line arguments from get_options()
-    :param sample_id: string representing the current sample name being processed
+    :param sample: Miffed object with information of current sample
     :param fosmid_assembly: dictionary with headers as keys and sequences for values
     :param ends_stats: dictionary containing information on the fosmid ends
     :return: dictionary of contig names (keys) and list of EndAlignment objects (values) or empty list
@@ -691,7 +973,7 @@ def parse_end_alignments(args, sample_id, fosmid_assembly, ends_stats):
     ends_mapping = dict()
     ends_stats["aligned"] = set()
     ends_stats["unaligned"] = set()
-    blast_output = args.output_dir[sample_id] + os.sep + sample_id + "_endsMapped.tbl"
+    blast_output = sample.output_dir + os.sep + sample.id + "_endsMapped.tbl"
     try:
         blast_table = open(blast_output, 'r')
     except IOError:
@@ -810,35 +1092,6 @@ def get_exterior_positions(hits, clone):
     return start, end
 
 
-class FosmidClone:
-
-    def __init__(self, contig, sequence):
-        self.contig = contig
-        self.clone = ""
-        self.evidence = ""
-        self.ends = ""
-        self.strand = ""
-        self.sequence = sequence
-        self.seq_length = 0
-
-    def extract_sequence(self, start, end):
-        if end < start:
-            self.sequence = reverse_complement(self.sequence)
-            self.sequence = self.sequence[end-1:start-1]
-        else:
-            self.sequence = self.sequence[start-1:end-1]
-        self.seq_length = len(self.sequence)
-
-    def get_info(self):
-        info_string = "contig = " + str(self.contig) + \
-                      "\tclone = " + str(self.clone) + \
-                      "\tevidence = " + str(self.evidence) + \
-                      "\tends = " + str(self.ends) + \
-                      "\tstrand = " + str(self.strand) + \
-                      "\tlength = " + str(self.seq_length)
-        return info_string
-
-
 def assign_clones(ends_mapping, ends_stats, fosmid_assembly):
     """
     Assigns fosmid-end sequences to assembled contigs in fosmid_assembly
@@ -947,8 +1200,8 @@ def assign_clones(ends_mapping, ends_stats, fosmid_assembly):
     return clone_map, ends_stats, multi_fosmid_map
 
 
-def prune_and_scaffold_fosmids(args, sample_id, clone_map, multi_fosmid_map):
-    fragments_tsv = args.output_dir[sample_id] + os.sep + "potential_fosmid_fragments.tsv"
+def prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map):
+    fragments_tsv = sample.output_dir + os.sep + "potential_fosmid_fragments.tsv"
 
     try:
         fragments = open(fragments_tsv, 'w')
@@ -1020,9 +1273,9 @@ def prune_and_scaffold_fosmids(args, sample_id, clone_map, multi_fosmid_map):
     return clone_map
 
 
-def write_fosmid_assignments(args, sample_id, clone_map):
-    coord_name = args.output_dir[sample_id] + os.sep + sample_id + "_fosmid_coordinates.tsv"
-    fasta_name = args.output_dir[sample_id] + os.sep + sample_id + "_formatted.fasta"
+def write_fosmid_assignments(sample, clone_map):
+    coord_name = sample.output_dir + os.sep + sample.id + "_fosmid_coordinates.tsv"
+    fasta_name = sample.output_dir + os.sep + sample.id + "_formatted.fasta"
     try:
         fos_coord = open(coord_name, 'w')
     except IOError:
@@ -1058,32 +1311,38 @@ def read_fasta(fasta):
     fasta_dict = dict()
     header = ""
     sequence = ""
-    with open(fasta) as assembly:
-        line = assembly.readline()
-        while line:
-            line = line.strip()
-            if line[0] == '>':
-                if header != "":
-                    fasta_dict[header] = sequence
-                # Takes the first word in the header (to match alignment outputs)
-                header = line.split(" ")[0]
-                sequence = ""
-            else:
-                sequence += line
-            line = assembly.readline()
-        fasta_dict[header] = sequence
+    try:
+        fasta_seqs = open(fasta, 'r')
+    except:
+        raise IOError("Cannot open FASTA file (" + fasta + ") for reading!")
+
+    line = fasta_seqs.readline()
+    while line:
+        line = line.strip()
+        if line[0] == '>':
+            if header != "":
+                fasta_dict[header] = sequence
+            # Takes the first word in the header (to match alignment outputs)
+            header = line.split(" ")[0]
+            sequence = ""
+        else:
+            sequence += line
+        line = fasta_seqs.readline()
+    fasta_dict[header] = sequence
+
+    fasta_seqs.close()
 
     return fasta_dict
 
 
-def get_assembly_stats(sample_id, args, fosmid_assembly):
+def get_assembly_stats(sample, args, fosmid_assembly):
     assembly_stats = dict()
-    sample_prefix = args.output_dir[sample_id] + os.sep + sample_id
+    sample_prefix = sample.output_dir + os.sep + sample.id
     nx_command = [args.executables["getNx"]]
     nx_command += ["-i", sample_prefix + "_contigs.fasta"]
     nx_command += ["-o", sample_prefix + "_nx.csv"]
     nx_command += ["-m", str(2000)]
-    nx_command.append(">" + args.output_dir[sample_id] + os.sep + sample_id + "_nx.txt")
+    nx_command.append(">" + sample.output_dir + os.sep + sample.id + "_nx.txt")
 
     p_nx = subprocess.Popen(' '.join(nx_command), shell=True, preexec_fn=os.setsid)
     p_nx.wait()
@@ -1127,7 +1386,7 @@ def get_assembly_stats(sample_id, args, fosmid_assembly):
     assembly_stats["Contigs"] = str(len(fosmid_assembly))
     assembly_stats["basepairs"] = str(size)
 
-    os.remove(args.output_dir[sample_id] + os.sep + sample_id + "_nx.txt")
+    os.remove(sample.output_dir + os.sep + sample.id + "_nx.txt")
 
     return assembly_stats
 
@@ -1188,21 +1447,20 @@ def get_fosmid_ends_stats(ends_fasta):
     return ends_stats
 
 
-def write_fosmid_end_failures(args, sample_id, ends_stats):
+def write_fosmid_end_failures(sample, ends_stats):
     """
     Writes the names of fosmid ends that could not be aligned and failed
-    :param args:
-    :param sample_id:
+    :param sample: Miffed object with information of current sample
     :param ends_stats:
     :return:
     """
-    sample_prefix = args.output_dir[sample_id] + os.sep + sample_id
+    sample_prefix = sample.output_dir + os.sep + sample.id
     fosmid_end_failures = sample_prefix + "_fosmid_end_failures.tsv"
 
     try:
         failure_file = open(fosmid_end_failures, 'w')
     except:
-        raise IOError("ERROR: cannot open file: " + fosmid_end_failures)
+        raise IOError("Cannot open file: " + fosmid_end_failures)
     failure_file.write("#Fosmid-end\tcategory\n")
     for end in ends_stats["failed"]:
         failure_file.write(end + "\tSequencing failure\n")
@@ -1231,6 +1489,215 @@ def write_fosmid_end_failures(args, sample_id, ends_stats):
     return
 
 
+def write_unique_fosmid_ends_to_bulk(args):
+    stdprint("Writing new fosmid end sequences to the legacy fosmid end file... ", "out")
+    new_fosmid_ends = read_fasta(args.ends)
+    bulk_ends_file = args.fabfos_path + "FabFos_legacy_ends.fasta"
+    bulk_ends = read_fasta(bulk_ends_file)
+
+    try:
+        legacy_ends = open(bulk_ends_file, 'a')
+    except:
+        raise IOError("Cannot open " + bulk_ends_file + " for appending!")
+
+    for new_end in new_fosmid_ends:
+        if new_end not in bulk_ends.keys():
+            if len(new_fosmid_ends[new_end]) > 100:
+                legacy_ends.write(new_end + "\n")
+                legacy_ends.write(new_fosmid_ends[new_end] + "\n")
+
+    legacy_ends.close()
+    stdprint("done.", "out", "\n")
+
+    return
+
+
+def align_nanopore_to_background(args, sample):
+    stdprint("Aligning " + sample.nanopore + " to background sequences... ", "out")
+
+    # Make the BLAST database
+    try:
+        background_blastdb_stderr = open(sample.output_dir + "background_blastdb.stderr", 'w')
+        background_blastdb_stdout = open(sample.output_dir + "background_blastdb.stdout", 'w')
+    except:
+        raise IOError("Unable to open " + sample.output_dir + "background_blastdb.stderr for writing")
+
+    background_db = args.background + "_BLAST"
+    blast_db_command = [args.executables["makeblastdb"]]
+    blast_db_command += ["-dbtype", "nucl"]
+    blast_db_command += ["-in", args.background]
+    blast_db_command += ["-out", background_db]
+    p_makeblastdb = subprocess.Popen(' '.join(blast_db_command), shell=True, preexec_fn=os.setsid,
+                                     stderr=background_blastdb_stderr, stdout=background_blastdb_stdout)
+    p_makeblastdb.wait()
+    background_blastdb_stderr.close()
+    background_blastdb_stdout.close()
+
+    # Align the corrected reads to the BLAST database
+    nanopore_background_alignments = sample.output_dir + os.sep + "nanopore_background_BLAST.tbl"
+    blastn_command = [args.executables["blastn"]]
+    blastn_command += ["-query", sample.nanopore]
+    blastn_command += ["-db", background_db]
+    blastn_command += ["-outfmt", "\"6",
+                       "sseqid", "slen", "qseqid", "pident", "length", "sstrand",
+                       "sstart", "send", "bitscore", "qstart", "qend", "\""]
+    blastn_command += ["-out", nanopore_background_alignments]
+    p_blastn = subprocess.Popen(' '.join(blastn_command), shell=True, preexec_fn=os.setsid)
+    p_blastn.wait()
+
+    # Remove the BLAST database
+    blastdb_files = glob.glob('.'.join(args.background.split('.')[0:-1]) + "_BLAST.*")
+    for db_file in blastdb_files:
+        os.remove(db_file)
+
+    stdprint("done.", "out", "\n")
+    return nanopore_background_alignments
+
+
+def trim_background(sample, nanopore_background_alignments, read_stats):
+    """
+    Function
+    :param nanopore_background_alignments:
+    :param sample: Miffed object with information of current sample
+    :param read_stats: A dictionary with values representing basic stats on number of reads and trimming
+    :return: nanopore_reads is a dictionary of trimmed nanopore sequence reads
+    """
+
+    nanopore_reads = read_fasta(sample.nanopore)
+    stdprint("Nanopore reads prior to trimming background sequence = " +
+             str(len(nanopore_reads.keys())), "out", "\n")
+    reads_with_background = dict()
+    truncated = 0
+    if sample.error_correction is False:
+        identity_threshold = 85
+    else:
+        identity_threshold = 95
+
+    try:
+        alignments = open(nanopore_background_alignments, 'r')
+    except:
+        raise IOError("Unable to open " + nanopore_background_alignments + " for reading!")
+
+    for line in alignments:
+        fields = line.strip().split('\t')
+        hit = Alignment(fields)
+        # Only working with high confidence alignments
+        if hit.pident < identity_threshold:
+            continue
+        if '>' + hit.qseqid not in reads_with_background.keys():
+            reads_with_background['>' + hit.qseqid] = list()
+        reads_with_background['>' + hit.qseqid].append(hit)
+        # Skip the reads where the hit.length + 1000 is longer than the read length
+        if hit.length + 1000 > len(nanopore_reads['>' + hit.qseqid]):
+            nanopore_reads['>' + hit.qseqid] = ""
+
+    # Find the most interior positions that aligned to background sequence with high identity
+    for background_read in reads_with_background:
+        read_seq = nanopore_reads[background_read]
+        if len(read_seq) > 0:
+            truncated += 1
+            five_prime, three_prime = get_internal_positions(reads_with_background[background_read])
+            # Trim
+            if three_prime > 1000:
+                nanopore_reads[background_read] = read_seq[:three_prime]
+            if three_prime <= 1000:
+                nanopore_reads[background_read] = read_seq[five_prime:]
+
+    stdprint("Nanopore reads that were trimmed for background sequence = " + str(truncated), "out", "\n")
+    read_stats["percent_off_target"] = str(truncated/int(read_stats["num_raw_reads"]))
+    read_stats["number_trimmed_reads"] = str(truncated)
+
+    return nanopore_reads, read_stats
+
+
+def get_internal_positions(alignments):
+    """
+    Function for returning the most internal positions from a list of alignments
+    :param alignments:
+    :return:
+    """
+    five_prime = 0
+    three_prime = 0
+    for hit in alignments:
+        if hit.qstart < hit.qend:
+            if hit.qend > five_prime:
+                five_prime = hit.qend
+                three_prime = hit.qstart
+        if hit.qend < hit.qstart:
+            raise AssertionError(" ".join(["Unexpected 3'-5' alignment by BLAST:",
+                                           hit.qseqid, hit.sseqid, hit.qstart, hit.qend]))
+    return five_prime, three_prime
+
+
+def write_trimmed_reads(miffed_entry, nanopore_reads):
+    majority_background = 0
+    trimmed_nanopore_fasta = miffed_entry.output_dir + os.sep + miffed_entry.id + "_nanopore_trimmed.fasta"
+    try:
+        new_fasta = open(trimmed_nanopore_fasta, 'w')
+    except:
+        raise IOError("Unable to open " + trimmed_nanopore_fasta + " for writing!")
+
+    for trimmed_read in nanopore_reads:
+        if len(nanopore_reads[trimmed_read]) >= 1000:
+            new_fasta.write(trimmed_read + "\n")
+            new_fasta.write(nanopore_reads[trimmed_read] + "\n")
+        else:
+            majority_background += 1
+
+    new_fasta.close()
+
+    stdprint("Nanopore reads that are shorter than 1000bp after trimming background = " +
+             str(majority_background), "out", "\n")
+
+    return
+
+
+def assemble_nanopore_reads(sample, args):
+    """
+    Wrapper function for launching canu assembler with the corrected nanopore reads
+    :param sample:
+    :param args:
+    :return:
+    """
+    stdprint("Assembling error-corrected nanopore reads with canu... ", "out")
+
+    canu_output = sample.output_dir + os.sep + "canu" + os.sep
+    if os.path.isdir(canu_output):
+        shutil.rmtree(canu_output)
+    try:
+        os.makedirs(canu_output)
+    except:
+        raise IOError("Unable to make " + canu_output)
+
+    corrected_nanopore_fasta = sample.output_dir + os.sep + sample.id + "_nanopore_trimmed.fasta"
+    canu_stderr = open(canu_output + "canu.stderr", 'w')
+    canu_stdout = open(canu_output + "canu.stdout", 'w')
+
+    genome_size = int(sample.num_fosmids) * 40
+
+    canu_command = [args.executables["canu"]]
+    canu_command += ["genomeSize=" + str(genome_size) + "k", "minThreads=" + str(args.threads)]
+    if sample.error_correction is True:
+        # TODO: Compare assemblies where proovread-corrected nanopore reads are just assembled or ran through all stages
+        canu_command.append("-assemble")
+    canu_command += ["-p", sample.id]
+    canu_command += ["-d", canu_output]
+    if args.skip_correction:
+        canu_command += ["-nanopore-raw", corrected_nanopore_fasta]
+    else:
+        canu_command += ["-nanopore-corrected", corrected_nanopore_fasta]
+
+    p_canu = subprocess.Popen(' '.join(canu_command), shell=True, preexec_fn=os.setsid,
+                              stderr=canu_stderr, stdout=canu_stdout)
+    p_canu.wait()
+
+    shutil.move(canu_output + sample.id + ".contigs.fasta", sample.assembled_fosmids)
+
+    stdprint("done.", "out", "\n")
+
+    return
+
+
 def main():
     # TODO: Include an init function to initialize a new directory to be a master FabFos repository
     args = get_options()
@@ -1253,53 +1720,84 @@ def main():
         ends_stats["Num_stunted"] = 0
 
     # Sequence processing and filtering:
-    for sample_id in args.output_dir.keys():
+    for sample in libraries:
         read_stats = dict()
-        if not libraries[sample_id].assembled:
-            stdprint("Processing raw data for " + sample_id, "out", "\n")
-            stdprint("Outputs for " + sample_id + " will be found in " + args.output_dir[sample_id], "out", "\n")
-            raw_reads = find_raw_reads(args, sample_id)
-            num_raw_reads = find_num_reads(raw_reads.values())
-            read_stats["num_raw_reads"] = str(num_raw_reads)
-            stdprint("Number of raw reads = " + str(num_raw_reads), "out", "\n")
-            filtered_reads = filter_backbone(sample_id, args, raw_reads)
-            num_filtered_reads = find_num_reads(filtered_reads)
-            stdprint(str(num_raw_reads - num_filtered_reads) + " reads removed from backbone filtering (" +
-                     str(((num_raw_reads - num_filtered_reads)*100)/num_raw_reads) + "%).",
-                     "out",
-                     "\n")
-            read_stats["percent_off_target"] = str(((num_raw_reads - num_filtered_reads)*100)/num_raw_reads)
-            if num_filtered_reads < 1600:
-                # The number of reads remaining is too low for assembly (< 20X for a single fosmid)
-                stdprint("WARNING: Number of reads remaining will provide less than 20X coverage for a single fosmid"
-                         " - skipping this sample", "err", "\n")
-                continue
-            trimmed_reads = quality_trimming(sample_id, args, filtered_reads)
-            num_reads_assembly = find_num_reads(trimmed_reads)
-            read_stats["number_trimmed_reads"] = str((num_filtered_reads - num_reads_assembly)*100/num_reads_assembly)
-            reads = prep_reads_for_assembly(sample_id, args, trimmed_reads)
-            # TODO: Include an optional minimus2 module to further assemble the contigs
-            assemble_fosmids(sample_id, args, reads, 71, 241, trimmed_reads)
-            clean_intermediates(sample_id, args)
-        else:
-            read_stats["num_raw_reads"] = "NA"
-            read_stats["percent_off_target"] = "NA"
-            read_stats["number_trimmed_reads"] = "NA"
-        fosmid_fasta = args.output_dir[sample_id] + os.sep + sample_id + "_contigs.fasta"
-        fosmid_assembly = read_fasta(fosmid_fasta)
-        assembly_stats = get_assembly_stats(sample_id, args, fosmid_assembly)
-        # For mapping fosmid ends:
-        if args.ends:
-            map_ends(args, sample_id)
-            ends_mapping, ends_stats = parse_end_alignments(args, sample_id, fosmid_assembly, ends_stats)
-            clone_map, ends_stats, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
-            clone_map = prune_and_scaffold_fosmids(args, sample_id, clone_map, multi_fosmid_map)
-            write_fosmid_assignments(args, sample_id, clone_map)
-            write_fosmid_end_failures(args, sample_id, ends_stats)
-        project_metadata_file = args.fabfos_path + os.sep + libraries[sample_id].project + os.sep + \
-                                "FabFos_" + libraries[sample_id].project + "_metadata.tsv"
-        update_metadata(project_metadata_file, sample_id, libraries[sample_id], read_stats, assembly_stats, ends_stats)
-        update_metadata(args.master_metadata, sample_id, libraries[sample_id], read_stats, assembly_stats, ends_stats)
+        read_stats["num_raw_reads"] = "NA"
+        read_stats["percent_off_target"] = "NA"
+        read_stats["number_trimmed_reads"] = "NA"
+        if not sample.exclude:
+            if sample.assemble:
+                stdprint("Processing raw data for " + sample.id, "out", "\n")
+                stdprint("Outputs for " + sample.id + " will be found in " + sample.output_dir, "out", "\n")
+                raw_reads = find_raw_reads(args, sample.id)
+                sample.forward_reads = raw_reads["forward"]
+                sample.reverse_reads = raw_reads["reverse"]
+                num_raw_reads = find_num_reads(raw_reads.values())
+                read_stats["num_raw_reads"] = str(num_raw_reads)
+                stdprint("Number of raw reads = " + str(num_raw_reads), "out", "\n")
+                filtered_reads = filter_backbone(sample, args, raw_reads)
+                num_filtered_reads = find_num_reads(filtered_reads)
+                stdprint(str(num_raw_reads - num_filtered_reads) + " reads removed from background filtering (" +
+                         str(((num_raw_reads - num_filtered_reads) * 100) /
+                             num_raw_reads) + "%).",
+                         "out",
+                         "\n")
+                read_stats["percent_off_target"] = str(
+                    ((num_raw_reads - num_filtered_reads) * 100) /
+                    num_raw_reads)
+                if num_filtered_reads < 1600:
+                    # The number of reads remaining is too low for assembly (< 20X for a single fosmid)
+                    stdprint("WARNING: "
+                             "Number of reads remaining will provide less than 20X coverage for a single fosmid"
+                             " - skipping this sample", "err", "\n")
+                    continue
+
+                if sample.nanopore:
+                    raw_nanopore_fasta = read_fasta(args.nanopore_reads)
+                    read_stats["num_raw_reads"] = str(len(raw_nanopore_fasta.keys()))
+                    if sample.error_correction is False:
+                        # Skip the error correction and filter the nanopore reads that don't align to Illumina reads
+                        # Set nanopore_reads to the filtered raw reads
+                        sample.nanopore = extract_nanopore_for_sample(args, sample, filtered_reads, raw_nanopore_fasta)
+                    else:
+                        sample.nanopore = correct_nanopore(args, sample)
+                    # Align the corrected reads to the trim_sequences.fasta file using LAST
+                    nanopore_background_alignments = align_nanopore_to_background(args, sample)
+                    # Trim the background sequences and reads shorter than 1000bp after removing background
+                    nanopore_reads, read_stats = trim_background(sample, nanopore_background_alignments, read_stats)
+                    write_trimmed_reads(sample, nanopore_reads)
+                    # Assemble nanopore reads
+                    assemble_nanopore_reads(sample, args)
+
+                else:
+                    trimmed_reads = quality_trimming(sample, args, filtered_reads)
+                    num_reads_assembly = find_num_reads(trimmed_reads)
+                    read_stats["number_trimmed_reads"] = str(
+                        (num_filtered_reads - num_reads_assembly) * 100 /
+                        num_reads_assembly)
+                    reads = prep_reads_for_assembly(sample, args, trimmed_reads)
+                    # TODO: Include an optional minimus2 module to further assemble the contigs
+                    k_min, k_max = determine_k_values(reads)
+                    assemble_fosmids(sample, args, reads, k_min, k_max, trimmed_reads)
+                    clean_intermediates(sample)
+
+            fosmid_assembly = read_fasta(sample.assembled_fosmids)
+            assembly_stats = get_assembly_stats(sample, args, fosmid_assembly)
+            # For mapping fosmid ends:
+            if args.ends:
+                map_ends(args, sample)
+                ends_mapping, ends_stats = parse_end_alignments(sample, fosmid_assembly, ends_stats)
+                clone_map, ends_stats, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
+                clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
+                write_fosmid_assignments(sample, clone_map)
+                write_fosmid_end_failures(sample, ends_stats)
+                write_unique_fosmid_ends_to_bulk(args)
+                # TODO: Remove blast database for ends
+                # TODO: include a visualization to show where the fosmid ends mapped on each contig.
+            project_metadata_file = args.fabfos_path + os.sep + sample.project + os.sep + \
+                                    "FabFos_" + sample.project + "_metadata.tsv"
+            update_metadata(project_metadata_file, sample.id, sample, read_stats, assembly_stats, ends_stats)
+            update_metadata(args.master_metadata, sample.id, sample, read_stats, assembly_stats, ends_stats)
 
 
 main()
