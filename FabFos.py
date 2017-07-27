@@ -291,7 +291,7 @@ def review_arguments(args):
                            "# Fosmid ends(X2 = #reads)\t# aligned fosmid ends\t# unaligned fosmid ends\t# Failed ends\n"
 
     if not os.path.isfile(args.fabfos_path + os.sep + "FabFos_master_metadata.tsv"):
-        sys.exit("ERROR: This fabfos_path directory does not contain a FabFos_master_metadata.tsv file."
+        sys.exit("ERROR: This fabfos_path directory does not contain a FabFos_master_metadata.tsv file. "
                  "Are you sure its a bona fide FabFos repository?")
 
     args.master_metadata = args.fabfos_path + os.sep + "FabFos_master_metadata.tsv"
@@ -585,15 +585,15 @@ def determine_k_values(reads):
             max_read_length = read_length
     if max_read_length < k_max:
         if max_read_length % 2 == 0:
-            k_max = max_read_length - 1
+            k_max = max_read_length - 3
         else:
-            k_max = max_read_length
+            k_max = max_read_length - 2
         if max_read_length < k_min:
             k_min = k_max
     return k_min, k_max
 
 
-def assemble_fosmids(sample, args, reads, k_min, k_max,  trimmed_reads):
+def assemble_fosmids(sample, args, reads, k_min, k_max, min_count, trimmed_reads):
     """
     Wrapper function for MEGAHIT assembler - multi-sized de Bruijn graph based assembler for metagenomes
     :param sample: Miffed object with information of current sample
@@ -601,11 +601,12 @@ def assemble_fosmids(sample, args, reads, k_min, k_max,  trimmed_reads):
     :param reads: List containing paired-end and single-end input reads for MEGAHIT
     :param k_min: 71; painstakingly determined to be optimal for fosmids sequenced with Illumina
     :param k_max: 241; painstakingly determined to be optimal for fosmids sequenced with Illumina
+    :param min_count: The minimum k-mer abundance to be used by megahit for building the succinct DBG
     :param trimmed_reads: list of files output by trimmomatic (returned by quality_trimming)
     :return:
     """
     stdprint("Assembling sequences using MEGAHIT.", "out", "\n")
-    stdprint("Parameters:\n--k-min = " + str(k_min) + "\t--k-max = " + str(k_max) + "\t--k-step = 10\t--min-count = 10",
+    stdprint("Parameters:\n--k-min = " + str(k_min) + "\t--k-max = " + str(k_max) + "\t--k-step = 10\t--min-count = " + str(min_count),
              "out",
              "\n")
     se = ""
@@ -615,16 +616,18 @@ def assemble_fosmids(sample, args, reads, k_min, k_max,  trimmed_reads):
             pe = fasta
         else:
             se = fasta
-    for fastq in trimmed_reads:
-        if re.search(r'pe.1.fq$', fastq):
-            forward = fastq
-        if re.search(r'pe.2.fq$', fastq):
-            reverse = fastq
+
     if not os.path.isfile(se):
         sys.exit("ERROR: FASTA file containing trimmed orphaned reads could not be located!")
     if not os.path.isfile(pe):
         sys.exit("ERROR: FASTA file containing trimmed paired-end reads could not be located!")
 
+    # The following is for assmbling with SPAdes:
+    for fastq in trimmed_reads:
+        if re.search(r'pe.1.fq$', fastq):
+            forward = fastq
+        if re.search(r'pe.2.fq$', fastq):
+            reverse = fastq
     # spades_command = ["/home/cmorganlang/bin/SPAdes-3.6.0-Linux/bin/spades.py"]
     # spades_command += ["-1", forward]
     # spades_command += ["-2", reverse]
@@ -632,7 +635,7 @@ def assemble_fosmids(sample, args, reads, k_min, k_max,  trimmed_reads):
     # spades_command += ["--careful"]
     # spades_command += ["--memory", str(25)]
     # spades_command += ["--threads", str(args.threads)]
-    # spades_command += ["--cov-cutoff", str(10)]
+    # spades_command += ["--cov-cutoff", str(min_count)]
     # spades_command += ["-k", "71,81,91,101,111,121"]
     # spades_command += ["-o", sample.output_dir + "assembly"]
     # p_spades = subprocess.Popen(' '.join(spades_command), shell=True, preexec_fn=os.setsid)
@@ -642,7 +645,7 @@ def assemble_fosmids(sample, args, reads, k_min, k_max,  trimmed_reads):
     megahit_command += ["--12", pe]
     megahit_command += ["--read", se]
     megahit_command += ["--k-min", str(k_min), "--k-max", str(k_max)]
-    megahit_command += ["--min-count", str(10)]
+    megahit_command += ["--min-count", str(min_count)]
     megahit_command += ["--k-step", str(10)]
     megahit_command += ["--merge-level", "20,0.98"]
     megahit_command += ["--memory", str(0.25)]
@@ -913,6 +916,11 @@ def readfq(fp):  # this is a generator function
 
 
 def find_num_reads(file_list):
+    """
+    Function to count the number of reads in all FASTQ files in file_list
+    :param file_list: list of FASTQ files
+    :return: integer representing the number of reads in all FASTQ files provided
+    """
     num_reads = 0
     for fastq in file_list:
         fq_in = open(fastq, 'r')
@@ -1652,6 +1660,25 @@ def write_trimmed_reads(miffed_entry, nanopore_reads):
     return
 
 
+def determine_min_count(num_reads, num_fosmids, k_max):
+    """
+    Function to determine the best value for the minimum coverage of a k-mer to be included in assembly
+    :param num_reads:
+    :param num_fosmids:
+    :param k_max:
+    :return:
+    """
+    approx_coverage = (num_reads * k_max) / (int(num_fosmids) * 40000)
+    sys.stdout.write("Approximate fosmid coverage = " + str(approx_coverage) + "\n")
+    sys.stdout.flush()
+    min_count = 5
+    dist_tail = approx_coverage / 100
+    if dist_tail > min_count:
+        min_count = int(dist_tail)
+
+    return min_count
+
+
 def assemble_nanopore_reads(sample, args):
     """
     Wrapper function for launching canu assembler with the corrected nanopore reads
@@ -1718,6 +1745,10 @@ def main():
         ends_stats["Total_ends"] = 0
         ends_stats["Num_missing"] = 0
         ends_stats["Num_stunted"] = 0
+        ends_stats["Num_total"] = 0
+        ends_stats["Num_failed"] = 0
+        ends_stats["Num_aligned"] = 0
+        ends_stats["Num_unaligned"] = 0
 
     # Sequence processing and filtering:
     for sample in libraries:
@@ -1751,6 +1782,12 @@ def main():
                              "Number of reads remaining will provide less than 20X coverage for a single fosmid"
                              " - skipping this sample", "err", "\n")
                     continue
+                trimmed_reads = quality_trimming(sample, args, filtered_reads)
+                num_reads_assembly = find_num_reads(trimmed_reads)
+                read_stats["number_trimmed_reads"] = str(
+                    (num_filtered_reads - num_reads_assembly) * 100 /
+                    num_reads_assembly)
+                reads = prep_reads_for_assembly(sample, args, trimmed_reads)
 
                 if sample.nanopore:
                     raw_nanopore_fasta = read_fasta(args.nanopore_reads)
@@ -1770,15 +1807,10 @@ def main():
                     assemble_nanopore_reads(sample, args)
 
                 else:
-                    trimmed_reads = quality_trimming(sample, args, filtered_reads)
-                    num_reads_assembly = find_num_reads(trimmed_reads)
-                    read_stats["number_trimmed_reads"] = str(
-                        (num_filtered_reads - num_reads_assembly) * 100 /
-                        num_reads_assembly)
-                    reads = prep_reads_for_assembly(sample, args, trimmed_reads)
                     # TODO: Include an optional minimus2 module to further assemble the contigs
-                    k_min, k_max = determine_k_values(reads)
-                    assemble_fosmids(sample, args, reads, k_min, k_max, trimmed_reads)
+                    k_min, k_max, = determine_k_values(reads)
+                    min_count = determine_min_count(num_reads_assembly, sample.num_fosmids, k_max)
+                    assemble_fosmids(sample, args, reads, k_min, k_max, min_count, trimmed_reads)
                     clean_intermediates(sample)
 
             fosmid_assembly = read_fasta(sample.assembled_fosmids)
