@@ -792,11 +792,18 @@ def prep_reads_for_assembly(sample, args, trimmed_reads):
 
 
 def deinterleave_fastq(fastq_file, output_dir=""):
+    try:
+        fq_in_handler = open(fastq_file, 'r')
+    except IOError:
+        logging.error("Unable to open " + fastq_file + " for reading.\n")
+        sys.exit(3)
+
+    logging.info("De-interleaving forward and reverse reads in " + fastq_file + "... ")
     if not output_dir:
         output_dir = os.path.dirname(fastq_file)
     prefix = '.'.join(os.path.basename(fastq_file).split('.')[:-1])
-    fwd_fq = output_dir + prefix + "R1.fastq"
-    rev_fq = output_dir + prefix + "R2.fastq"
+    fwd_fq = output_dir + os.sep + prefix + "_R1.fastq"
+    rev_fq = output_dir + os.sep + prefix + "_R2.fastq"
 
     try:
         f_handler = open(fwd_fq, 'w')
@@ -807,27 +814,24 @@ def deinterleave_fastq(fastq_file, output_dir=""):
 
     f_string = ""
     r_string = ""
-    acc = 1
-    for name, seq, trois, qual in readfq(fastq_file):
+    acc = 0
+    for name, seq, qual in readfq(fq_in_handler):
         if acc % 2:
-            f_string += "\n".join([name, seq, trois, qual]) + "\n"
-            print("rev", acc)
+            r_string += "\n".join([name, seq, '+', qual]) + "\n"
         else:
-            r_string += "\n".join([name, seq, trois, qual]) + "\n"
-            print("fwd", acc)
+            f_string += "\n".join([name, seq, '+', qual]) + "\n"
+
+        acc += 1
         if acc % 1E6 == 0:
             f_handler.write(f_string)
             r_handler.write(r_string)
-            acc = 0
-        print(f_string, r_string)
-        acc += 1
-        sys.exit()
 
     # Close up shop
     f_handler.write(f_string)
     f_handler.close()
     r_handler.write(r_string)
     r_handler.close()
+    logging.info("done.\n")
 
     return fwd_fq, rev_fq
 
@@ -849,11 +853,12 @@ def find_raw_reads(args, sample_id):
         sys.exit(3)
     regex_sample = re.compile(sample_id)
     for fastq in forward_reads:
-        if args.interleaved:
-            raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq()
         if regex_sample.search(os.path.basename(fastq)) and raw_reads["forward"] == "":
             fastq = os.path.join(os.getcwd(), fastq)
-            raw_reads["forward"] = fastq
+            if args.interleaved:
+                raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq(fastq)
+            else:
+                raw_reads["forward"] = fastq
         # Ensure there is a single forward fastq file for sample_id
         elif regex_sample.search(os.path.basename(fastq)) and raw_reads["forward"] != "":
             logging.error("More than 2 fastq files match sample ID string in reads directory! " +
@@ -932,7 +937,8 @@ def parse_miffed(args):
     while line:
         if not line[0] == '#':
             if ',' not in line:
-                sys.exit("ERROR: MIFFED input file doesn't seem to be in csv format!")
+                logging.error("MIFFED input file doesn't seem to be in csv format!\n")
+                sys.exit(3)
             fields = line.strip().split(',')
             if len(fields) < 13:
                 raise AssertionError(str(len(fields)) + " fields in " + args.miffed +
