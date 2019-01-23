@@ -21,9 +21,9 @@ FabFos: a pipeline for automatically performing quality controls, assembly, and 
 for fosmid sequence information. Circa 2016 - Hallam Lab, UBC
 """
 
-__version__ = "0.1"
+__version__ = "1.1"
 __author__ = "Connor Morgan-Lang"
-__license__ = "GPL"
+__license__ = "GPL-v3"
 __maintainer__ = "Connor Morgan-Lang"
 __email__ = "c.morganlang@gmail.com"
 __status__ = "Unstable"
@@ -376,6 +376,7 @@ def find_executables(args):
     :param args: parsed command-line arguments from get_options()
     :return: args with executables list included
     """
+    # TODO: Write the tool versions to the log file
     required_execs = ["bwa", "samtools", "megahit", "bam2fastq", "trimmomatic", "fq2fa", "blastn", "makeblastdb",
                       "splitFASTA", "getNx", "proovread", "canu"]
     args.executables = dict()
@@ -790,6 +791,47 @@ def prep_reads_for_assembly(sample, args, trimmed_reads):
     return reads
 
 
+def deinterleave_fastq(fastq_file, output_dir=""):
+    if not output_dir:
+        output_dir = os.path.dirname(fastq_file)
+    prefix = '.'.join(os.path.basename(fastq_file).split('.')[:-1])
+    fwd_fq = output_dir + prefix + "R1.fastq"
+    rev_fq = output_dir + prefix + "R2.fastq"
+
+    try:
+        f_handler = open(fwd_fq, 'w')
+        r_handler = open(rev_fq, 'w')
+    except IOError:
+        logging.error("Unable to open deinterleaved FASTQ files for writing in " + output_dir + "\n")
+        sys.exit(3)
+
+    f_string = ""
+    r_string = ""
+    acc = 1
+    for name, seq, trois, qual in readfq(fastq_file):
+        if acc % 2:
+            f_string += "\n".join([name, seq, trois, qual]) + "\n"
+            print("rev", acc)
+        else:
+            r_string += "\n".join([name, seq, trois, qual]) + "\n"
+            print("fwd", acc)
+        if acc % 1E6 == 0:
+            f_handler.write(f_string)
+            r_handler.write(r_string)
+            acc = 0
+        print(f_string, r_string)
+        acc += 1
+        sys.exit()
+
+    # Close up shop
+    f_handler.write(f_string)
+    f_handler.close()
+    r_handler.write(r_string)
+    r_handler.close()
+
+    return fwd_fq, rev_fq
+
+
 def find_raw_reads(args, sample_id):
     """
     finds the raw read files in the path and stores the file names in a dictionary.
@@ -803,16 +845,20 @@ def find_raw_reads(args, sample_id):
     forward_reads = glob.glob(args.reads + os.sep + "*fastq")
     forward_reads += glob.glob(args.reads + os.sep + "*fq")
     if len(forward_reads) == 0:
-        sys.exit("ERROR: Unable to locate fastq files. Must end in either 'fastq' or 'fq'")
+        logging.error("Unable to locate fastq files. Must end in either 'fastq' or 'fq'\n")
+        sys.exit(3)
     regex_sample = re.compile(sample_id)
     for fastq in forward_reads:
+        if args.interleaved:
+            raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq()
         if regex_sample.search(os.path.basename(fastq)) and raw_reads["forward"] == "":
             fastq = os.path.join(os.getcwd(), fastq)
             raw_reads["forward"] = fastq
         # Ensure there is a single forward fastq file for sample_id
         elif regex_sample.search(os.path.basename(fastq)) and raw_reads["forward"] != "":
-            sys.exit("ERROR: More than 2 fastq files match sample ID string in reads directory! "
-                     "Please concatenate those files from the same library and try again.")
+            logging.error("More than 2 fastq files match sample ID string in reads directory! " +
+                          "Please concatenate those files from the same library and try again.\n")
+            sys.exit(3)
     if args.reverse:
         reverse_reads = glob.glob(args.reverse + os.sep + "*fastq")
         reverse_reads += glob.glob(args.reverse + os.sep + "*fq")
@@ -822,12 +868,13 @@ def find_raw_reads(args, sample_id):
                 raw_reads["reverse"] = fastq
             # Ensure there is a single reverse fastq file for sample_id
             elif regex_sample.search(os.path.basename(fastq)) and raw_reads["reverse"] != "":
-                sys.exit("ERROR: More than 2 fastq files match sample ID string in reverse directory! "
-                         "Please concatenate those files from the same library and try again.")
+                logging.error("More than 2 fastq files match sample ID string in reverse directory! " +
+                              "Please concatenate those files from the same library and try again.\n")
+                sys.exit(3)
 
     # Check to make sure there are fastq files
     elif len(raw_reads.values()) == 0:
-        sys.exit("ERROR: Unable to locate fastq files " + sample_id)
+        logging.error("Unable to locate fastq files " + sample_id + "\n")
     return raw_reads
 
 
