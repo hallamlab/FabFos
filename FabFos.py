@@ -323,6 +323,11 @@ def review_arguments(args):
     if not os.path.isfile(args.background):
         logging.error(args.background + " does not exist!\n")
         sys.exit(3)
+
+    if args.reverse and args.interleaved:
+        logging.error("Reads cannot be interleaved and also have separate forward- and reverse-FASTQ files!\n")
+        sys.exit(3)
+
     # Add new information:
     args.os = os_type()
     if sys.version_info > (2, 9):
@@ -817,9 +822,9 @@ def deinterleave_fastq(fastq_file, output_dir=""):
     acc = 0
     for name, seq, qual in readfq(fq_in_handler):
         if acc % 2:
-            r_string += "\n".join([name, seq, '+', qual]) + "\n"
+            r_string += "\n".join(["@" + name, seq, '+', qual]) + "\n"
         else:
-            f_string += "\n".join([name, seq, '+', qual]) + "\n"
+            f_string += "\n".join(["@" + name, seq, '+', qual]) + "\n"
 
         acc += 1
         if acc % 1E6 == 0:
@@ -854,16 +859,15 @@ def find_raw_reads(args, sample_id):
     regex_sample = re.compile(sample_id)
     for fastq in forward_reads:
         if regex_sample.search(os.path.basename(fastq)) and raw_reads["forward"] == "":
-            fastq = os.path.join(os.getcwd(), fastq)
-            if args.interleaved:
-                raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq(fastq)
-            else:
-                raw_reads["forward"] = fastq
+            raw_reads["forward"] = os.path.join(os.getcwd(), fastq)
         # Ensure there is a single forward fastq file for sample_id
         elif regex_sample.search(os.path.basename(fastq)) and raw_reads["forward"] != "":
             logging.error("More than 2 fastq files match sample ID string in reads directory! " +
                           "Please concatenate those files from the same library and try again.\n")
             sys.exit(3)
+        else:
+            # FASTQ file is not of the current sample
+            pass
     if args.reverse:
         reverse_reads = glob.glob(args.reverse + os.sep + "*fastq")
         reverse_reads += glob.glob(args.reverse + os.sep + "*fq")
@@ -1868,7 +1872,6 @@ def assemble_nanopore_reads(sample, args):
 def main():
     # TODO: Include an init function to initialize a new directory to be a master FabFos repository
     args = get_options()
-    # TODO: Determine how to handle interleaved paired-end files
     args = review_arguments(args)
     args = find_executables(args)
     libraries, args = parse_miffed(args)
@@ -1902,6 +1905,9 @@ def main():
                 logging.info("Processing raw data for " + sample.id + "\n" +
                              "Outputs for " + sample.id + " will be found in " + sample.output_dir + "\n")
                 raw_reads = find_raw_reads(args, sample.id)
+                if args.interleaved:
+                    raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq(raw_reads["forward"],
+                                                                                    sample.output_dir)
                 sample.forward_reads = raw_reads["forward"]
                 sample.reverse_reads = raw_reads["reverse"]
                 num_raw_reads = find_num_reads(raw_reads.values())
