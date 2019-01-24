@@ -100,13 +100,21 @@ class Miffed(Sample):
         self.vector = fields[3]
         self.screen = fields[4]
         self.selection = fields[5]
-        self.num_fosmids = fields[6]
         self.seq_submission_date = fields[7]
         self.glycerol_plate = fields[8]
         self.seq_center = fields[9]
         self.seq_type = fields[10]
-        self.read_length = fields[11]
         self.instrument = fields[12]
+        try:
+            self.num_fosmids = int(fields[6])
+        except ValueError:
+            logging.error("Number of fosmids field (column 7) is not an integer!\n")
+            sys.exit(3)
+        try:
+            self.read_length = int(fields[11])
+        except ValueError:
+            logging.error("Read length field (column 12) is not an integer!\n")
+            sys.exit(3)
 
     def ensure_completeness(self, miffed):
         if self.id is None:
@@ -220,7 +228,8 @@ def get_dict_keys(dictionary):
 
 def get_options():
     parser = argparse.ArgumentParser(description="Pipeline for processing and organizing fosmid sequence information.\n"
-                                                 "NOTE: a maximum of 2 sequence files are permitted.")
+                                                 "NOTE: a maximum of 2 sequence files are permitted.",
+                                     add_help=False)
     reqs = parser.add_argument_group(title="Required arguments")
     reqs.add_argument("-m", "--miffed", type=str, required=True,
                       help="The minimum information for fosmid environmental data (e.g., sample ID, "
@@ -231,28 +240,32 @@ def get_options():
                       help="Path to the sequenced reads directory. This parameter is for the single-end reads "
                            "(Sanger), the forward strand file, or the interleaved paired-end file. [.fastq]")
 
-    opts = parser.add_argument_group(title="Optional arguments")
-    opts.add_argument("-f", "--fabfos_path", type=str, required=False,
-                      default="/mnt/nfs/sharknado/LimsData/FabFos/",
-                      help="Path to FabFos database on sharknado [DEFAULT = /mnt/nfs/sharknado/LimsData/FabFos/]")
-    opts.add_argument("-T", "--threads", type=str, required=False, default=str(8),
-                      help="The number of threads that can be used [DEFAULT = 8]")
-    opts.add_argument("-2", "--reverse", type=str, required=False,
-                      help="Path to the directory containing reverse-end reads (if applicable) [.fastq]")
-    opts.add_argument("-i", "--interleaved", required=False, default=False, action="store_true",
-                      help="Flag indicating the reads are interleaved "
-                           "(i.e. forward and reverse pairs are in the same file)")
-    opts.add_argument("-e", "--ends", required=False, default=None,
-                      help="FASTA file containing fosmid ends - these will be used for alignment to fosmid contigs."
-                           " [.fasta]")
-    opts.add_argument("-v", "--verbose", required=False, default=False, action="store_true",
-                      help="Increase the level of verbosity in runtime log.")
-
     nanopore = parser.add_argument_group(title="Nanopore-specific [development] options")
     nanopore.add_argument("--nanopore_reads", help="A FASTA file containing nanopore reads to be used in assembly.",
                           type=str, required=False)
     nanopore.add_argument("--skip_correction", help="Do not perform error-correction of nanopore reads using proovread",
                           action="store_true", default=False, required=False)
+
+    opts = parser.add_argument_group(title="Optional arguments")
+    opts.add_argument("-2", "--reverse", type=str, required=False,
+                      help="Path to the directory containing reverse-end reads (if applicable) [.fastq]")
+    opts.add_argument("-i", "--interleaved", required=False, default=False, action="store_true",
+                      help="Flag indicating the reads are interleaved "
+                           "(i.e. forward and reverse pairs are in the same file)")
+    opts.add_argument("-a", "--assembler", choices=["spades", "megahit"], required=False, default="spades",
+                      help="Genome assembly software to use.")
+    opts.add_argument("-f", "--fabfos_path", type=str, required=False,
+                      default="/mnt/nfs/sharknado/LimsData/FabFos/",
+                      help="Path to FabFos database on sharknado [DEFAULT = /mnt/nfs/sharknado/LimsData/FabFos/]")
+    opts.add_argument("-T", "--threads", type=str, required=False, default=str(8),
+                      help="The number of threads that can be used [DEFAULT = 8]")
+    opts.add_argument("-e", "--ends", required=False, default=None,
+                      help="FASTA file containing fosmid ends - these will be used for alignment to fosmid contigs."
+                           " [.fasta]")
+    opts.add_argument("-v", "--verbose", required=False, default=False, action="store_true",
+                      help="Increase the level of verbosity in runtime log.")
+    opts.add_argument("-h", "--help",
+                      action="help", help="Show this help message and exit")
 
     args = parser.parse_args()
     return args
@@ -617,12 +630,14 @@ def quality_trimming(sample, args, filtered_reads):
     trimmomatic_command += ["LEADING:3", "TRAILING:3", "SLIDINGWINDOW:4:15", "MINLEN:36"]
     try:
         trim_stderr = open(trim_prefix+"stderr.txt", 'w')
-    except:
-        raise IOError("ERROR: cannot open file: " + trim_prefix + "stderr.txt")
+    except IOError:
+        logging.error("Cannot open file: " + trim_prefix + "stderr.txt for writing.\n")
+        sys.exit(3)
     try:
         trim_stdout = open(trim_prefix + "stdout.txt", 'w')
-    except:
-        raise IOError("ERROR: cannot open file: " + trim_prefix + "stdout.txt")
+    except IOError:
+        logging.error("Cannot open file: " + trim_prefix + "stdout.txt for writing.\n")
+        sys.exit(3)
     p_trim = subprocess.Popen(' '.join(trimmomatic_command), shell=True, preexec_fn=os.setsid,
                               stderr=trim_stderr, stdout=trim_stdout)
     p_trim.wait()
@@ -637,14 +652,27 @@ def determine_k_values(reads):
     k_max = 241
     max_read_length = 0
     read_lengths = list()
-    fasta = reads[0]
+    # Sample the first paired-end FASTQ file
+    test_fastq = reads["pe_trimmed"][0]
 
-    read_seqs = read_fasta(fasta)
-    for read in read_seqs.values():
-        read_length = len(read)
+    try:
+        fq_handler = open(test_fastq)
+    except IOError:
+        logging.error("Unable to open FASTQ file '" + test_fastq + "' for reading.\n")
+        sys.exit(3)
+
+    x = 0
+    for read in readfq(fq_handler):
+        _, seq, _ = read
+        read_length = len(seq)
         read_lengths.append(read_length)
         if read_length > max_read_length:
             max_read_length = read_length
+        if x > 1E5:
+            break
+        x += 1
+    fq_handler.close()
+
     if max_read_length < k_max:
         if max_read_length % 2 == 0:
             k_max = max_read_length - 3
@@ -655,83 +683,70 @@ def determine_k_values(reads):
     return k_min, k_max
 
 
-def assemble_fosmids(sample, args, reads, k_min, k_max, min_count, trimmed_reads, assembler="SPAdes"):
+def assemble_fosmids(sample: Sample, args, assembly_reads: dict, k_min: int, k_max: int, min_count: int):
     """
     Wrapper function for the assembly process - multi-sized de Bruijn graph based assembler for metagenomes
     :param sample: Miffed object with information of current sample
     :param args: command-line arguments list
-    :param reads: List containing paired-end and single-end input reads for MEGAHIT
+    :param assembly_reads: Dictionary containing paired-end and single-end input reads for MEGAHIT
     :param k_min: 71; painstakingly determined to be optimal for fosmids sequenced with Illumina
     :param k_max: 241; painstakingly determined to be optimal for fosmids sequenced with Illumina
     :param min_count: The minimum k-mer abundance to be used by megahit for building the succinct DBG
-    :param trimmed_reads: list of files output by trimmomatic (returned by quality_trimming)
-    :param assembler: Name of the assembly software to use [SPAdes | MEGAHIT]
     :return:
     """
-    logging.info("Assembling sequences using " + assembler + "\n" +
+    logging.info("Assembling sequences using " + args.assembler + "\n" +
                  "Parameters:\n--k-min = " + str(k_min) + "\t--k-max = " + str(k_max) +
                  "\t--k-step = 10\t--min-count = " + str(min_count) + "\n")
-    se = ""
-    pe = ""
-    for fasta in reads:
-        if re.search(r"_paired.fa", fasta):
-            pe = fasta
-        else:
-            se = fasta
 
-    if not os.path.isfile(se):
-        logging.error("FASTA file containing trimmed orphaned reads could not be located!\n")
-        sys.exit(3)
-    if not os.path.isfile(pe):
-        logging.error("FASTA file containing trimmed paired-end reads could not be located!\n")
-        sys.exit(3)
+    if args.assembler == "spades":
+        # The following is for assembling with SPAdes:
+        forward = ""
+        reverse = ""
+        for fastq in assembly_reads["pe_trimmed"]:
+            if re.search(r'pe.1.fq$', fastq):
+                forward = fastq
+            elif re.search(r'pe.2.fq$', fastq):
+                reverse = fastq
+            else:
+                logging.error("Unrecognized FASTQ file name: " + fastq + "!\n")
+                sys.exit(3)
+        if not forward or not reverse:
+            logging.error("Unable to find the paired-end FASTQ files for assembling" + sample.id + ".\n")
+            sys.exit(3)
 
-    # The following is for assmbling with SPAdes:
-    for fastq in trimmed_reads:
-        if re.search(r'pe.1.fq$', fastq):
-            forward = fastq
-        if re.search(r'pe.2.fq$', fastq):
-            reverse = fastq
-
-    if assembler == "SPAdes":
         spades_command = ["spades.py"]
         spades_command += ["-1", forward]
         spades_command += ["-2", reverse]
-        spades_command += ["-s", sample.output_dir + "singletons.fastq"]
+        spades_command += ["-s", assembly_reads["singletons"]]
         spades_command += ["--careful"]
         spades_command += ["--memory", str(10)]
         spades_command += ["--threads", str(args.threads)]
         spades_command += ["--cov-cutoff", str(min_count)]
-        # TODO: match this with --auto
-        # spades_command += ["-k", "71,81,91,101,111,121"] # Using SPAdes' auto instead
+        spades_command += ["-k", ','.join([str(k) for k in range(k_min, k_max, 10)])]
         spades_command += ["-o", sample.output_dir + "assembly"]
         p_spades = subprocess.Popen(' '.join(spades_command), shell=True, preexec_fn=os.setsid)
         p_spades.wait()
         if p_spades.returncode != 0:
-            logging.error("SPAdes did not complete successfully!\n")
+            logging.error("SPAdes did not complete successfully! Continuing on to the next sample.\n")
 
-        # Clean-up intermediate output files from SPAdes
-        logging.info("Cleaning up assembly outputs... ")
         contigs_file = sample.output_dir + "assembly" + os.sep + "contigs.fasta"
-        if not os.path.isfile(contigs_file):
-            sys.exit("ERROR: MEGAHIT assembly was not created! Check " + sample.output_dir + "assembly" + os.sep + "log for an error.")
-        shutil.move(contigs_file,
-                    sample.output_dir + os.sep + sample.id + "_contigs.fasta")
-        shutil.move(sample.output_dir + "assembly" + os.sep + "scaffolds.fasta",
-                    sample.output_dir + os.sep + sample.id + "_scaffolds.fasta")
-        shutil.move(sample.output_dir + "assembly" + os.sep + "spades.log",
-                    sample.output_dir + os.sep + "spades.log")
-        shutil.rmtree(sample.output_dir + "assembly" + os.sep)
-        logging.info("done.\n")
+        asm_log = sample.output_dir + "assembly" + os.sep + "spades.log"
+        scaffolds = sample.output_dir + "assembly" + os.sep + "scaffolds.fasta"
 
-    elif assembler == "MEGAHIT":
+    elif args.assembler == "megahit":
+        if not os.path.isfile(assembly_reads["se_fa"]):
+            logging.error("FASTA file containing trimmed orphaned reads could not be located!\n")
+            sys.exit(3)
+        if not os.path.isfile(assembly_reads["pe_fa"]):
+            logging.error("FASTA file containing trimmed paired-end reads could not be located!\n")
+            sys.exit(3)
+
         megahit_command = [args.executables["megahit"]]
-        megahit_command += ["--12", pe]
-        megahit_command += ["--read", se]
+        megahit_command += ["--12", assembly_reads["pe_fa"]]
+        megahit_command += ["--read", assembly_reads["se_fa"]]
         megahit_command += ["--k-min", str(k_min), "--k-max", str(k_max)]
         megahit_command += ["--min-count", str(min_count)]
         megahit_command += ["--k-step", str(10)]
-        megahit_command += ["--merge-level", "20,0.98"]
         megahit_command += ["--memory", str(0.25)]
         megahit_output_dir = sample.output_dir + "assembly"
         megahit_command += ["--out-dir", megahit_output_dir]
@@ -745,52 +760,68 @@ def assemble_fosmids(sample, args, reads, k_min, k_max, min_count, trimmed_reads
         if p_megahit.returncode != 0:
             logging.error("MEGAHIT did not complete successfully!\n")
 
-        # Clean-up intermediate output files from MEGAHIT
-        logging.info("Cleaning up assembly outputs... ")
         contigs_file = sample.output_dir + "assembly" + os.sep + "final.contigs.fa"
-        if not os.path.isfile(contigs_file):
-            sys.exit("ERROR: MEGAHIT assembly was not created! Check " + sample.output_dir + "assembly" + os.sep +
-                     "log for an error.")
-        shutil.move(contigs_file,
-                    sample.output_dir + os.sep + sample.id + "_contigs.fasta")
-        shutil.move(sample.output_dir + "assembly" + os.sep + "log",
-                    sample.output_dir + os.sep + "megahit.log")
-        shutil.rmtree(sample.output_dir + "assembly" + os.sep)
-        logging.info("done.\n")
+        asm_log = sample.output_dir + "assembly" + os.sep + "log"
+        scaffolds = ""
     else:
-        logging.error("Unknown assembly software '" + assembler + "' requested.\n")
+        logging.error("Unknown assembly software '" + args.assembler + "' requested.\n")
         sys.exit(3)
+
+    logging.info("Cleaning up assembly outputs... ")
+    if not os.path.isfile(contigs_file):
+        logging.error(args.assembler + " assembly was not created! Check " +
+                      sample.output_dir + "assembly" + os.sep + "log for an error.")
+        sys.exit(3)
+    shutil.move(contigs_file,
+                sample.output_dir + os.sep + sample.id + "_contigs.fasta")
+    shutil.move(asm_log, sample.output_dir + os.sep + args.assembler + "_log.txt")
+    shutil.rmtree(sample.output_dir + "assembly" + os.sep)
+    if scaffolds:
+        # Only available for SPAdes
+        shutil.move(scaffolds,
+                    sample.output_dir + os.sep + sample.id + "_scaffolds.fasta")
+    logging.info("done.\n")
+
     return
 
 
 def prep_reads_for_assembly(sample, args, trimmed_reads):
     logging.info("Preparing quality FASTQ files for assembly... ")
-    paired_files = list()
-    orphan_files = list()
+    reads = dict()
+    reads["pe_trimmed"] = []
+    reads["se_trimmed"] = []
+    reads["singletons_fq"] = sample.output_dir + "singletons.fastq"
+
     for fastq in trimmed_reads:
         if re.search(r'pe.[1-2].fq$', fastq):
-            paired_files.append(fastq)
+            reads["pe_trimmed"].append(fastq)
         else:
-            orphan_files.append(fastq)
-    paired_merge = [args.executables["fq2fa"], "--merge"]
-    paired_merge += paired_files
-    paired_merge.append(sample.output_dir + sample.id + "_paired.fa")
-    p_pemerge = subprocess.Popen(' '.join(paired_merge), shell=True, preexec_fn=os.setsid)
-    p_pemerge.wait()
+            reads["se_trimmed"].append(fastq)
 
-    orphans = open(sample.output_dir + "singletons.fastq", 'w')
-    for unpaired_file in orphan_files:
-        with open(unpaired_file) as orphan_file:
-            for line in orphan_file:
-                orphans.write(line)
-    orphans.close()
-    unpaired_fq2fa = [args.executables["fq2fa"],
-                      sample.output_dir + "singletons.fastq",
-                      sample.output_dir + sample.id + "_unpaired.fa"]
-    p_sefq2fa = subprocess.Popen(' '.join(unpaired_fq2fa), shell=True, preexec_fn=os.setsid)
-    p_sefq2fa.wait()
+    try:
+        orphans_handler = open(reads["singletons_fq"], 'w')
+    except IOError:
+        logging.error("Unable to open " + reads["singletons_fq"] + " for writing.\n")
+        sys.exit(3)
+    for unpaired_file in reads["se_trimmed"]:
+        with open(unpaired_file) as orphan_fq:
+            for line in orphan_fq:
+                orphans_handler.write(line)
+    orphans_handler.close()
 
-    reads = glob.glob(sample.output_dir + os.sep + sample.id + "_*paired.fa")
+    if args.assembler == "megahit":
+        # MEGAHIT requires FASTA files so interleave and convert to FASTA using fq2fa
+        reads["pe_fa"] = sample.output_dir + sample.id + "_paired.fa"
+        reads["se_fa"] = sample.output_dir + sample.id + "_unpaired.fa"
+        paired_merge = [args.executables["fq2fa"], "--merge"]
+        paired_merge += reads["pe_trimmed"]
+        paired_merge.append(reads["pe_fa"])
+        p_pemerge = subprocess.Popen(' '.join(paired_merge), shell=True, preexec_fn=os.setsid)
+        p_pemerge.wait()
+
+        unpaired_fq2fa = [args.executables["fq2fa"], reads["singletons_fq"], reads["se_fa"]]
+        p_sefq2fa = subprocess.Popen(' '.join(unpaired_fq2fa), shell=True, preexec_fn=os.setsid)
+        p_sefq2fa.wait()
 
     logging.info("done.\n")
     return reads
@@ -964,14 +995,6 @@ def parse_miffed(args):
                 files = glob.glob(miffed_entry.output_dir + "*")
                 if len(files) != 0:
                     miffed_entry.overwrite = get_overwrite_input(miffed_entry.id)
-                    if not miffed_entry.overwrite:
-                        # Check to see if sample should be excluded entirely or not
-                        miffed_entry.exclude = get_exclude_input(miffed_entry.id)
-
-                        if not miffed_entry.exclude:
-                            if os.path.isfile(miffed_entry.assembled_fosmids):
-                                miffed_entry.assemble = get_assemble_input(miffed_entry)
-
                     if miffed_entry.overwrite:
                         try:
                             shutil.rmtree(miffed_entry.output_dir)
@@ -979,10 +1002,17 @@ def parse_miffed(args):
                         except Exception as e:
                             logging.error(str(e) + "\n")
                             raise
+                    else:
+                        # Check to see if sample should be excluded entirely or not
+                        miffed_entry.exclude = get_exclude_input(miffed_entry.id)
+
+                        if not miffed_entry.exclude:
+                            if os.path.isfile(miffed_entry.assembled_fosmids):
+                                miffed_entry.assemble = get_assemble_input(miffed_entry)
             else:
                 os.makedirs(miffed_entry.output_dir)
 
-            project_metadata_file = args.fabfos_path + os.sep + miffed_entry.project + os.sep + \
+            project_metadata_file = args.fabfos_path + os.sep + miffed_entry.project + os.sep +\
                                     "FabFos_" + miffed_entry.project + "_metadata.tsv"
             if not os.path.isfile(project_metadata_file):
                 project_metadata = open(project_metadata_file, 'w')
@@ -1465,8 +1495,9 @@ def read_fasta(fasta):
     sequence = ""
     try:
         fasta_seqs = open(fasta, 'r')
-    except:
-        raise IOError("Cannot open FASTA file (" + fasta + ") for reading!")
+    except IOError:
+        logging.error("Cannot open FASTA file (" + fasta + ") for reading!")
+        sys.exit(3)
 
     line = fasta_seqs.readline()
     while line:
@@ -1933,7 +1964,7 @@ def main():
                 read_stats["number_trimmed_reads"] = str(
                     (num_filtered_reads - num_reads_assembly) * 100 /
                     num_reads_assembly)
-                reads = prep_reads_for_assembly(sample, args, trimmed_reads)
+                assembly_reads = prep_reads_for_assembly(sample, args, trimmed_reads)
 
                 if sample.nanopore:
                     raw_nanopore_fasta = read_fasta(args.nanopore_reads)
@@ -1954,9 +1985,9 @@ def main():
 
                 else:
                     # TODO: Include an optional minimus2 module to further assemble the contigs
-                    k_min, k_max, = determine_k_values(reads)
+                    k_min, k_max, = determine_k_values(assembly_reads)
                     min_count = determine_min_count(num_reads_assembly, sample.num_fosmids, k_max)
-                    assemble_fosmids(sample, args, reads, k_min, k_max, min_count, trimmed_reads)
+                    assemble_fosmids(sample, args, assembly_reads, k_min, k_max, min_count)
                     clean_intermediates(sample)
 
             fosmid_assembly = read_fasta(sample.assembled_fosmids)
