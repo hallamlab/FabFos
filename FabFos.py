@@ -348,14 +348,14 @@ def review_arguments(args):
     else:
         args.py_version = 2
 
-    args.adaptor_trim = "/home/cmorganlang/bin/Trimmomatic-0.35/adapters/"
+    args.adaptor_trim = "/usr/local/share/Trimmomatic-0.35/adapters/"
 
     args.metadata_header = "#Sample Name (LLLLL-PP-WWW)\tProject\tHuman selector\tVector Name\t" \
                            "Screen [in silico | functional]\tSelection criteria\tNumber of fosmids\t" \
                            "Sequencing submission date (YYYY-MM-DD)\tGlycerol plate name\tSequencing center\t" \
                            "Sequencing type\tRead length\tInstrument\tDate of FabFos analysis\tNumber of reads\t" \
-                           "% off-target reads\tNumber of trimmed reads\tNumber of Contigs\tN50\tN90\t" \
-                           "Contigs > 27kbp\tContigs > 50kbp\t" \
+                           "% off-target reads\tNumber of trimmed reads\tAssembler version\tNumber of Contigs\t" \
+                           "N50\tN90\tContigs > 27kbp\tContigs > 50kbp\t" \
                            "# single-pair\t# multi-pair\t# single-orphan\t# multi-orphan\t# Unidentifiable\t" \
                            "# Fosmid ends(X2 = #reads)\t# aligned fosmid ends\t# unaligned fosmid ends\t# Failed ends\n"
 
@@ -629,7 +629,7 @@ def quality_trimming(sample, args, filtered_reads):
     trimmomatic_command.append(adapters)
     trimmomatic_command += ["LEADING:3", "TRAILING:3", "SLIDINGWINDOW:4:15", "MINLEN:36"]
     try:
-        trim_stderr = open(trim_prefix+"stderr.txt", 'w')
+        trim_stderr = open(trim_prefix + "stderr.txt", 'w')
     except IOError:
         logging.error("Cannot open file: " + trim_prefix + "stderr.txt for writing.\n")
         sys.exit(3)
@@ -1518,8 +1518,26 @@ def read_fasta(fasta):
     return fasta_dict
 
 
+def get_assembler_version(assembler):
+    """
+    Wrapper function for retrieving the version number of either SPAdes or MEGAHIT
+    :return: version string
+    """
+    if assembler == "spades":
+        ver_proc = subprocess.Popen(["spades.py", "-v"], stdout=subprocess.PIPE)
+    elif assembler == "megahit":
+        ver_proc = subprocess.Popen(["megahit", "-v"], stdout=subprocess.PIPE)
+    else:
+        logging.error("Version cannot currently be identified for assembler '" + assembler + "'.\n")
+        sys.exit(3)
+    out, err = ver_proc.communicate()
+    asm_ver = str(out.strip(), encoding="utf-8")
+    return asm_ver
+
+
 def get_assembly_stats(sample, args, fosmid_assembly):
     assembly_stats = dict()
+    assembly_stats["Assembler"] = get_assembler_version(args.assembler)
     sample_prefix = sample.output_dir + os.sep + sample.id
     nx_command = [args.executables["getNx"]]
     nx_command += ["-i", sample_prefix + "_contigs.fasta"]
@@ -1536,7 +1554,8 @@ def get_assembly_stats(sample, args, fosmid_assembly):
     try:
         nx_stats = open(sample_prefix + "_nx.csv", 'r')
     except IOError:
-        sys.exit("getNx did not finish successfully: unable to open " + sample_prefix + "_nx.csv for reading!")
+        logging.error("getNx did not finish successfully: unable to open " + sample_prefix + "_nx.csv for reading!\n")
+        sys.exit(3)
 
     nx_stats.readline()
     line = nx_stats.readline()
@@ -1549,7 +1568,7 @@ def get_assembly_stats(sample, args, fosmid_assembly):
         if float(proportion) == 0.9:
             assembly_stats["N90"] = str(n)
         if float(proportion) == 0:
-            logging.info("Longest contig = " + str(n) + "bp", "out", "\t")
+            logging.info("Longest contig = " + str(n) + "bp\t")
         line = nx_stats.readline()
 
     size = 0
@@ -1578,24 +1597,27 @@ def update_metadata(metadata_file, sample_id, library_metadata, read_stats, asse
     try:
         metadata = open(metadata_file, 'a')
     except IOError:
-        sys.exit("ERROR: Unable to open " + metadata_file + " to append library metadata!")
+        logging.error("Unable to open " + metadata_file + " to append library metadata!\n")
+        sys.exit(3)
+
     metadata.write(sample_id + "\t")
     metadata.write(library_metadata.project + "\t")
     metadata.write(library_metadata.selector + "\t")
     metadata.write(library_metadata.vector + "\t")
     metadata.write(library_metadata.screen + "\t")
     metadata.write(library_metadata.selection + "\t")
-    metadata.write(library_metadata.num_fosmids + "\t")
+    metadata.write(str(library_metadata.num_fosmids) + "\t")
     metadata.write(library_metadata.seq_submission_date + "\t")
     metadata.write(library_metadata.glycerol_plate + "\t")
     metadata.write(library_metadata.seq_center + "\t")
     metadata.write(library_metadata.seq_type + "\t")
-    metadata.write(library_metadata.read_length + "\t")
+    metadata.write(str(library_metadata.read_length) + "\t")
     metadata.write(library_metadata.instrument + "\t")
     metadata.write(strftime("%Y-%m-%d") + "\t")
     metadata.write(read_stats["num_raw_reads"] + "\t")
     metadata.write(read_stats["percent_off_target"] + "\t")
     metadata.write(str(read_stats["number_trimmed_reads"]) + "\t")
+    metadata.write(assembly_stats["Assembler"] + "\t")
     metadata.write(assembly_stats["Contigs"] + "\t")
     metadata.write(assembly_stats["N50"] + "\t")
     metadata.write(assembly_stats["N90"] + "\t")
@@ -1642,8 +1664,9 @@ def write_fosmid_end_failures(sample, ends_stats):
 
     try:
         failure_file = open(fosmid_end_failures, 'w')
-    except:
-        raise IOError("Cannot open file: " + fosmid_end_failures)
+    except IOError:
+        logging.error("Cannot open file: " + fosmid_end_failures)
+        sys.exit(3)
     failure_file.write("#Fosmid-end\tcategory\n")
     for end in ends_stats["failed"]:
         failure_file.write(end + "\tSequencing failure\n")
@@ -1702,8 +1725,9 @@ def align_nanopore_to_background(args, sample):
     try:
         background_blastdb_stderr = open(sample.output_dir + "background_blastdb.stderr", 'w')
         background_blastdb_stdout = open(sample.output_dir + "background_blastdb.stdout", 'w')
-    except:
-        raise IOError("Unable to open " + sample.output_dir + "background_blastdb.stderr for writing")
+    except IOError:
+        logging.error("Unable to open " + sample.output_dir + "background_blastdb.stderr for writing")
+        sys.exit(3)
 
     background_db = args.background + "_BLAST"
     blast_db_command = [args.executables["makeblastdb"]]
