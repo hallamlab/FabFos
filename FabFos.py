@@ -436,7 +436,7 @@ def filter_backbone(sample, args, raw_reads):
     logging.info("Filtering off-target reads... ")
     check_index(args.background, args.executables["bwa"])
     align_command = [args.executables["bwa"], "mem", "-t", args.threads, args.background, raw_reads["forward"]]
-    if args.reverse:
+    if args.reverse or args.interleaved:
         align_command.append(raw_reads["reverse"])
     align_command.append("1>")
     sam_file = sample.output_dir + sample.id + ".sam"
@@ -647,9 +647,12 @@ def quality_trimming(sample, args, filtered_reads):
     return trimmomatic_outputs
 
 
-def determine_k_values(reads):
+def determine_k_values(reads, assembler):
     k_min = 71
-    k_max = 241
+    if assembler == "spades":
+        k_max = 127
+    else:
+        k_max = 241
     max_read_length = 0
     read_lengths = list()
     # Sample the first paired-end FASTQ file
@@ -717,7 +720,7 @@ def assemble_fosmids(sample: Sample, args, assembly_reads: dict, k_min: int, k_m
         spades_command = ["spades.py"]
         spades_command += ["-1", forward]
         spades_command += ["-2", reverse]
-        spades_command += ["-s", assembly_reads["singletons"]]
+        spades_command += ["-s", assembly_reads["singletons_fq"]]
         spades_command += ["--careful"]
         spades_command += ["--memory", str(10)]
         spades_command += ["--threads", str(args.threads)]
@@ -968,9 +971,12 @@ def parse_miffed(args):
     miffed = open(args.miffed, 'r')
     line = miffed.readline()
     libraries = list()
+    header_re = re.compile(r"Sample.*Project.*Human selector.*Number of fosmids")
 
     while line:
-        if not line[0] == '#':
+        if header_re.search(line):
+            pass
+        elif not line[0] == '#':
             if ',' not in line:
                 logging.error("MIFFED input file doesn't seem to be in csv format!\n")
                 sys.exit(3)
@@ -1870,7 +1876,7 @@ def determine_min_count(num_reads, num_fosmids, k_max):
     approx_coverage = (num_reads * k_max) / (int(num_fosmids) * 40000)
     sys.stdout.write("Approximate fosmid coverage = " + str(approx_coverage) + "\n")
     sys.stdout.flush()
-    min_count = 5
+    min_count = 10
     dist_tail = approx_coverage / 100
     if dist_tail > min_count:
         min_count = int(dist_tail)
@@ -2009,7 +2015,7 @@ def main():
 
                 else:
                     # TODO: Include an optional minimus2 module to further assemble the contigs
-                    k_min, k_max, = determine_k_values(assembly_reads)
+                    k_min, k_max, = determine_k_values(assembly_reads, args.assembler)
                     min_count = determine_min_count(num_reads_assembly, sample.num_fosmids, k_max)
                     assemble_fosmids(sample, args, assembly_reads, k_min, k_max, min_count)
                     clean_intermediates(sample)
