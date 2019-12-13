@@ -215,6 +215,26 @@ class MyFormatter(logging.Formatter):
 
 #################################### Classes end ################################################
 
+def remove_singletons(clusters):
+    for c in clusters:
+        if "size=1;" not in c.id:
+            cluster = re.findall('\w+', c.id)[0]
+            size = re.findall('(?<=size\=)\w+', c.id)[0]
+            output_row = [cluster, size, c.seq, c.seq.reverse_complement()]
+            final_output.append(output_row)
+    return final_output
+
+def bam2fastq(input_file, sample_id, output_dir, executables):
+    fastq_extract = [executables["bam2fastq"], "-o",
+                     output_dir + os.sep + sample_id + input_file + ".fasta", "--no-aligned", input_file]
+    fastq_extract += ["1>", output_dir + os.sep + "bam2fastq.stdout"]
+    fastq_extract += ["2>", output_dir + os.sep + "bam2fastq.stderr"]
+    p_bam2fastq = subprocess.Popen(' '.join(fastq_extract), shell=True, preexec_fn=os.setsid)
+    p_bam2fastq.wait()
+    filtered_reads = glob.glob(output_dir + os.sep + sample_id + input_file + "*fastq")
+    logging.info("done.\n")
+    return filtered_reads
+
 
 def get_dict_keys(dictionary):
     """
@@ -228,8 +248,7 @@ def get_dict_keys(dictionary):
 
 def get_options():
     parser = argparse.ArgumentParser(description="Pipeline for processing and organizing fosmid sequence information.\n"
-                                                 "NOTE: a maximum of 2 sequence files are permitted.",
-                                     add_help=False)
+                                                 "NOTE: a maximum of 2 sequence files are permitted.",add_help=False)
     reqs = parser.add_argument_group(title="Required arguments")
     reqs.add_argument("-m", "--miffed", type=str, required=True,
                       help="The minimum information for fosmid environmental data (e.g., sample ID, "
@@ -237,8 +256,8 @@ def get_options():
     reqs.add_argument("-b", "--background", type=str, required=True,
                       help="Path to the fosmid background database [.fasta]")
     reqs.add_argument("-r", "--reads", type=str, required=True,
-                      help="Path to the sequenced reads directory. This parameter is for the single-end reads "
-                           "(Sanger), the forward strand file, or the interleaved paired-end file. [.fastq]")
+                      help="Path to the sequenced reads directory. Can be in FastQ or BAM format. This parameter is for the
+                           "single-end reads Sanger), the forward strand file, or the interleaved paired-end file. [.fastq]")
 
     nanopore = parser.add_argument_group(title="Nanopore-specific [development] options")
     nanopore.add_argument("--nanopore_reads", help="A FASTA file containing nanopore reads to be used in assembly.",
@@ -247,6 +266,11 @@ def get_options():
                           action="store_true", default=False, required=False)
 
     opts = parser.add_argument_group(title="Optional arguments")
+
+    opts.add_argument("-n", "--backbone", required=False, default="pCC1fos",
+                      help="Enter the name of the vector backbone you're using")
+    opts.add_argument("-t", "--type", choices=["B", "F"], required=False, default="F",
+                      help="Enter B if input type is BAM, F for FastQ")
     opts.add_argument("-2", "--reverse", type=str, required=False,
                       help="Path to the directory containing reverse-end reads (if applicable) [.fastq]")
     opts.add_argument("-i", "--interleaved", required=False, default=False, action="store_true",
@@ -266,7 +290,9 @@ def get_options():
                       help="Increase the level of verbosity in runtime log.")
     opts.add_argument("-h", "--help",
                       action="help", help="Show this help message and exit")
-
+    if args.type == "B":
+        args.reads = bam2fastq(args.reads, sample.id, sample.output_dir, args.executables)
+    
     args = parser.parse_args()
     return args
 
@@ -464,15 +490,186 @@ def filter_backbone(sample, args, raw_reads):
     p_samtools_stderr.close()
 
     # extract the unaligned reads using bam2fastq
-    fastq_extract = [args.executables["bam2fastq"], "-o",
-                     sample.output_dir + os.sep + sample.id + "_BackboneFiltered_R#.fastq", "--no-aligned", bam_file]
-    fastq_extract += ["1>", sample.output_dir + os.sep + "bam2fastq.stdout"]
-    fastq_extract += ["2>", sample.output_dir + os.sep + "bam2fastq.stderr"]
-    p_bam2fastq = subprocess.Popen(' '.join(fastq_extract), shell=True, preexec_fn=os.setsid)
-    p_bam2fastq.wait()
-    filtered_reads = glob.glob(sample.output_dir + os.sep + sample.id + "_BackboneFiltered*fastq")
-    logging.info("done.\n")
+    filtered_reads = bam2fastq(bam_file, sample.id, sample.output_dir, args.executables)
     return filtered_reads
+
+#bam_file: bam file containing the alignment map 
+#output_dir: Directory where all the files are to be output
+#bl: Length of the backbone to which the reads are to be aligned
+#rl: Length of the reads that need to be clustered
+
+def clustering(bam_file, output_dir, bl=40, rl=100):
+
+    backbone_name = ">" + args.backbone
+
+    command_list = []
+
+    #Isolate the reads that map to the first and last bl bp of the backbone    
+    sam_view1 = ['samtools', 'view', '-F 4',
+                     str(bam_file),
+                     str(backbone_name +':0 +'-'+ bl'),
+                     '-o',
+                     str(output_dir + os.sep + '5_040.bam')]
+    sam_view2 = ['samtools', 'view', '-F 4',
+                     str(bam_file),
+                     str(backbone_name + ': len(backbone_name)-bl +'-'+ len(backbone_name)'),
+                     '-o',
+                     str(output_dir + os.sep + '3_040.bam')]
+
+    command_list.append(sam_view1)
+    command_list.append(sam_view2)
+
+    #Isolate the fwd reads that map to the first and last bl bp of the backbone and create a new file for them in output directory
+    sam_view3 = ['samtools', 'view', '-F', '0x10',
+                     str(output_dir + os.sep + '5_040.bam'),
+                     '-o',
+                     str(output_dir + os.sep +'040-fwd.bam')]
+    sam_view4 = ['samtools', 'view', '-F', '0x10',
+                     str(output_dir + os.sep + '3_040.bam'),
+                     '-o',
+                     str(output_dir + os.sep +'l40-fwd.bam')]
+
+    command_list.append(sam_view3)
+    command_list.append(sam_view4)
+
+    #Isolate the rev reads that map to the first and last bl bp of the backbone and create a new file for them in output directory
+    sam_view5 = ['samtools', 'view', '-f', '0x10',
+                     str(output_dir + os.sep + '5_040.bam'),
+                     '-o',
+                     str(output_dir + os.sep +'040-rev.bam')]
+    sam_view6 = ['samtools', 'view', '-f', '0x10',
+                     str(output_dir + os.sep + '3_040.bam'),
+                     '-o',
+                     str(output_dir + os.sep +'l40-rev.bam')]
+
+    command_list.append(sam_view5)
+    command_list.append(sam_view6)
+
+    # Generate .fasta file with fwd reads
+    sam_fasta1 = ['samtools', 'fasta',
+                      str(output_dir + os.sep +'040-fwd.bam'),
+                      '>',
+                      str(output_dir + os.sep +'040-fwd.fasta')]
+    sam_fasta2 = ['samtools', 'fasta',
+                      str(output_dir + os.sep +'l40-fwd.bam'),
+                      '>',
+                      str(output_dir + os.sep +'l40-fwd.fasta')]
+
+    command_list.append(sam_fasta1)
+    command_list.append(sam_fasta2)
+
+    # Generate .fasta file with rev reads
+    sam_fasta3 = ['samtools', 'fasta',
+                      str(output_dir + os.sep +'040-rev.bam'),
+                      '>',
+                      str(output_dir + os.sep +'040-rev.fasta')]
+    sam_fasta4 = ['samtools', 'fasta',
+                      str(output_dir + os.sep +'l40-rev.bam'),
+                      '>',
+                      str(output_dir + os.sep +'l40-rev.fasta')]
+
+    command_list.append(sam_fasta3)
+    command_list.append(sam_fasta4)
+
+    for command in command_list:
+        subprocess.call(' '.join(command), shell = True)
+
+    # Open fwd and rev .fasta files
+        fwd1 = SeqIO.parse(str(output_dir + os.sep+'040-fwd.fasta'), "fasta")
+
+        rev1 = SeqIO.parse(str(output_dir + os.sep+'040-rev.fasta'), "fasta")
+
+        fwd2 = SeqIO.parse(str(output_dir + os.sep+'l40-fwd.fasta'), "fasta")
+
+        rev2 = SeqIO.parse(str(output_dir + os.sep+'l40-rev.fasta'), "fasta")
+
+    # Append fwd reads and reverse_complement of rev reads to recs = []
+        recs1 = []
+        for f in fwd1:
+            recs1.append(f)
+
+        for r in rev1:
+            r.seq = r.seq.reverse_complement()
+            recs1.append(r)
+
+        recs2 = []
+        for f in fwd2:
+            recs2.append(f)
+
+        for r in rev2:
+            r.seq = r.seq.reverse_complement()
+            recs2.append(r)
+        
+    # Trim sequences to rl bp from defined site
+
+        final_recs1 = []
+        final_recs2 = []
+
+        datafile = file(args.background)
+        line1 = datafile.readline()
+        while line1:
+            if backbone_name in line1:
+                break
+            else:
+                line1 = datafile.readline()
+                first_eight = datafile.readline(8)    
+
+        for rec in recs1:
+            if first_eight in rec.seq:
+                new_seq = rec.seq[0:str(rec.seq).index(first_eight)]
+                if len(new_seq) >= rl:
+                    trim_seq = new_seq[len(new_seq)-rl:len(new_seq)]
+                    rec.seq = trim_seq
+                    final_recs1.append(rec)
+        
+        datafile.seek(-8,2)
+        last_eight = datafile.readline(8)
+        for rec in recs2:
+            if last_eight in rec.seq:
+                new_seq = rec.seq[str(rec.seq).index(last_eight)+8:]
+                if len(new_seq) >= rl:
+                    trim_seq = new_seq[str(rec.seq).index(last_eight)+8:str(rec.seq).index(last_eight)+rl+8]
+                    rec.seq = trim_seq
+                    final_recs2.append(rec)
+
+        SeqIO.write(final_recs1, str(output_dir + os.sep +'5-040.fasta'), "fasta")
+        SeqIO.write(final_recs2, str(output_dir + os.sep +'3-040.fasta'), "fasta")
+
+    # Cluster trimmed sequences in .fasta
+        uclust_cmd1 = ["usearch",
+                      "-cluster_fast", output_dir + os.sep + '5-040.fasta',
+                      "-uc", output_dir + os.sep +'5-040.uc',
+                      "-id", str(0.9),
+                      "-consout", output_dir + os.sep +'5-040_cluster.fasta',
+                      "-sizeout",
+                      "-centroids", output_dir + os.sep + '5-040_centroids.fasta']
+        subprocess.call(' '.join(uclust_cmd), shell = True)
+
+        uclust_cmd2 = ["usearch",
+                      "-cluster_fast", output_dir + os.sep + '3-040.fasta',
+                      "-uc", output_dir + os.sep +'3-040.uc',
+                      "-id", str(0.9),
+                      "-consout", output_dir + os.sep +'3-040_cluster.fasta',
+                      "-sizeout",
+                      "-centroids", output_dir + os.sep + '3-040_centroids.fasta']
+        subprocess.call(' '.join(uclust_cmd), shell = True)
+
+    # Remove singletons
+        clusters1 = SeqIO.parse(str(output_dir + os.sep +'5-040_cluster.fasta'), "fasta")
+        clusters2 = SeqIO.parse(str(output_dir + os.sep +'3-040_cluster.fasta'), "fasta")
+
+        final_output1 = remove_singletons(clusters1)
+        final_output2 = remove_singletons(clusters2)
+
+    with open('cluster1.csv', 'w') as writeFile:
+        writer = csv.writer(writeFile)
+        for fo in final_output1:
+            writer.writerow(fo)
+
+    with open('cluster2.csv', 'w') as writeFile:
+        writer = csv.writer(writeFile)
+        for fo in final_output2:
+            writer.writerow(fo)
 
 
 def get_reference_names_from_sam(sam_file):
