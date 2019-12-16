@@ -217,10 +217,10 @@ class MyFormatter(logging.Formatter):
 
 def bam2fastq(input_file, sample_id, output_dir, executables):
     fastq_extract = [executables["bam2fastq"], "-o",
-                     output_dir + os.sep + sample_id + input_file + ".fasta", "--no-aligned", input_file]
+                     output_dir + os.sep + sample_id + input_file + "_#.fastq", "--no-aligned", input_file]
     fastq_extract += ["1>", output_dir + os.sep + "bam2fastq.stdout"]
     fastq_extract += ["2>", output_dir + os.sep + "bam2fastq.stderr"]
-    p_bam2fastq = subprocess.Popen(' '.join(fastq_extract), shell=True, preexec_fn=os.setsid)
+    p_bam2fastq = subprocess.Popen(shell=False, preexec_fn=os.setsid)
     p_bam2fastq.wait()
     filtered_reads = glob.glob(output_dir + os.sep + sample_id + input_file + "*fastq")
     logging.info("done.\n")
@@ -239,7 +239,8 @@ def get_dict_keys(dictionary):
 
 def get_options():
     parser = argparse.ArgumentParser(description="Pipeline for processing and organizing fosmid sequence information.\n"
-                                                 "NOTE: a maximum of 2 sequence files are permitted.",add_help=False)
+                                                 "NOTE: a maximum of 2 sequence files are permitted.",
+                                     add_help=False)
     reqs = parser.add_argument_group(title="Required arguments")
     reqs.add_argument("-m", "--miffed", type=str, required=True,
                       help="The minimum information for fosmid environmental data (e.g., sample ID, "
@@ -259,7 +260,7 @@ def get_options():
     opts = parser.add_argument_group(title="Optional arguments")
 
     opts.add_argument("-t", "--type", choices=["B", "F"], required=False, default="F",
-                      help="Enter B if input type is BAM, F for FastQ")
+                      help="Enter B if input type is BAM, F for FastQ. [ DEFAULT = 'F' ]")
     opts.add_argument("-2", "--reverse", type=str, required=False,
                       help="Path to the directory containing reverse-end reads (if applicable) [.fastq]")
     opts.add_argument("-i", "--interleaved", required=False, default=False, action="store_true",
@@ -279,8 +280,6 @@ def get_options():
                       help="Increase the level of verbosity in runtime log.")
     opts.add_argument("-h", "--help",
                       action="help", help="Show this help message and exit")
-    if args.type == "B":
-        args.reads = bam2fastq(args.reads, sample.id, sample.output_dir, args.executables)
     
     args = parser.parse_args()
     return args
@@ -1940,6 +1939,8 @@ def assemble_nanopore_reads(sample, args):
 def main():
     # TODO: Include an init function to initialize a new directory to be a master FabFos repository
     args = get_options()
+    if args.type == "B":
+        args.reads = bam2fastq(args.reads, sample.id, sample.output_dir, args.executables)
     args = review_arguments(args)
     args = find_executables(args)
     libraries, args = parse_miffed(args)
