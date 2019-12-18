@@ -267,6 +267,10 @@ def get_options():
 
     opts = parser.add_argument_group(title="Optional arguments")
 
+    opts.add_argument("-c", "--bb_length", required=False, default= str(40),
+                      help="Enter the minimum length of the clustered reads that must align to the edge of the backbone")
+    opts.add_argument("-l", "--cluster_length", required=False, default= str(100),
+                      help="Enter the length of the trimmed sequences you want clustered.")
     opts.add_argument("-n", "--backbone", required=False, default="pCC1fos",
                       help="Enter the name of the vector backbone you're using")
     opts.add_argument("-t", "--type", choices=["B", "F"], required=False, default="F",
@@ -290,8 +294,6 @@ def get_options():
                       help="Increase the level of verbosity in runtime log.")
     opts.add_argument("-h", "--help",
                       action="help", help="Show this help message and exit")
-    if args.type == "B":
-        args.reads = bam2fastq(args.reads, sample.id, sample.output_dir, args.executables)
     
     args = parser.parse_args()
     return args
@@ -491,28 +493,33 @@ def filter_backbone(sample, args, raw_reads):
 
     # extract the unaligned reads using bam2fastq
     filtered_reads = bam2fastq(bam_file, sample.id, sample.output_dir, args.executables)
-    return filtered_reads
+    return filtered_reads, bam_file
 
 #bam_file: bam file containing the alignment map 
 #output_dir: Directory where all the files are to be output
 #bl: Length of the backbone to which the reads are to be aligned
 #rl: Length of the reads that need to be clustered
 
-def clustering(bam_file, output_dir, bl=40, rl=100):
+#bam_file: bam file containing the alignment map 
+#output_dir: Directory where all the files are to be output
+#bl: minimum length of the backbone to which the reads are to be aligned
+#rl: Length of the reads that need to be clustered
 
-    backbone_name = ">" + args.backbone
+def clustering(bam_file, output_dir, bl, rl):
+
+    backbone_name = args.backbone
 
     command_list = []
 
     #Isolate the reads that map to the first and last bl bp of the backbone    
     sam_view1 = ['samtools', 'view', '-F 4',
                      str(bam_file),
-                     str(backbone_name +':0 +'-'+ bl'),
+                     str(backbone_name +':0' +'-'+ str(bl)),
                      '-o',
                      str(output_dir + os.sep + '5_040.bam')]
     sam_view2 = ['samtools', 'view', '-F 4',
                      str(bam_file),
-                     str(backbone_name + ': len(backbone_name)-bl +'-'+ len(backbone_name)'),
+                     str(backbone_name + ':' + str(len(backbone_fasta.seq)-bl) +'-'+ str(len(backbone_fasta.seq))),
                      '-o',
                      str(output_dir + os.sep + '3_040.bam')]
 
@@ -604,15 +611,9 @@ def clustering(bam_file, output_dir, bl=40, rl=100):
 
         final_recs1 = []
         final_recs2 = []
-
-        datafile = file(args.background)
-        line1 = datafile.readline()
-        while line1:
-            if backbone_name in line1:
-                break
-            else:
-                line1 = datafile.readline()
-                first_eight = datafile.readline(8)    
+        
+        first_eight = str(backbone_fasta.seq[0:8])
+        last_eight = str(backbone_fasta.seq[len(backbone_fasta.seq)-8:len(backbone_fasta.seq)])
 
         for rec in recs1:
             if first_eight in rec.seq:
@@ -622,8 +623,6 @@ def clustering(bam_file, output_dir, bl=40, rl=100):
                     rec.seq = trim_seq
                     final_recs1.append(rec)
         
-        datafile.seek(-8,2)
-        last_eight = datafile.readline(8)
         for rec in recs2:
             if last_eight in rec.seq:
                 new_seq = rec.seq[str(rec.seq).index(last_eight)+8:]
@@ -643,7 +642,6 @@ def clustering(bam_file, output_dir, bl=40, rl=100):
                       "-consout", output_dir + os.sep +'5-040_cluster.fasta',
                       "-sizeout",
                       "-centroids", output_dir + os.sep + '5-040_centroids.fasta']
-        subprocess.call(' '.join(uclust_cmd), shell = True)
 
         uclust_cmd2 = ["usearch",
                       "-cluster_fast", output_dir + os.sep + '3-040.fasta',
@@ -652,7 +650,10 @@ def clustering(bam_file, output_dir, bl=40, rl=100):
                       "-consout", output_dir + os.sep +'3-040_cluster.fasta',
                       "-sizeout",
                       "-centroids", output_dir + os.sep + '3-040_centroids.fasta']
-        subprocess.call(' '.join(uclust_cmd), shell = True)
+
+        subprocess.call(' '.join(uclust_cmd1), shell = True)
+        subprocess.call(' '.join(uclust_cmd2), shell = True)
+
 
     # Remove singletons
         clusters1 = SeqIO.parse(str(output_dir + os.sep +'5-040_cluster.fasta'), "fasta")
@@ -2174,7 +2175,9 @@ def main():
                     sys.exit(3)
                 read_stats["num_raw_reads"] = str(num_raw_reads)
                 logging.info("Number of raw reads = " + str(num_raw_reads) + "\n")
-                filtered_reads = filter_backbone(sample, args, raw_reads)
+                filtered_reads, bam_file = filter_backbone(sample, args, raw_reads)
+                clustering(bam_file, sample.output_dir, args.bb_length, args.cluster_length)
+
                 num_filtered_reads = find_num_reads(filtered_reads)
                 logging.info(str(num_raw_reads - num_filtered_reads) + " reads removed from background filtering (" +
                              str(((num_raw_reads - num_filtered_reads) * 100) / num_raw_reads) + "%).\n")
