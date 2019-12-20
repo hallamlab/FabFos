@@ -510,7 +510,7 @@ def clustering(bam_file, output_dir, bl, rl):
     backbone_name = args.backbone
 
     command_list = []
-    subprocess.call("mkdir clustering_log", shell=True).
+    os.path.mkdir(output_dir + os.sep + "clustering_log")
 
     #Isolate the reads that map to the first and last bl bp of the backbone
     sam_view1 = ['samtools', 'view', '-F 4',
