@@ -510,70 +510,71 @@ def clustering(bam_file, output_dir, bl, rl):
     backbone_name = args.backbone
 
     command_list = []
+    subprocess.call("mkdir clustering_log", shell=True).
 
-    #Isolate the reads that map to the first and last bl bp of the backbone    
+    #Isolate the reads that map to the first and last bl bp of the backbone
     sam_view1 = ['samtools', 'view', '-F 4',
                      str(bam_file),
                      str(backbone_name +':0' +'-'+ str(bl)),
                      '-o',
-                     str(output_dir + os.sep + '5_040.bam')]
+                     str(clustering_log + os.sep + '5_040.bam')]
     sam_view2 = ['samtools', 'view', '-F 4',
                      str(bam_file),
                      str(backbone_name + ':' + str(len(backbone_fasta.seq)-bl) +'-'+ str(len(backbone_fasta.seq))),
                      '-o',
-                     str(output_dir + os.sep + '3_040.bam')]
+                     str(clustering_log + os.sep + '3_040.bam')]
 
     command_list.append(sam_view1)
     command_list.append(sam_view2)
 
     #Isolate the fwd reads that map to the first and last bl bp of the backbone and create a new file for them in output directory
     sam_view3 = ['samtools', 'view', '-F', '0x10',
-                     str(output_dir + os.sep + '5_040.bam'),
+                     str(clustering_log + os.sep + '5_040.bam'),
                      '-o',
-                     str(output_dir + os.sep +'040-fwd.bam')]
+                     str(clustering_log + os.sep +'040-fwd.bam')]
     sam_view4 = ['samtools', 'view', '-F', '0x10',
-                     str(output_dir + os.sep + '3_040.bam'),
+                     str(clustering_log + os.sep + '3_040.bam'),
                      '-o',
-                     str(output_dir + os.sep +'l40-fwd.bam')]
+                     str(clustering_log + os.sep +'l40-fwd.bam')]
 
     command_list.append(sam_view3)
     command_list.append(sam_view4)
 
     #Isolate the rev reads that map to the first and last bl bp of the backbone and create a new file for them in output directory
     sam_view5 = ['samtools', 'view', '-f', '0x10',
-                     str(output_dir + os.sep + '5_040.bam'),
+                     str(clustering_log + os.sep + '5_040.bam'),
                      '-o',
-                     str(output_dir + os.sep +'040-rev.bam')]
+                     str(clustering_log + os.sep +'040-rev.bam')]
     sam_view6 = ['samtools', 'view', '-f', '0x10',
-                     str(output_dir + os.sep + '3_040.bam'),
+                     str(clustering_log + os.sep + '3_040.bam'),
                      '-o',
-                     str(output_dir + os.sep +'l40-rev.bam')]
+                     str(clustering_log + os.sep +'l40-rev.bam')]
 
     command_list.append(sam_view5)
     command_list.append(sam_view6)
 
     # Generate .fasta file with fwd reads
     sam_fasta1 = ['samtools', 'fasta',
-                      str(output_dir + os.sep +'040-fwd.bam'),
+                      str(clustering_log + os.sep +'040-fwd.bam'),
                       '>',
-                      str(output_dir + os.sep +'040-fwd.fasta')]
+                      str(clustering_log + os.sep +'040-fwd.fasta')]
     sam_fasta2 = ['samtools', 'fasta',
-                      str(output_dir + os.sep +'l40-fwd.bam'),
+                      str(clustering_log + os.sep +'l40-fwd.bam'),
                       '>',
-                      str(output_dir + os.sep +'l40-fwd.fasta')]
+                      str(clustering_log + os.sep +'l40-fwd.fasta')]
 
     command_list.append(sam_fasta1)
     command_list.append(sam_fasta2)
 
     # Generate .fasta file with rev reads
     sam_fasta3 = ['samtools', 'fasta',
-                      str(output_dir + os.sep +'040-rev.bam'),
+                      str(clustering_log + os.sep +'040-rev.bam'),
                       '>',
-                      str(output_dir + os.sep +'040-rev.fasta')]
+                      str(clustering_log + os.sep +'040-rev.fasta')]
     sam_fasta4 = ['samtools', 'fasta',
-                      str(output_dir + os.sep +'l40-rev.bam'),
+                      str(clustering_log + os.sep +'l40-rev.bam'),
                       '>',
-                      str(output_dir + os.sep +'l40-rev.fasta')]
+                      str(clustering_log + os.sep +'l40-rev.fasta')]
 
     command_list.append(sam_fasta3)
     command_list.append(sam_fasta4)
@@ -582,92 +583,92 @@ def clustering(bam_file, output_dir, bl, rl):
         subprocess.call(' '.join(command), shell = True)
 
     # Open fwd and rev .fasta files
-        fwd1 = SeqIO.parse(str(output_dir + os.sep+'040-fwd.fasta'), "fasta")
+    fwd1 = SeqIO.parse(str(clustering_log + os.sep+'040-fwd.fasta'), "fasta")
 
-        rev1 = SeqIO.parse(str(output_dir + os.sep+'040-rev.fasta'), "fasta")
+    rev1 = SeqIO.parse(str(clustering_log + os.sep+'040-rev.fasta'), "fasta")
 
-        fwd2 = SeqIO.parse(str(output_dir + os.sep+'l40-fwd.fasta'), "fasta")
+    fwd2 = SeqIO.parse(str(clustering_log + os.sep+'l40-fwd.fasta'), "fasta")
 
-        rev2 = SeqIO.parse(str(output_dir + os.sep+'l40-rev.fasta'), "fasta")
+    rev2 = SeqIO.parse(str(clustering_log + os.sep+'l40-rev.fasta'), "fasta")
 
     # Append fwd reads and reverse_complement of rev reads to recs = []
-        recs1 = []
-        for f in fwd1:
-            recs1.append(f)
+    recs1 = []
+    for f in fwd1:
+        recs1.append(f)
 
-        for r in rev1:
-            r.seq = r.seq.reverse_complement()
-            recs1.append(r)
+    for r in rev1:
+        r.seq = r.seq.reverse_complement()
+        recs1.append(r)
 
-        recs2 = []
-        for f in fwd2:
-            recs2.append(f)
+    recs2 = []
+    for f in fwd2:
+        recs2.append(f)
 
-        for r in rev2:
-            r.seq = r.seq.reverse_complement()
-            recs2.append(r)
-        
+    for r in rev2:
+        r.seq = r.seq.reverse_complement()
+        recs2.append(r)
+
     # Trim sequences to rl bp from defined site
 
-        final_recs1 = []
-        final_recs2 = []
-        
-        first_eight = str(backbone_fasta.seq[0:8])
-        last_eight = str(backbone_fasta.seq[len(backbone_fasta.seq)-8:len(backbone_fasta.seq)])
+    final_recs1 = []
+    final_recs2 = []
 
-        for rec in recs1:
-            if first_eight in rec.seq:
-                new_seq = rec.seq[0:str(rec.seq).index(first_eight)]
-                if len(new_seq) >= rl:
-                    trim_seq = new_seq[len(new_seq)-rl:len(new_seq)]
-                    rec.seq = trim_seq
-                    final_recs1.append(rec)
-        
-        for rec in recs2:
-            if last_eight in rec.seq:
-                new_seq = rec.seq[str(rec.seq).index(last_eight)+8:]
-                if len(new_seq) >= rl:
-                    trim_seq = new_seq[str(rec.seq).index(last_eight)+8:str(rec.seq).index(last_eight)+rl+8]
-                    rec.seq = trim_seq
-                    final_recs2.append(rec)
+    first_eight = str(backbone_fasta.seq[0:8])
+    last_eight = str(backbone_fasta.seq[len(backbone_fasta.seq)-8:len(backbone_fasta.seq)])
 
-        SeqIO.write(final_recs1, str(output_dir + os.sep +'5-040.fasta'), "fasta")
-        SeqIO.write(final_recs2, str(output_dir + os.sep +'3-040.fasta'), "fasta")
+    for rec in recs1:
+        if first_eight in rec.seq:
+            new_seq = rec.seq[0:str(rec.seq).index(first_eight)]
+            if len(new_seq) >= rl:
+                trim_seq = new_seq[len(new_seq)-rl:len(new_seq)]
+                rec.seq = trim_seq
+                final_recs1.append(rec)
 
-    # Cluster trimmed sequences in .fasta
-        uclust_cmd1 = ["usearch",
-                      "-cluster_fast", output_dir + os.sep + '5-040.fasta',
-                      "-uc", output_dir + os.sep +'5-040.uc',
-                      "-id", str(0.9),
-                      "-consout", output_dir + os.sep +'5-040_cluster.fasta',
-                      "-sizeout",
-                      "-centroids", output_dir + os.sep + '5-040_centroids.fasta']
+    for rec in recs2:
+        if last_eight in rec.seq:
+            new_seq = rec.seq[str(rec.seq).index(last_eight)+8:]
+            if len(new_seq) >= rl:
+                trim_seq = new_seq[0:rl]
+                rec.seq = trim_seq
+                final_recs2.append(rec)
 
-        uclust_cmd2 = ["usearch",
-                      "-cluster_fast", output_dir + os.sep + '3-040.fasta',
-                      "-uc", output_dir + os.sep +'3-040.uc',
-                      "-id", str(0.9),
-                      "-consout", output_dir + os.sep +'3-040_cluster.fasta',
-                      "-sizeout",
-                      "-centroids", output_dir + os.sep + '3-040_centroids.fasta']
+    SeqIO.write(final_recs1, str(clustering_log + os.sep +'5-040.fasta'), "fasta")
+    SeqIO.write(final_recs2, str(clustering_log + os.sep +'3-040.fasta'), "fasta")
 
-        subprocess.call(' '.join(uclust_cmd1), shell = True)
-        subprocess.call(' '.join(uclust_cmd2), shell = True)
+# Cluster trimmed sequences in .fasta
+    uclust_cmd1 = ["usearch",
+                  "-cluster_fast", clustering_log + os.sep + '5-040.fasta',
+                  "-uc", clustering_log + os.sep +'5-040.uc',
+                  "-id", str(0.9),
+                  "-consout", clustering_log + os.sep +'5-040_cluster.fasta',
+                  "-sizeout",
+                  "-centroids", clustering_log + os.sep + '5-040_centroids.fasta']
 
+    uclust_cmd2 = ["usearch",
+                  "-cluster_fast", clustering_log + os.sep + '3-040.fasta',
+                  "-uc", clustering_log + os.sep +'3-040.uc',
+                  "-id", str(0.9),
+                  "-consout", clustering_log + os.sep +'3-040_cluster.fasta',
+                  "-sizeout",
+                  "-centroids", clustering_log + os.sep + '3-040_centroids.fasta']
 
-    # Remove singletons
-        clusters1 = SeqIO.parse(str(output_dir + os.sep +'5-040_cluster.fasta'), "fasta")
-        clusters2 = SeqIO.parse(str(output_dir + os.sep +'3-040_cluster.fasta'), "fasta")
+    subprocess.call(' '.join(uclust_cmd1), shell = True)
+    subprocess.call(' '.join(uclust_cmd2), shell = True)
 
-        final_output1 = remove_singletons(clusters1)
-        final_output2 = remove_singletons(clusters2)
+# Remove singletons
 
-    with open('cluster1.csv', 'w') as writeFile:
+    clusters1 = SeqIO.parse(str(clustering_log + os.sep +'5-040_cluster.fasta'), "fasta")
+    clusters2 = SeqIO.parse(str(clustering_log + os.sep +'3-040_cluster.fasta'), "fasta")
+
+    final_output1 = remove_singletons(clusters1)
+    final_output2 = remove_singletons(clusters2)
+
+    with open(ouput_dir + os.sep + 'cluster1.csv', 'w') as writeFile:
         writer = csv.writer(writeFile)
         for fo in final_output1:
             writer.writerow(fo)
 
-    with open('cluster2.csv', 'w') as writeFile:
+    with open(ouput_dir + os.sep + 'cluster2.csv', 'w') as writeFile:
         writer = csv.writer(writeFile)
         for fo in final_output2:
             writer.writerow(fo)
