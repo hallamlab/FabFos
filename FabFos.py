@@ -215,6 +215,17 @@ class MyFormatter(logging.Formatter):
 
 #################################### Classes end ################################################
 
+def bam2fastq(input_file, sample_id, output_dir, executables):
+    fastq_extract = [executables["bam2fastq"], "-o",
+                     output_dir + os.sep + sample_id + input_file + "_#.fastq", "--no-aligned", input_file]
+    fastq_extract += ["1>", output_dir + os.sep + "bam2fastq.stdout"]
+    fastq_extract += ["2>", output_dir + os.sep + "bam2fastq.stderr"]
+    p_bam2fastq = subprocess.Popen(shell=False, preexec_fn=os.setsid)
+    p_bam2fastq.wait()
+    filtered_reads = glob.glob(output_dir + os.sep + sample_id + input_file + "*fastq")
+    logging.info("done.\n")
+    return filtered_reads
+
 
 def bam2fastq(input_file, sample_id, output_dir, executables):
     """
@@ -486,7 +497,6 @@ def filter_backbone(sample, args, raw_reads):
     # extract the unaligned reads using bam2fastq
     filtered_reads = bam2fastq(bam_file, sample.id, sample.output_dir, args.executables)
     return filtered_reads
-
 
 def get_reference_names_from_sam(sam_file):
     reference_names = set()
