@@ -21,7 +21,7 @@ FabFos: a pipeline for automatically performing quality controls, assembly, and 
 for fosmid sequence information. Circa 2016 - Hallam Lab, UBC
 """
 
-__version__ = "1.1"
+__version__ = "1.2"
 __author__ = "Connor Morgan-Lang"
 __license__ = "GPL-v3"
 __maintainer__ = "Connor Morgan-Lang"
@@ -29,6 +29,7 @@ __email__ = "c.morganlang@gmail.com"
 __status__ = "Unstable"
 
 #################################### Classes begin ################################################
+
 
 class FosmidClone:
     def __init__(self, contig, sequence):
@@ -214,17 +215,6 @@ class MyFormatter(logging.Formatter):
         return result
 
 #################################### Classes end ################################################
-
-def bam2fastq(input_file, sample_id, output_dir, executables):
-    fastq_extract = [executables["bam2fastq"], "-o",
-                     output_dir + os.sep + sample_id + input_file + "_#.fastq", "--no-aligned", input_file]
-    fastq_extract += ["1>", output_dir + os.sep + "bam2fastq.stdout"]
-    fastq_extract += ["2>", output_dir + os.sep + "bam2fastq.stderr"]
-    p_bam2fastq = subprocess.Popen(shell=False, preexec_fn=os.setsid)
-    p_bam2fastq.wait()
-    filtered_reads = glob.glob(output_dir + os.sep + sample_id + input_file + "*fastq")
-    logging.info("done.\n")
-    return filtered_reads
 
 
 def bam2fastq(input_file, sample_id, output_dir, executables):
@@ -498,6 +488,7 @@ def filter_backbone(sample, args, raw_reads):
     filtered_reads = bam2fastq(bam_file, sample.id, sample.output_dir, args.executables)
     return filtered_reads
 
+
 def get_reference_names_from_sam(sam_file):
     reference_names = set()
 
@@ -526,6 +517,7 @@ def get_reference_names_from_sam(sam_file):
 def write_new_fasta(fasta_dict, fasta_name, headers=None):
     """
     Function for writing sequences stored in dictionary to file in FASTA format; optional filtering with headers list
+
     :param fasta_dict: A dictionary containing headers as keys and sequences as values
     :param fasta_name: Name of the FASTA file to write to
     :param headers: Optional list of sequence headers. Only fasta_dict keys in headers will be written
@@ -534,7 +526,7 @@ def write_new_fasta(fasta_dict, fasta_name, headers=None):
     headers = list(headers)
     try:
         fa_out = open(fasta_name, 'w')
-    except:
+    except IOError:
         raise IOError("Unable to open " + fasta_name + " for writing!")
 
     for name in fasta_dict.keys():
@@ -553,6 +545,7 @@ def write_new_fasta(fasta_dict, fasta_name, headers=None):
 def extract_nanopore_for_sample(args, sample, filtered_reads, raw_nanopore_fasta):
     """
     Function aligns the Illumina reads to long reads and creates a new FASTA file of reads that were aligned to
+
     :param args:
     :param sample:
     :param filtered_reads:
@@ -601,6 +594,7 @@ def extract_nanopore_for_sample(args, sample, filtered_reads, raw_nanopore_fasta
 def correct_nanopore(args, sample):
     """
     A function to correct errors in the nanoopore reads using short, accurate Illumina reads and proovread
+
     :param sample: Miffed object with information of current sample
     :param args: command-line arguments list
     :return: Name of the corrected and trimmed nanopore reads
@@ -616,11 +610,11 @@ def correct_nanopore(args, sample):
     proovread_command += ["-p", sample.output_dir + os.sep + "proovread"]  # prefix to output files
     try:
         correct_stderr = open(proovread_prefix + "stderr", 'w')
-    except:
+    except IOError:
         raise IOError("ERROR: cannot open file: " + proovread_prefix + "stderr")
     try:
         correct_stdout = open(proovread_prefix + "stdout", 'w')
-    except:
+    except IOError:
         raise IOError("ERROR: cannot open file: " + proovread_prefix + "stdout")
 
     p_correct = subprocess.Popen(' '.join(proovread_command), shell=True, preexec_fn=os.setsid,
@@ -635,6 +629,7 @@ def correct_nanopore(args, sample):
 def quality_trimming(sample, args, filtered_reads):
     """
     Wrapper for trimmomatic
+
     :param sample: Miffed object with information of current sample
     :param args: command-line arguments list
     :param filtered_reads: list of background-filtered fastq files
@@ -1042,7 +1037,7 @@ def parse_miffed(args):
             else:
                 os.makedirs(miffed_entry.output_dir)
 
-            project_metadata_file = args.fabfos_path + os.sep + miffed_entry.project + os.sep +\
+            project_metadata_file = args.fabfos_path + os.sep + miffed_entry.project + os.sep + \
                                     "FabFos_" + miffed_entry.project + "_metadata.tsv"
             if not os.path.isfile(project_metadata_file):
                 project_metadata = open(project_metadata_file, 'w')
@@ -1057,6 +1052,7 @@ def parse_miffed(args):
 def clean_intermediates(sample):
     """
     Function removes largely useless alignment files
+
     :param sample: Miffed object with information of current sample
     :return:
     """
@@ -1177,6 +1173,7 @@ def get_fosmid_end_name(string):
 def parse_end_alignments(sample, fosmid_assembly, ends_stats):
     """
     Function parses BLAST alignments of fosmid ends mapped to the MEGAHIT assemblies
+
     :param sample: Miffed object with information of current sample
     :param fosmid_assembly: dictionary with headers as keys and sequences for values
     :param ends_stats: dictionary containing information on the fosmid ends
@@ -1264,6 +1261,7 @@ def find_mate_pairs(hit_list):
 def get_exterior_positions(hits, clone):
     """
     Used to find the exterior positions of fosmid-end alignment on the contig.
+
     :param hits: List of EndAlignment objects
     :param clone: Name of the clone - presumably matches an EndAlignment.name
     :return: start and end positions
@@ -1307,6 +1305,7 @@ def get_exterior_positions(hits, clone):
 def assign_clones(ends_mapping, ends_stats, fosmid_assembly):
     """
     Assigns fosmid-end sequences to assembled contigs in fosmid_assembly
+
     :param ends_mapping:
     :param ends_stats:
     :param fosmid_assembly:
@@ -1517,6 +1516,7 @@ def write_fosmid_assignments(sample, clone_map):
 def read_fasta(fasta):
     """
     Function to read a fasta file and store it in a dictionary. Headers are keys, sequences are values
+
     :param fasta: A fasta file name (and path, if necessary)
     :return: dictionary with headers as keys and sequences for values
     """
@@ -1551,6 +1551,7 @@ def read_fasta(fasta):
 def get_assembler_version(assembler):
     """
     Wrapper function for retrieving the version number of either SPAdes or MEGAHIT
+
     :return: version string
     """
     if assembler == "spades":
@@ -1685,6 +1686,7 @@ def get_fosmid_ends_stats(ends_fasta):
 def write_fosmid_end_failures(sample, ends_stats):
     """
     Writes the names of fosmid ends that could not be aligned and failed
+
     :param sample: Miffed object with information of current sample
     :param ends_stats:
     :return:
@@ -1733,7 +1735,7 @@ def write_unique_fosmid_ends_to_bulk(args):
 
     try:
         legacy_ends = open(bulk_ends_file, 'a')
-    except:
+    except IOError:
         raise IOError("Cannot open " + bulk_ends_file + " for appending!")
 
     for new_end in new_fosmid_ends:
@@ -1793,7 +1795,8 @@ def align_nanopore_to_background(args, sample):
 
 def trim_background(sample, nanopore_background_alignments, read_stats):
     """
-    Function
+    Function for removing background (i.e. vector backbone, genome) reads specifically for Nanopore long reads
+
     :param nanopore_background_alignments:
     :param sample: Miffed object with information of current sample
     :param read_stats: A dictionary with values representing basic stats on number of reads and trimming
@@ -1812,7 +1815,7 @@ def trim_background(sample, nanopore_background_alignments, read_stats):
 
     try:
         alignments = open(nanopore_background_alignments, 'r')
-    except:
+    except IOError:
         raise IOError("Unable to open " + nanopore_background_alignments + " for reading!")
 
     for line in alignments:
@@ -1850,6 +1853,7 @@ def trim_background(sample, nanopore_background_alignments, read_stats):
 def get_internal_positions(alignments):
     """
     Function for returning the most internal positions from a list of alignments
+
     :param alignments:
     :return:
     """
@@ -1893,6 +1897,7 @@ def write_trimmed_reads(miffed_entry, nanopore_reads):
 def determine_min_count(num_reads, num_fosmids, k_max):
     """
     Function to determine the best value for the minimum coverage of a k-mer to be included in assembly
+
     :param num_reads:
     :param num_fosmids:
     :param k_max:
@@ -1912,6 +1917,7 @@ def determine_min_count(num_reads, num_fosmids, k_max):
 def assemble_nanopore_reads(sample, args):
     """
     Wrapper function for launching canu assembler with the corrected nanopore reads
+
     :param sample:
     :param args:
     :return:
@@ -1923,7 +1929,7 @@ def assemble_nanopore_reads(sample, args):
         shutil.rmtree(canu_output)
     try:
         os.makedirs(canu_output)
-    except:
+    except IOError:
         raise IOError("Unable to make " + canu_output)
 
     corrected_nanopore_fasta = sample.output_dir + os.sep + sample.id + "_nanopore_trimmed.fasta"
