@@ -216,6 +216,22 @@ class MyFormatter(logging.Formatter):
 #################################### Classes end ################################################
 
 
+def bam2fastq(input_file, sample_id, output_dir, executables):
+    """
+    :return: List of paths to FASTQ files converted from the BAM input_file
+    """
+    logging.info("Converting BAM file to FastQ format... ")
+    fastq_extract = [executables["bam2fastq"], "-o",
+                     output_dir + os.sep + sample_id + input_file + "_#.fastq", "--no-aligned", input_file]
+    fastq_extract += ["1>", output_dir + os.sep + "bam2fastq.stdout"]
+    fastq_extract += ["2>", output_dir + os.sep + "bam2fastq.stderr"]
+    p_bam2fastq = subprocess.Popen(fastq_extract, shell=False, preexec_fn=os.setsid)
+    p_bam2fastq.wait()
+    filtered_reads = glob.glob(output_dir + os.sep + sample_id + input_file + "*fastq")
+    logging.info("done.\n")
+    return filtered_reads
+
+
 def get_dict_keys(dictionary):
     """
     A function for returning the sorted list of dictionary keys, regardless of the Python version.
@@ -237,8 +253,8 @@ def get_options():
     reqs.add_argument("-b", "--background", type=str, required=True,
                       help="Path to the fosmid background database [.fasta]")
     reqs.add_argument("-r", "--reads", type=str, required=True,
-                      help="Path to the sequenced reads directory. This parameter is for the single-end reads "
-                           "(Sanger), the forward strand file, or the interleaved paired-end file. [.fastq]")
+                      help="Path to the sequenced reads directory. Can be in FastQ or BAM format. This parameter is for the"
+                           "single-end reads Sanger), the forward strand file, or the interleaved paired-end file. [.fastq]")
 
     nanopore = parser.add_argument_group(title="Nanopore-specific [development] options")
     nanopore.add_argument("--nanopore_reads", help="A FASTA file containing nanopore reads to be used in assembly.",
@@ -247,6 +263,9 @@ def get_options():
                           action="store_true", default=False, required=False)
 
     opts = parser.add_argument_group(title="Optional arguments")
+
+    opts.add_argument("-t", "--type", choices=["B", "F"], required=False, default="F",
+                      help="Enter B if input type is BAM, F for FastQ. [ DEFAULT = 'F' ]")
     opts.add_argument("-2", "--reverse", type=str, required=False,
                       help="Path to the directory containing reverse-end reads (if applicable) [.fastq]")
     opts.add_argument("-i", "--interleaved", required=False, default=False, action="store_true",
@@ -266,7 +285,7 @@ def get_options():
                       help="Increase the level of verbosity in runtime log.")
     opts.add_argument("-h", "--help",
                       action="help", help="Show this help message and exit")
-
+    
     args = parser.parse_args()
     return args
 
@@ -436,7 +455,7 @@ def filter_backbone(sample, args, raw_reads):
     logging.info("Filtering off-target reads... ")
     check_index(args.background, args.executables["bwa"])
     align_command = [args.executables["bwa"], "mem", "-t", args.threads, args.background, raw_reads["forward"]]
-    if args.reverse:
+    if args.reverse or args.interleaved:
         align_command.append(raw_reads["reverse"])
     align_command.append("1>")
     sam_file = sample.output_dir + sample.id + ".sam"
@@ -457,6 +476,7 @@ def filter_backbone(sample, args, raw_reads):
     p_samtools = subprocess.Popen(' '.join(bam_convert), shell=True, preexec_fn=os.setsid,
                                   stdout=p_samtools_stdout, stderr=p_samtools_stderr)
     p_samtools.wait()
+    logging.info("done.\n")
     if p_samtools.returncode != 0:
         logging.error("BAM file was not successfully created and sorted!\n")
         sys.exit(3)
@@ -464,14 +484,7 @@ def filter_backbone(sample, args, raw_reads):
     p_samtools_stderr.close()
 
     # extract the unaligned reads using bam2fastq
-    fastq_extract = [args.executables["bam2fastq"], "-o",
-                     sample.output_dir + os.sep + sample.id + "_BackboneFiltered_R#.fastq", "--no-aligned", bam_file]
-    fastq_extract += ["1>", sample.output_dir + os.sep + "bam2fastq.stdout"]
-    fastq_extract += ["2>", sample.output_dir + os.sep + "bam2fastq.stderr"]
-    p_bam2fastq = subprocess.Popen(' '.join(fastq_extract), shell=True, preexec_fn=os.setsid)
-    p_bam2fastq.wait()
-    filtered_reads = glob.glob(sample.output_dir + os.sep + sample.id + "_BackboneFiltered*fastq")
-    logging.info("done.\n")
+    filtered_reads = bam2fastq(bam_file, sample.id, sample.output_dir, args.executables)
     return filtered_reads
 
 
@@ -647,9 +660,12 @@ def quality_trimming(sample, args, filtered_reads):
     return trimmomatic_outputs
 
 
-def determine_k_values(reads):
+def determine_k_values(reads, assembler):
     k_min = 71
-    k_max = 241
+    if assembler == "spades":
+        k_max = 127
+    else:
+        k_max = 241
     max_read_length = 0
     read_lengths = list()
     # Sample the first paired-end FASTQ file
@@ -717,7 +733,7 @@ def assemble_fosmids(sample: Sample, args, assembly_reads: dict, k_min: int, k_m
         spades_command = ["spades.py"]
         spades_command += ["-1", forward]
         spades_command += ["-2", reverse]
-        spades_command += ["-s", assembly_reads["singletons"]]
+        spades_command += ["-s", assembly_reads["singletons_fq"]]
         spades_command += ["--careful"]
         spades_command += ["--memory", str(10)]
         spades_command += ["--threads", str(args.threads)]
@@ -872,18 +888,19 @@ def deinterleave_fastq(fastq_file, output_dir=""):
     return fwd_fq, rev_fq
 
 
-def find_raw_reads(args, sample_id):
+def find_raw_reads(reads_dir, sample_id, reverse=""):
     """
     finds the raw read files in the path and stores the file names in a dictionary.
-    :param args:
+    :param reads_dir:
     :param sample_id:
+    :param reverse:
     :return: a dictionary divided by forward and reverse sense
     """
     raw_reads = dict()
     raw_reads["forward"] = ""
     raw_reads["reverse"] = ""
-    forward_reads = glob.glob(args.reads + os.sep + "*fastq")
-    forward_reads += glob.glob(args.reads + os.sep + "*fq")
+    forward_reads = glob.glob(reads_dir + os.sep + "*fastq")
+    forward_reads += glob.glob(reads_dir + os.sep + "*fq")
     if len(forward_reads) == 0:
         logging.error("Unable to locate fastq files. Must end in either 'fastq' or 'fq'\n")
         sys.exit(3)
@@ -899,9 +916,9 @@ def find_raw_reads(args, sample_id):
         else:
             # FASTQ file is not of the current sample
             pass
-    if args.reverse:
-        reverse_reads = glob.glob(args.reverse + os.sep + "*fastq")
-        reverse_reads += glob.glob(args.reverse + os.sep + "*fq")
+    if reverse:
+        reverse_reads = glob.glob(reverse + os.sep + "*fastq")
+        reverse_reads += glob.glob(reverse + os.sep + "*fq")
         for fastq in reverse_reads:
             if re.search(sample_id, fastq) and raw_reads["reverse"] == "":
                 fastq = os.path.join(os.getcwd(), fastq)
@@ -968,9 +985,12 @@ def parse_miffed(args):
     miffed = open(args.miffed, 'r')
     line = miffed.readline()
     libraries = list()
+    header_re = re.compile(r"Sample.*Project.*Human selector.*Number of fosmids")
 
     while line:
-        if not line[0] == '#':
+        if header_re.search(line):
+            pass
+        elif not line[0] == '#':
             if ',' not in line:
                 logging.error("MIFFED input file doesn't seem to be in csv format!\n")
                 sys.exit(3)
@@ -1841,8 +1861,9 @@ def write_trimmed_reads(miffed_entry, nanopore_reads):
     trimmed_nanopore_fasta = miffed_entry.output_dir + os.sep + miffed_entry.id + "_nanopore_trimmed.fasta"
     try:
         new_fasta = open(trimmed_nanopore_fasta, 'w')
-    except:
-        raise IOError("Unable to open " + trimmed_nanopore_fasta + " for writing!")
+    except IOError:
+        logging.error("Unable to open " + trimmed_nanopore_fasta + " for writing.\n")
+        sys.exit()
 
     for trimmed_read in nanopore_reads:
         if len(nanopore_reads[trimmed_read]) >= 1000:
@@ -1870,7 +1891,7 @@ def determine_min_count(num_reads, num_fosmids, k_max):
     approx_coverage = (num_reads * k_max) / (int(num_fosmids) * 40000)
     sys.stdout.write("Approximate fosmid coverage = " + str(approx_coverage) + "\n")
     sys.stdout.flush()
-    min_count = 5
+    min_count = 10
     dist_tail = approx_coverage / 100
     if dist_tail > min_count:
         min_count = int(dist_tail)
@@ -1959,7 +1980,20 @@ def main():
             if sample.assemble:
                 logging.info("Processing raw data for " + sample.id + "\n" +
                              "Outputs for " + sample.id + " will be found in " + sample.output_dir + "\n")
-                raw_reads = find_raw_reads(args, sample.id)
+                if args.type == "B":
+                    fastq_list = bam2fastq(args.reads, sample.id, sample.output_dir, args.executables)
+                    fwd_dir = args.output + os.sep + "bam_split_fwd" + os.sep
+                    rev_dir = args.output + os.sep + "bam_split_rev" + os.sep
+                    for fastq in fastq_list:
+                        if re.search("1.fastq", fastq):
+                            os.makedirs(fwd_dir)
+                            shutil.copy(fastq, fwd_dir)
+                        else:
+                            os.makedirs(rev_dir)
+                            shutil.copy(fastq, rev_dir)
+                    raw_reads = find_raw_reads(fwd_dir, sample.id, rev_dir)
+                else:
+                    raw_reads = find_raw_reads(args.reads, sample.id, args.reverse)
                 if args.interleaved:
                     raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq(raw_reads["forward"],
                                                                                     sample.output_dir)
@@ -2009,7 +2043,7 @@ def main():
 
                 else:
                     # TODO: Include an optional minimus2 module to further assemble the contigs
-                    k_min, k_max, = determine_k_values(assembly_reads)
+                    k_min, k_max, = determine_k_values(assembly_reads, args.assembler)
                     min_count = determine_min_count(num_reads_assembly, sample.num_fosmids, k_max)
                     assemble_fosmids(sample, args, assembly_reads, k_min, k_max, min_count)
                     clean_intermediates(sample)
