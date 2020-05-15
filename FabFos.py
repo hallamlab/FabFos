@@ -1725,14 +1725,14 @@ def get_assembly_stats(sample, args, fosmid_assembly):
     return assembly_stats
 
 
-def update_metadata(metadata_file, sample_id, library_metadata, read_stats, assembly_stats, ends_stats):
+def update_metadata(metadata_file, library_metadata: Miffed, read_stats: ReadStats, assembly_stats, ends_stats):
     try:
         metadata = open(metadata_file, 'a')
     except IOError:
         logging.error("Unable to open " + metadata_file + " to append library metadata!\n")
         sys.exit(3)
 
-    metadata.write(sample_id + "\t")
+    metadata.write(library_metadata.id + "\t")
     metadata.write(library_metadata.project + "\t")
     metadata.write(library_metadata.selector + "\t")
     metadata.write(library_metadata.vector + "\t")
@@ -1746,9 +1746,9 @@ def update_metadata(metadata_file, sample_id, library_metadata, read_stats, asse
     metadata.write(str(library_metadata.read_length) + "\t")
     metadata.write(library_metadata.instrument + "\t")
     metadata.write(strftime("%Y-%m-%d") + "\t")
-    metadata.write(read_stats["num_raw_reads"] + "\t")
-    metadata.write(read_stats["percent_off_target"] + "\t")
-    metadata.write(str(read_stats["number_trimmed_reads"]) + "\t")
+    metadata.write(str(read_stats.num_raw_reads) + "\t")
+    metadata.write(str(read_stats.percent_on_target) + "\t")
+    metadata.write(str(read_stats.num_reads_trimmed) + "\t")
     metadata.write(assembly_stats["Assembler"] + "\t")
     metadata.write(assembly_stats["Contigs"] + "\t")
     metadata.write(assembly_stats["N50"] + "\t")
@@ -2118,8 +2118,8 @@ def main():
                 # TODO: include a visualization to show where the fosmid ends mapped on each contig.
             project_metadata_file = os.path.join(args.fabfos_path, sample.project,
                                                  "FabFos_" + sample.project + "_metadata.tsv")
-            update_metadata(project_metadata_file, sample.id, sample, assembly_stats, ends_stats)
-            update_metadata(args.master_metadata, sample.id, sample, assembly_stats, ends_stats)
+            update_metadata(project_metadata_file, sample, sample.read_stats, assembly_stats, ends_stats)
+            update_metadata(args.master_metadata, sample, sample.read_stats, assembly_stats, ends_stats)
 
 
 main()
