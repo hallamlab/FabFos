@@ -1060,12 +1060,11 @@ def assemble_fosmids(sample: Sample, assembler: str, k_min: int, k_max: int, min
     # Move the output files to their final destinations
     shutil.move(f_contigs, sample.output_dir + os.sep + sample.id + "_contigs.fasta")
     shutil.move(asm_log, sample.output_dir + os.sep + assembler + "_log.txt")
-    shutil.rmtree(sample.output_dir + "assembly" + os.sep)
-
     if len(f_scaffolds) > 0:
         # Only available for SPAdes
         shutil.move(f_scaffolds,
                     sample.output_dir + os.sep + sample.id + "_scaffolds.fasta")
+    shutil.rmtree(sample.output_dir + "assembly" + os.sep)
     logging.info("done.\n")
 
     return
@@ -1140,18 +1139,27 @@ def find_raw_reads(reads_dir: str, sample_id: str, parity="pe", reverse="") -> d
     :param reverse: Path to a directory containing reverse-oriented FASTQ files (optional)
     :return: A dictionary divided by forward and reverse sense
     """
+    # Prep the dictionary for storing matched files
     raw_reads = dict()
     raw_reads["forward"] = ""
     raw_reads["reverse"] = ""
-    forward_reads = glob.glob(reads_dir + os.sep + "*fastq*")
-    forward_reads += glob.glob(reads_dir + os.sep + "*fq*")
+    forward_reads = []
+    reverse_reads = []
+
+    # The list of extensions supported by FabFos
+    extensions = ["*.fastq", "*.fq", "*.fastq.gz", "*.fq.gz"]
+    wildcards = [os.path.join(reads_dir, ext) for ext in extensions]
+    for file_type in wildcards:
+        forward_reads.extend(glob.glob(file_type))
+
     if len(forward_reads) == 0:
         logging.error("Unable to locate fastq files. File extensions must be either 'fastq' or 'fq'\n")
         sys.exit(3)
     raw_reads["forward"] = match_file_with_sample(sample_id, forward_reads)
     if reverse and parity == "pe":
-        reverse_reads = glob.glob(reverse + os.sep + "*fastq")
-        reverse_reads += glob.glob(reverse + os.sep + "*fq")
+        wildcards = [os.path.join(reverse, ext) for ext in extensions]
+        for file_type in wildcards:
+            reverse_reads.extend(glob.glob(file_type))
         raw_reads["reverse"] = match_file_with_sample(sample_id, reverse_reads)
 
     # Check to make sure there are fastq files
@@ -2145,7 +2153,7 @@ def main():
                              "Outputs for " + sample.id + " will be found in " + sample.output_dir + "\n")
                 sample.gather_reads(args.reads, args.reverse, args.interleaved, args.parity,
                                     args.executables, sample.output_dir, args.type)
-                sample.qc_reads(args.background, args.interleaved, args.parity, args.adaptor_trim,
+                sample.qc_reads(args.background, args.interleaved, args.parity, fos_father.adaptor_trim,
                                 args.executables, args.threads)
                 if sample.nanopore:
                     sample.prep_nanopore(args, args.nanopore_reads)
@@ -2170,7 +2178,7 @@ def main():
             project_metadata_file = os.path.join(args.fabfos_path, sample.project,
                                                  "FabFos_" + sample.project + "_metadata.tsv")
             update_metadata(project_metadata_file, sample, sample.read_stats, assembly_stats, ends_stats)
-            update_metadata(args.master_metadata, sample, sample.read_stats, assembly_stats, ends_stats)
+            update_metadata(fos_father.master_metadata, sample, sample.read_stats, assembly_stats, ends_stats)
 
 
 main()
