@@ -897,12 +897,12 @@ def determine_k_values(test_fastq: str, assembler: str):
 
 def spades_wrapper(sample: Sample, k_min: int, k_max: int, min_count: int, spades_exe=None, num_threads=2):
     # The following is for assembling with SPAdes:
-    fwd_fq, rev_fq = sample.retrieve_separate_pe_fq()
     if not spades_exe:
         spades_exe = "spades.py"
 
     spades_command = [spades_exe]
     if sample.parity == "pe":
+        fwd_fq, rev_fq = sample.retrieve_separate_pe_fq()
         spades_command += ["-1", fwd_fq]
         if rev_fq:
             spades_command += ["-2", rev_fq]
@@ -924,9 +924,9 @@ def spades_wrapper(sample: Sample, k_min: int, k_max: int, min_count: int, spade
 
 
 def megahit_wrapper(sample: Sample, megahit_exe: str, k_min: int, k_max: int, min_count: int, num_threads=2):
-    fwd_fq, rev_fq = sample.retrieve_separate_pe_fq()
     megahit_command = [megahit_exe]
     if sample.parity == "pe":
+        fwd_fq, rev_fq = sample.retrieve_separate_pe_fq()
         megahit_command += ["-1", fwd_fq]
         if rev_fq:
             megahit_command += ["-2", rev_fq]
