@@ -1,2 +1,3 @@
 .idea/
 trim_sequences.fasta.*
+*_env/

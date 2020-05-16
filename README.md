@@ -17,19 +17,25 @@ Dependencies listed below will need to be independently installed.
 
 ### Dependencies
 
-FabFos relies on multiple other bioinformatic softwares to process the fosmids.
+FabFos relies on multiple other bioinformatic software and python libraries to process the fosmids.
+
+To install the python requirements, use the command:
+```shell script
+pip install -r requirements.txt
+```
+
 Please consider citing these in your published work that relies on FabFos.
 
-For adapter and quality trimming, FabFos uses __Trimmomatic__:
+__Trimmomatic__ is used for adapter and quality trimming:  
 Bolger, A. M., Lohse, M., & Usadel, B. (2014). Trimmomatic: A flexible trimmer for Illumina sequence data.
 Bioinformatics, 30(15), 2114–2120. http://doi.org/10.1093/bioinformatics/btu170
 
-__MEGAHIT__ is used to assemble the QC'd reads:
+__MEGAHIT__ is used to assemble the QC'd reads:  
 Li, D., Liu, C. M., Luo, R., Sadakane, K., & Lam, T. W. (2014).
 MEGAHIT: An ultra-fast single-node solution for large and complex metagenomics assembly via succinct de Bruijn graph.
 Bioinformatics, 31(10), 1674–1676. http://doi.org/10.1093/bioinformatics/btv033
 
-__BLAST__ is used to align the end-sequences to the fosmid contigs:
+__BLAST__ is used to align the end-sequences to the fosmid contigs:  
 Altschul, S. F., Gish, W., Miller, W., Myers, E. W., & Lipman, D. J. (1990). Basic local alignment search tool.
 Journal of Molecular Biology, 215(3), 403–10. http://doi.org/10.1016/S0022-2836(05)80360-2
 
