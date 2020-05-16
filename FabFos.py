@@ -1072,6 +1072,7 @@ def assemble_fosmids(sample: Sample, assembler: str, k_min: int, k_max: int, min
 
 
 def deinterleave_fastq(fastq_file: str, output_dir="") -> (str, str):
+    # TODO: support gizpped files
     logging.info("De-interleaving forward and reverse reads in " + fastq_file + "... ")
     if not output_dir:
         output_dir = os.path.dirname(fastq_file)
@@ -1111,6 +1112,24 @@ def deinterleave_fastq(fastq_file: str, output_dir="") -> (str, str):
     return fwd_fq, rev_fq
 
 
+def match_file_with_sample(sample_name, file_list):
+    regex_sample = re.compile(sample_name)
+    match = ""
+    for f_name in file_list:
+        if regex_sample.search(os.path.basename(f_name)) and match == "":
+            match = os.path.join(os.getcwd(), f_name)
+        # Ensure there is a single fastq file for this sample
+        elif regex_sample.search(os.path.basename(f_name)) and match != "":
+            logging.error("More than 2 files match sample ID in reads directory: '{0}' and '{1}'\n" +
+                          "Please concatenate files from the same library and re-run.\n".format(match,
+                                                                                                os.path.basename(f_name)))
+            sys.exit(17)
+        else:
+            # File is not of the current sample
+            pass
+    return match
+
+
 def find_raw_reads(reads_dir: str, sample_id: str, parity="pe", reverse="") -> dict:
     """
     finds the raw read files in the path and stores the file names in a dictionary.
@@ -1124,35 +1143,16 @@ def find_raw_reads(reads_dir: str, sample_id: str, parity="pe", reverse="") -> d
     raw_reads = dict()
     raw_reads["forward"] = ""
     raw_reads["reverse"] = ""
-    forward_reads = glob.glob(reads_dir + os.sep + "*fastq")
-    forward_reads += glob.glob(reads_dir + os.sep + "*fq")
+    forward_reads = glob.glob(reads_dir + os.sep + "*fastq*")
+    forward_reads += glob.glob(reads_dir + os.sep + "*fq*")
     if len(forward_reads) == 0:
         logging.error("Unable to locate fastq files. File extensions must be either 'fastq' or 'fq'\n")
         sys.exit(3)
-    regex_sample = re.compile(sample_id)
-    for fastq in forward_reads:
-        if regex_sample.search(os.path.basename(fastq)) and raw_reads["forward"] == "":
-            raw_reads["forward"] = os.path.join(os.getcwd(), fastq)
-        # Ensure there is a single forward fastq file for sample_id
-        elif regex_sample.search(os.path.basename(fastq)) and raw_reads["forward"] != "":
-            logging.error("More than 2 fastq files match sample ID string in reads directory! " +
-                          "Please concatenate those files from the same library and try again.\n")
-            sys.exit(3)
-        else:
-            # FASTQ file is not of the current sample
-            pass
+    raw_reads["forward"] = match_file_with_sample(sample_id, forward_reads)
     if reverse and parity == "pe":
         reverse_reads = glob.glob(reverse + os.sep + "*fastq")
         reverse_reads += glob.glob(reverse + os.sep + "*fq")
-        for fastq in reverse_reads:
-            if re.search(sample_id, fastq) and raw_reads["reverse"] == "":
-                fastq = os.path.join(os.getcwd(), fastq)
-                raw_reads["reverse"] = fastq
-            # Ensure there is a single reverse fastq file for sample_id
-            elif regex_sample.search(os.path.basename(fastq)) and raw_reads["reverse"] != "":
-                logging.error("More than 2 fastq files match sample ID string in reverse directory! " +
-                              "Please concatenate those files from the same library and try again.\n")
-                sys.exit(3)
+        raw_reads["reverse"] = match_file_with_sample(sample_id, reverse_reads)
 
     # Check to make sure there are fastq files
     elif len(raw_reads.values()) == 0:
