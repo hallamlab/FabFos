@@ -30,6 +30,89 @@ __email__ = "c.morganlang@gmail.com"
 __status__ = "Unstable"
 
 
+class FabFos:
+    def __init__(self, path):
+        self.db_path = path
+        self.log_file_name = ""
+
+        # Add new information:
+        self.os = os_type()
+        if sys.version_info > (2, 9):
+            self.py_version = 3
+        else:
+            self.py_version = 2
+
+        self.adaptor_trim = "/usr/local/share/Trimmomatic-0.35/adapters/"
+        self.master_metadata = os.path.join(self.db_path, "FabFos_master_metadata.tsv")
+        self.metadata_header = "#Sample Name (LLLLL-PP-WWW)\tProject\tHuman selector\tVector Name\t" \
+                               "Screen [in silico | functional]\tSelection criteria\tNumber of fosmids\t" \
+                               "Sequencing submission date (YYYY-MM-DD)\tGlycerol plate name\tSequencing center\t" \
+                               "Sequencing type\tRead length\tInstrument\tDate of FabFos analysis\tNumber of reads\t" \
+                               "% off-target reads\tNumber of trimmed reads\tAssembler version\tNumber of Contigs\t" \
+                               "N50\tN90\tContigs > 27kbp\tContigs > 50kbp\t" \
+                               "# single-pair\t# multi-pair\t# single-orphan\t# multi-orphan\t# Unidentifiable\t" \
+                               "# Fosmid ends(X2 = #reads)\t# aligned fosmid ends\t# unaligned fosmid ends\t# Failed ends\n"
+        return
+
+    def furnish(self) -> None:
+        if not os.path.isdir(self.db_path):
+            os.makedirs(self.db_path)
+
+        with open(self.master_metadata, 'w') as metadata_handler:
+            metadata_handler.write(self.metadata_header)
+
+        return
+
+
+class FosmidEnds:
+    """
+    Class for holding count data for fosmid ends
+    """
+    def __init__(self):
+        self.fasta_path = ""
+        self.ends = None
+        self.failed = set()
+        self.all_clones = set()
+        self.aligned = set()
+        self.unaligned = set()
+
+        self.single_pair = 0
+        self.multi_pair = 0
+        self.single_orphan = 0
+        self.multi_orphan = 0
+        self.unassigned = 0
+        self.total_ends = 0
+        self.num_missing = 0
+        self.num_stunted = 0
+        self.num_total = 0
+        self.num_failed = 0
+        self.num_aligned = 0
+        self.num_unaligned = 0
+
+    def load_ends(self):
+        self.ends = read_fasta(self.fasta_path)  # type: dict
+        self.get_fosmid_ends_stats()
+        return
+
+    def get_fosmid_ends_stats(self, min_length=100) -> None:
+        if not self.ends:
+            logging.error("Fosmid ends FASTA file has not been loaded - FosmidsEnds.ends is empty.\n")
+            sys.exit(13)
+
+        for name, seq in self.ends.items():
+            if name[0] == '>':
+                clone_name = get_fosmid_end_name(name[1:])
+            else:
+                clone_name = get_fosmid_end_name(name)
+            self.all_clones.add(clone_name)
+            if len(seq) < min_length:
+                self.failed.add(clone_name)
+
+        self.num_total = len(self.all_clones)
+        self.num_failed = len(self.failed)
+        return
+
+
 class FosmidClone:
     def __init__(self, contig, sequence):
         self.contig = contig
@@ -445,6 +528,7 @@ def get_options():
     opts.add_argument("-f", "--fabfos_path", type=str, required=False,
                       default="/mnt/nfs/sharknado/LimsData/FabFos/",
                       help="Path to FabFos database on sharknado [DEFAULT = /mnt/nfs/sharknado/LimsData/FabFos/]")
+    opts.add_argument("--force", required=False, default=False, action="store_true")
     opts.add_argument("-T", "--threads", type=str, required=False, default=str(8),
                       help="The number of threads that can be used [DEFAULT = 8]")
     opts.add_argument("-e", "--ends", required=False, default=None,
@@ -501,17 +585,29 @@ def prep_logging(log_file_name, verbosity):
     return
 
 
-def review_arguments(args):
+def review_arguments(args, fabfos: FabFos) -> None:
     """
-    Function that ensures the proper information has been provided and adds system information to args
+    Function that ensures the proper information has been provided
 
     :param args: parsed command-line arguments from get_options()
-    :return: args with more information
+    :param fabfos: Instance of the FabFos class
+    :return: None
     """
 
+    if not os.path.isfile(fabfos.master_metadata):
+        if not args.force:
+            logging.error("The FabFos directory '{}' does not contain '{}'. "
+                          "Are you sure its a bona fide FabFos repository?".format(fabfos.db_path,
+                                                                                   os.path.basename(
+                                                                                       fabfos.master_metadata)))
+            sys.exit(3)
+        else:
+            logging.info("Creating a new FabFos directory in '{}'".format(fabfos.db_path))
+            fabfos.furnish()
+
     # Setup the global logger and main log file
-    log_file_name = args.fabfos_path + os.sep + "FabFos_log.txt"
-    prep_logging(log_file_name, args.verbose)
+    fabfos.log_file_name = args.fabfos_path + os.sep + "FabFos_log.txt"
+    prep_logging(fabfos.log_file_name, args.verbose)
 
     # Review the provided arguments:
     if not os.path.isdir(args.reads):
@@ -534,32 +630,7 @@ def review_arguments(args):
                       "Please convert the BAM to a FASTQ file, using samtools or bam2fastq, and provide those.\n")
         sys.exit(5)
 
-    # Add new information:
-    args.os = os_type()
-    if sys.version_info > (2, 9):
-        args.py_version = 3
-    else:
-        args.py_version = 2
-
-    args.adaptor_trim = "/usr/local/share/Trimmomatic-0.35/adapters/"
-
-    args.metadata_header = "#Sample Name (LLLLL-PP-WWW)\tProject\tHuman selector\tVector Name\t" \
-                           "Screen [in silico | functional]\tSelection criteria\tNumber of fosmids\t" \
-                           "Sequencing submission date (YYYY-MM-DD)\tGlycerol plate name\tSequencing center\t" \
-                           "Sequencing type\tRead length\tInstrument\tDate of FabFos analysis\tNumber of reads\t" \
-                           "% off-target reads\tNumber of trimmed reads\tAssembler version\tNumber of Contigs\t" \
-                           "N50\tN90\tContigs > 27kbp\tContigs > 50kbp\t" \
-                           "# single-pair\t# multi-pair\t# single-orphan\t# multi-orphan\t# Unidentifiable\t" \
-                           "# Fosmid ends(X2 = #reads)\t# aligned fosmid ends\t# unaligned fosmid ends\t# Failed ends\n"
-
-    if not os.path.isfile(args.fabfos_path + os.sep + "FabFos_master_metadata.tsv"):
-        logging.error("This fabfos_path directory does not contain a FabFos_master_metadata.tsv file. "
-                      "Are you sure its a bona fide FabFos repository?")
-        sys.exit(3)
-
-    args.master_metadata = args.fabfos_path + os.sep + "FabFos_master_metadata.tsv"
-
-    return args
+    return
 
 
 def is_exe(program):
@@ -580,23 +651,22 @@ def which(program):
     return None
 
 
-def find_executables(args):
+def find_executables() -> dict:
     """
     Find the executables that are to be used in the pipeline:
     BWA, MEGAHIT, Trimmomatic, samtools
 
-    :param args: parsed command-line arguments from get_options()
-    :return: args with executables list included
+    :return: Dictionary with executable paths indexed by executable names
     """
     # TODO: Write the tool versions to the log file
     required_execs = ["bwa", "samtools", "megahit", "bam2fastq", "trimmomatic", "fq2fa", "blastn", "makeblastdb",
                       "splitFASTA", "getNx", "proovread", "canu"]
-    args.executables = dict()
+    executables = dict()
     for executable in required_execs:
-        args.executables[executable] = which(executable)
-        if args.executables[executable] is None:
+        executables[executable] = which(executable)
+        if executables[executable] is None:
             raise EnvironmentError("Unable to find executable for " + executable)
-    return args
+    return executables
 
 
 def check_index(path, bwa_path):
@@ -1130,12 +1200,13 @@ def get_assemble_input(sample):
     return assemble
 
 
-def parse_miffed(args):
+def parse_miffed(args, fabfos: FabFos):
     """
     Finds the primary project name, submitter, sequencing platform and other information to help with processing
     and storage of the inputs/outputs.
 
     :param args: parsed command-line arguments from get_options()
+    :param fabfos: An instance of the FabFos class
     :return: List of Miffed instances, one representing each row in the Miffed file
     """
     miffed = open(args.miffed, 'r')
@@ -1156,7 +1227,7 @@ def parse_miffed(args):
                                      " when at least 13 are expected\n" + line)
             miffed_entry = Miffed(fields[0])
             miffed_entry.populate_info(fields)
-            miffed_entry.output_dir = os.sep.join([args.fabfos_path, miffed_entry.project, miffed_entry.id]) + os.sep
+            miffed_entry.output_dir = os.sep.join([fabfos.db_path, miffed_entry.project, miffed_entry.id]) + os.sep
             miffed_entry.assembled_fosmids = miffed_entry.output_dir + os.sep + miffed_entry.id + "_contigs.fasta"
             complete = miffed_entry.ensure_completeness(args.miffed)
             if complete is False:
@@ -1189,11 +1260,11 @@ def parse_miffed(args):
             else:
                 os.makedirs(miffed_entry.output_dir)
 
-            project_metadata_file = args.fabfos_path + os.sep + miffed_entry.project + os.sep + \
-                                    "FabFos_" + miffed_entry.project + "_metadata.tsv"
+            project_metadata_file = os.path.join(fabfos.db_path, miffed_entry.project,
+                                                 "FabFos_" + miffed_entry.project + "_metadata.tsv")
             if not os.path.isfile(project_metadata_file):
                 project_metadata = open(project_metadata_file, 'w')
-                project_metadata.write(args.metadata_header)
+                project_metadata.write(fabfos.metadata_header)
                 project_metadata.close()
             libraries.append(miffed_entry)
         line = miffed.readline()
@@ -1288,18 +1359,16 @@ def get_fosmid_end_name(string):
     return name
 
 
-def parse_end_alignments(sample, fosmid_assembly, ends_stats):
+def parse_end_alignments(sample, fosmid_assembly, ends_stats: FosmidEnds) -> dict:
     """
     Function parses BLAST alignments of fosmid ends mapped to the MEGAHIT assemblies
 
     :param sample: Miffed object with information of current sample
     :param fosmid_assembly: dictionary with headers as keys and sequences for values
-    :param ends_stats: dictionary containing information on the fosmid ends
+    :param ends_stats: A FosmidEnds instance
     :return: dictionary of contig names (keys) and list of EndAlignment objects (values) or empty list
     """
     ends_mapping = dict()
-    ends_stats["aligned"] = set()
-    ends_stats["unaligned"] = set()
     blast_output = sample.output_dir + os.sep + sample.id + "_endsMapped.tbl"
     try:
         blast_table = open(blast_output, 'r')
@@ -1318,8 +1387,8 @@ def parse_end_alignments(sample, fosmid_assembly, ends_stats):
         contig = ">" + alignment.sseqid
         if alignment.length > 100 and alignment.bitscore > 500:
             alignment.parse_fosmid_end_name()
-            if alignment.name not in ends_stats["failed"]:
-                ends_stats["aligned"].add(alignment.name)
+            if alignment.name not in ends_stats.failed:
+                ends_stats.aligned.add(alignment.name)
 
             # Screen for the best alignment of a fosmid end based on bitscore
             try:
@@ -1338,14 +1407,14 @@ def parse_end_alignments(sample, fosmid_assembly, ends_stats):
                 ends_mapping[contig].append(alignment)
         line = blast_table.readline()
 
-    unaligned = ends_stats["all_clones"].difference(ends_stats["aligned"])
+    unaligned = ends_stats.all_clones.difference(ends_stats.aligned)
     for fosmid_end in unaligned:
-        if fosmid_end not in ends_stats["failed"]:
-            ends_stats["unaligned"].add(fosmid_end)
-    ends_stats["Num_unaligned"] = len(ends_stats["unaligned"])
-    ends_stats["Num_aligned"] = len(ends_stats["aligned"])
+        if fosmid_end not in ends_stats.failed:
+            ends_stats.unaligned.add(fosmid_end)
+    ends_stats.num_unaligned = len(ends_stats.unaligned)
+    ends_stats.num_aligned = len(ends_stats.aligned)
 
-    return ends_mapping, ends_stats
+    return ends_mapping
 
 
 def reverse_complement(dna_sequence):
@@ -1420,12 +1489,12 @@ def get_exterior_positions(hits, clone):
     return start, end
 
 
-def assign_clones(ends_mapping, ends_stats, fosmid_assembly):
+def assign_clones(ends_mapping, ends_stats: FosmidEnds, fosmid_assembly):
     """
     Assigns fosmid-end sequences to assembled contigs in fosmid_assembly
 
     :param ends_mapping:
-    :param ends_stats:
+    :param ends_stats: A FosmidEnds instance
     :param fosmid_assembly:
     :return:
     """
@@ -1521,12 +1590,12 @@ def assign_clones(ends_mapping, ends_stats, fosmid_assembly):
 
                 fosmid = FosmidClone(contig, fosmid_assembly[contig])
                 hits -= 1
-    ends_stats["Single-orphan"] = len(single_orphans)
-    ends_stats["Unassigned"] = len(unassigned_contigs)
-    ends_stats["Multi-pair"] = len(multi_pairs)
-    ends_stats["Single-pair"] = len(single_pairs)
-    ends_stats["Multi-orphan"] = len(multi_orphans)
-    return clone_map, ends_stats, multi_fosmid_map
+    ends_stats.single_orphan = len(single_orphans)
+    ends_stats.unassigned = len(unassigned_contigs)
+    ends_stats.multi_pair = len(multi_pairs)
+    ends_stats.single_pair = len(single_pairs)
+    ends_stats.multi_orphan = len(multi_orphans)
+    return clone_map, multi_fosmid_map
 
 
 def prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map):
@@ -1738,7 +1807,8 @@ def get_assembly_stats(sample, args, fosmid_assembly):
     return assembly_stats
 
 
-def update_metadata(metadata_file, library_metadata: Miffed, read_stats: ReadStats, assembly_stats, ends_stats):
+def update_metadata(metadata_file, library_metadata: Miffed,
+                    read_stats: ReadStats, assembly_stats, ends_stats: FosmidEnds):
     try:
         metadata = open(metadata_file, 'a')
     except IOError:
@@ -1768,41 +1838,26 @@ def update_metadata(metadata_file, library_metadata: Miffed, read_stats: ReadSta
     metadata.write(assembly_stats["N90"] + "\t")
     metadata.write(assembly_stats["27kbp"] + "\t")
     metadata.write(assembly_stats["50kbp"] + "\t")
-    metadata.write(str(ends_stats["Single-pair"]) + "\t")
-    metadata.write(str(ends_stats["Multi-pair"]) + "\t")
-    metadata.write(str(ends_stats["Single-orphan"]) + "\t")
-    metadata.write(str(ends_stats["Multi-orphan"]) + "\t")
-    metadata.write(str(ends_stats["Unassigned"]) + "\t")
-    metadata.write(str(ends_stats["Num_total"]) + "\t")
-    metadata.write(str(ends_stats["Num_aligned"]) + "\t")
-    metadata.write(str(ends_stats["Num_unaligned"]) + "\t")
-    metadata.write(str(ends_stats["Num_failed"]) + "\n")
+    metadata.write(str(ends_stats.single_pair) + "\t")
+    metadata.write(str(ends_stats.multi_pair) + "\t")
+    metadata.write(str(ends_stats.single_orphan) + "\t")
+    metadata.write(str(ends_stats.multi_orphan) + "\t")
+    metadata.write(str(ends_stats.unassigned) + "\t")
+    metadata.write(str(ends_stats.num_total) + "\t")
+    metadata.write(str(ends_stats.num_aligned) + "\t")
+    metadata.write(str(ends_stats.num_unaligned) + "\t")
+    metadata.write(str(ends_stats.num_failed) + "\n")
 
     metadata.close()
     return
 
 
-def get_fosmid_ends_stats(ends_fasta):
-    ends_stats = dict()
-    ends_stats["failed"] = set()
-    ends_stats["all_clones"] = set()
-    for clone in ends_fasta:
-        clone_name = get_fosmid_end_name(clone[1:])
-        ends_stats["all_clones"].add(clone_name)
-        if len(ends_fasta[clone]) < 100:
-            ends_stats["failed"].add(clone_name)
-
-    ends_stats["Num_total"] = len(ends_stats["all_clones"])
-    ends_stats["Num_failed"] = len(ends_stats["failed"])
-    return ends_stats
-
-
-def write_fosmid_end_failures(sample, ends_stats):
+def write_fosmid_end_failures(sample: Miffed, ends_stats: FosmidEnds) -> None:
     """
     Writes the names of fosmid ends that could not be aligned and failed
 
     :param sample: Miffed object with information of current sample
-    :param ends_stats:
+    :param ends_stats: An instance of the FosmidEnds class
     :return:
     """
     sample_prefix = sample.output_dir + os.sep + sample.id
@@ -1814,9 +1869,9 @@ def write_fosmid_end_failures(sample, ends_stats):
         logging.error("Cannot open file: " + fosmid_end_failures)
         sys.exit(3)
     failure_file.write("#Fosmid-end\tcategory\n")
-    for end in ends_stats["failed"]:
+    for end in ends_stats.failed:
         failure_file.write(end + "\tSequencing failure\n")
-    for end in ends_stats["unaligned"]:
+    for end in ends_stats.unaligned:
         failure_file.write(end + "\tUnaligned\n")
 
     failure_file.close()
@@ -2071,29 +2126,16 @@ def assemble_nanopore_reads(sample: Sample, args):
 
 
 def main():
-    # TODO: Include an init function to initialize a new directory to be a master FabFos repository
     args = get_options()
-    args = review_arguments(args)
-    args = find_executables(args)
-    libraries = parse_miffed(args)
+    fos_father = FabFos(args.fabfos_path)
+    review_arguments(args, fos_father)
+    args.executables = find_executables()
+    libraries = parse_miffed(args, fos_father)
 
-    ends_stats = dict()
+    ends_stats = FosmidEnds()
     if args.ends:
-        ends_fasta = read_fasta(args.ends)
-        ends_stats = get_fosmid_ends_stats(ends_fasta)
-    else:
-        ends_stats["Single-pair"] = 0
-        ends_stats["Multi-pair"] = 0
-        ends_stats["Single-orphan"] = 0
-        ends_stats["Multi-orphan"] = 0
-        ends_stats["Unassigned"] = 0
-        ends_stats["Total_ends"] = 0
-        ends_stats["Num_missing"] = 0
-        ends_stats["Num_stunted"] = 0
-        ends_stats["Num_total"] = 0
-        ends_stats["Num_failed"] = 0
-        ends_stats["Num_aligned"] = 0
-        ends_stats["Num_unaligned"] = 0
+        ends_stats.fasta_path = args.ends
+        ends_stats.load_ends()
 
     # Sequence processing and filtering:
     for sample in libraries:  # type: Miffed
@@ -2117,8 +2159,8 @@ def main():
             # For mapping fosmid ends:
             if args.ends:
                 map_ends(args, sample)
-                ends_mapping, ends_stats = parse_end_alignments(sample, fosmid_assembly, ends_stats)
-                clone_map, ends_stats, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
+                ends_mapping = parse_end_alignments(sample, fosmid_assembly, ends_stats)
+                clone_map, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
                 clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
                 write_fosmid_assignments(sample, clone_map)
                 write_fosmid_end_failures(sample, ends_stats)
