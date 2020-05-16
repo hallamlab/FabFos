@@ -415,13 +415,13 @@ def get_options():
                        help="Path to the directory containing reverse-end reads (if applicable) [.fastq]")
     reads.add_argument("-i", "--interleaved", required=False, default=False, action="store_true",
                        help="Flag indicating the reads are interleaved "
-                            "(i.e. forward and reverse pairs are in the same file)")
+                            "(i.e. forward and reverse pairs are in the same file). [DEFAULT = False]")
     reads.add_argument("-p", "--parity", required=False, default="pe", choices=["pe", "se"],
                        help="Specifying the sequencing chemistry used, either paired-end (pe) or single-end (se). "
                             "[DEFAULT = 'pe']")
 
     opts.add_argument("-a", "--assembler", choices=["spades", "megahit"], required=False, default="spades",
-                      help="Genome assembly software to use.")
+                      help="Genome assembly software to use. [DEFAULT = spades]")
     opts.add_argument("-f", "--fabfos_path", type=str, required=False,
                       default="/mnt/nfs/sharknado/LimsData/FabFos/",
                       help="Path to FabFos database on sharknado [DEFAULT = /mnt/nfs/sharknado/LimsData/FabFos/]")
@@ -2146,7 +2146,7 @@ def main():
                 logging.info("Processing raw data for " + sample.id + "\n" +
                              "Outputs for " + sample.id + " will be found in " + sample.output_dir + "\n")
                 sample.gather_reads(args.reads, args.reverse, args.interleaved, args.parity,
-                                    args.executables, args.output, args.type)
+                                    args.executables, sample.output_dir, args.type)
                 sample.qc_reads(args.background, args.interleaved, args.parity, args.adapters,
                                 args.executables, args.threads)
                 if sample.nanopore:
