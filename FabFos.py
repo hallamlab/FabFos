@@ -10,6 +10,7 @@ try:
     import subprocess
     import shutil
     import logging
+    import pyfastx
     from time import strftime
 except ImportWarning:
     sys.stderr.write("Could not load some user defined module functions")
@@ -191,7 +192,7 @@ class Sample:
             logging.warning("Number of reads remaining will provide less than 20X coverage for a single fosmid"
                             " - skipping this sample\n")
             return
-        trimmed_reads = quality_trimming(executables["trimmomatic"], self, filtered_reads, adapters, parity, num_threads)
+        trimmed_reads = quality_trimming(executables["trimmomatic"], self, filtered_reads, parity, adapters, num_threads)
         self.read_stats.num_reads_assembled = find_num_reads(trimmed_reads)
         self.read_stats.num_reads_trimmed = self.read_stats.num_filtered_reads - self.read_stats.num_reads_assembled
 
@@ -363,23 +364,42 @@ class MyFormatter(logging.Formatter):
         return result
 
 
+def subprocess_helper(cmd_list: list, graceful=False, stdout=None, stderr=None):
+    proc = subprocess.Popen(' '.join(cmd_list), shell=True, preexec_fn=os.setsid, stdout=stdout, stderr=stderr)
+    proc.wait()
+    if proc.returncode != 0:
+        logging.error("'{0}' did not complete successfully!.\n"
+                      "Command used:\n{1}\n".format(str(cmd_list[0]), ' '.join(cmd_list)))
+        if not graceful:
+            sys.exit(9)
+    return
+
+
 def bam2fastq(input_file: str, sample_id: str, output_dir: str, bam2fastq_exe: str, parity="pe"):
     """
     :return: List of paths to FASTQ files converted from the BAM input_file
     """
     logging.info("Converting BAM file to FastQ format... ")
-    fastq_extract = [bam2fastq_exe, "--no-aligned"]
+    fastq_extract = [bam2fastq_exe, "--no-aligned", "--quiet"]
     if parity == "pe":
-        fastq_extract = ["-o", os.path.join(output_dir, sample_id + input_file + "_#.fastq")]
+        fastq_extract += ["-o", os.path.join(output_dir, sample_id + "_#.fastq")]
     if parity == "se":
-        fastq_extract = ["-o", os.path.join(output_dir, sample_id + input_file + "_.fastq")]
+        fastq_extract += ["-o", os.path.join(output_dir, sample_id + ".fastq")]
     fastq_extract.append(input_file)
     fastq_extract += ["1>", output_dir + os.sep + "bam2fastq.stdout"]
     fastq_extract += ["2>", output_dir + os.sep + "bam2fastq.stderr"]
-    p_bam2fastq = subprocess.Popen(fastq_extract, shell=False, preexec_fn=os.setsid)
-    p_bam2fastq.wait()
 
-    filtered_reads = glob.glob(os.path.join(output_dir, sample_id + input_file + "*fastq"))
+    subprocess_helper(fastq_extract, False)
+
+    glob_path = os.path.join(output_dir, sample_id + "*fastq")
+    filtered_reads = glob.glob(glob_path)
+    if len(filtered_reads) == 0:
+        logging.error("Path to bam2fastq filtered reads files is incorrect - no FASTQ files found! "
+                      "Glob path used: '{0}'\n"
+                      "Command used:\n"
+                      "{1}".format(glob_path, ' '.join(fastq_extract)))
+        sys.exit(5)
+
     logging.info("done.\n")
     return filtered_reads
 
@@ -589,11 +609,9 @@ def check_index(path, bwa_path):
             index_dir = os.path.dirname(os.path.abspath(path))
             index_command += ["1>", index_dir + os.sep + "bwa_index.stdout"]
             index_command += ["2>", index_dir + os.sep + "bwa_index.stderr"]
-            p_index = subprocess.Popen(' '.join(index_command), shell=True, preexec_fn=os.setsid)
-            p_index.wait()
-            if p_index.returncode != 0:
-                logging.error("bwa index did not complete successfully.\n")
-                sys.exit(17)
+
+            subprocess_helper(index_command, graceful=False)
+
             logging.info("done.\nResuming alignment... ")
             break
     return
@@ -614,8 +632,9 @@ def bwa_mem_wrapper(bwa_exe, index, sample_name, fwd_fq, output_dir,
     sam_file = output_dir + sample_name + ".sam"
     align_command.append(sam_file)
     align_command += ["2>", "/dev/null"]
-    p_mem = subprocess.Popen(' '.join(align_command), shell=True, preexec_fn=os.setsid)
-    p_mem.wait()
+
+    subprocess_helper(cmd_list=align_command, graceful=False)
+
     return sam_file
 
 
@@ -645,13 +664,11 @@ def filter_backbone(sample: Sample, background: str, interleaved: bool, executab
     bam_convert += ["-o", bam_file]
     p_samtools_stdout = open(sample.output_dir + os.sep + "samtools.stdout", 'w')
     p_samtools_stderr = open(sample.output_dir + os.sep + "samtools.stderr", 'w')
-    p_samtools = subprocess.Popen(' '.join(bam_convert), shell=True, preexec_fn=os.setsid,
-                                  stdout=p_samtools_stdout, stderr=p_samtools_stderr)
-    p_samtools.wait()
+
+    subprocess_helper(cmd_list=bam_convert, graceful=False, stdout=p_samtools_stdout, stderr=p_samtools_stderr)
+
     logging.info("done.\n")
-    if p_samtools.returncode != 0:
-        logging.error("BAM file was not successfully created and sorted!\n")
-        sys.exit(3)
+
     p_samtools_stdout.close()
     p_samtools_stderr.close()
 
@@ -742,8 +759,9 @@ def extract_nanopore_for_sample(args, sample: Sample, raw_nanopore_fasta: dict):
     sam_file = sample.output_dir + sample.id + "_nanopore_hits.sam"
     align_command.append(sam_file)
     align_command += ["2>", "/dev/null"]
-    p_mem = subprocess.Popen(' '.join(align_command), shell=True, preexec_fn=os.setsid)
-    p_mem.wait()
+
+    subprocess_helper(align_command, False)
+
     logging.info("done.\n")
 
     # Parse the SAM file and find the names of the nanopore reads that were mapped to
@@ -785,9 +803,8 @@ def correct_nanopore(args, sample):
     except IOError:
         raise IOError("ERROR: cannot open file: " + proovread_prefix + "stdout")
 
-    p_correct = subprocess.Popen(' '.join(proovread_command), shell=True, preexec_fn=os.setsid,
-                                 stderr=correct_stderr, stdout=correct_stdout)
-    p_correct.wait()
+    subprocess_helper(cmd_list=proovread_command, stderr=correct_stderr, stdout=correct_stdout)
+
     correct_stderr.close()
     correct_stdout.close()
     logging.info("done.\n")
@@ -811,7 +828,7 @@ def quality_trimming(trimmomatic_exe: str, sample: Sample, filtered_reads: list,
 
     trim_prefix = sample.output_dir + os.sep + sample.id + "_trim_"
 
-    trimmomatic_command = ["java", "-jar", trimmomatic_exe, "-threads", num_threads]
+    trimmomatic_command = ["java", "-jar", trimmomatic_exe]
     if parity == "pe":
         trimmomatic_command.append("PE")
         trimmomatic_outputs = [trim_prefix + "pe.1.fq", trim_prefix + "se.1.fq",
@@ -822,6 +839,7 @@ def quality_trimming(trimmomatic_exe: str, sample: Sample, filtered_reads: list,
     else:
         logging.error("Unexpected read-level parity: '{}'. Either 'pe' or 'se' are expected.\n".format(parity))
         sys.exit(17)
+    trimmomatic_command += ["-threads", num_threads]
     trimmomatic_command += filtered_reads
     trimmomatic_command += trimmomatic_outputs
 
@@ -838,9 +856,9 @@ def quality_trimming(trimmomatic_exe: str, sample: Sample, filtered_reads: list,
     except IOError:
         logging.error("Cannot open file: " + trim_prefix + "stdout.txt for writing.\n")
         sys.exit(3)
-    p_trim = subprocess.Popen(' '.join(trimmomatic_command), shell=True, preexec_fn=os.setsid,
-                              stderr=trim_stderr, stdout=trim_stdout)
-    p_trim.wait()
+
+    subprocess_helper(cmd_list=trimmomatic_command, stderr=trim_stderr, stdout=trim_stdout)
+
     trim_stderr.close()
     trim_stdout.close()
     logging.info("done.\n")
@@ -857,15 +875,8 @@ def determine_k_values(test_fastq: str, assembler: str):
     read_lengths = list()
     # Sample the first paired-end FASTQ file
 
-    try:
-        fq_handler = open(test_fastq)
-    except IOError:
-        logging.error("Unable to open FASTQ file '" + test_fastq + "' for reading.\n")
-        sys.exit(3)
-
     x = 0
-    for read in readfq(fq_handler):
-        _, seq, _ = read
+    for _, seq, _ in pyfastx.Fastq(file_name=test_fastq, build_index=False):
         read_length = len(seq)
         read_lengths.append(read_length)
         if read_length > max_read_length:
@@ -873,7 +884,6 @@ def determine_k_values(test_fastq: str, assembler: str):
         if x > 1E5:
             break
         x += 1
-    fq_handler.close()
 
     if max_read_length < k_max:
         if max_read_length % 2 == 0:
@@ -904,10 +914,8 @@ def spades_wrapper(sample: Sample, k_min: int, k_max: int, min_count: int, spade
     spades_command += ["--cov-cutoff", str(min_count)]
     spades_command += ["-k", ','.join([str(k) for k in range(k_min, k_max, 10)])]
     spades_command += ["-o", sample.output_dir + "assembly"]
-    p_spades = subprocess.Popen(' '.join(spades_command), shell=True, preexec_fn=os.setsid)
-    p_spades.wait()
-    if p_spades.returncode != 0:
-        logging.error("SPAdes did not complete successfully! Continuing on to the next sample.\n")
+
+    subprocess_helper(spades_command)
 
     contigs = sample.output_dir + "assembly" + os.sep + "contigs.fasta"
     asm_log = sample.output_dir + "assembly" + os.sep + "spades.log"
@@ -935,11 +943,7 @@ def megahit_wrapper(sample: Sample, megahit_exe: str, k_min: int, k_max: int, mi
     megahit_command.append("--no-mercy")  # Recommended for high-coverage datasets
     megahit_command += ["1>", "/dev/null", "2>", "/dev/null"]
 
-    # Run the megahit command using subprocess
-    p_megahit = subprocess.Popen(' '.join(megahit_command), shell=True, preexec_fn=os.setsid)
-    p_megahit.wait()
-    if p_megahit.returncode != 0:
-        logging.error("MEGAHIT did not complete successfully!\n")
+    subprocess_helper(megahit_command)
 
     contigs = sample.output_dir + "assembly" + os.sep + "final.contigs.fa"
     asm_log = sample.output_dir + "assembly" + os.sep + "log"
@@ -998,12 +1002,6 @@ def assemble_fosmids(sample: Sample, assembler: str, k_min: int, k_max: int, min
 
 
 def deinterleave_fastq(fastq_file: str, output_dir="") -> (str, str):
-    try:
-        fq_in_handler = open(fastq_file, 'r')
-    except IOError:
-        logging.error("Unable to open " + fastq_file + " for reading.\n")
-        sys.exit(3)
-
     logging.info("De-interleaving forward and reverse reads in " + fastq_file + "... ")
     if not output_dir:
         output_dir = os.path.dirname(fastq_file)
@@ -1021,7 +1019,8 @@ def deinterleave_fastq(fastq_file: str, output_dir="") -> (str, str):
     f_string = ""
     r_string = ""
     acc = 0
-    for name, seq, qual in readfq(fq_in_handler):
+
+    for name, seq, qual in pyfastx.Fastq(file_name=fastq_file, build_index=False):
         if acc % 2:
             r_string += "\n".join(["@" + name, seq, '+', qual]) + "\n"
         else:
@@ -1227,41 +1226,6 @@ def clean_intermediates(sample):
     return
 
 
-# Heng Li's readfq generator function for reading fastq files
-def readfq(fp):  # this is a generator function
-    last = None  # this is a buffer keeping the last unprocessed line
-    while True:  # mimic closure; is it a bad idea?
-        if not last:  # the first record or a record following a fastq
-            for l in fp:  # search for the start of the next record
-                if l[0] in '>@':  # fasta/q header line
-                    last = l[:-1]  # save this line
-                    break
-        if not last:
-            break
-        name, seqs, last = last[1:].partition(" ")[0], [], None
-        for l in fp:  # read the sequence
-            if l[0] in '@+>':
-                last = l[:-1]
-                break
-            seqs.append(l[:-1])
-        if not last or last[0] != '+':  # this is a fasta record
-            yield name, ''.join(seqs), None  # yield a fasta record
-            if not last:
-                break
-        else:  # this is a fastq record
-            seq, length, seqs = ''.join(seqs), 0, []
-            for l in fp:  # read the quality
-                seqs.append(l[:-1])
-                length += len(l) - 1
-                if length >= len(seq):  # have read enough quality
-                    last = None
-                    yield name, seq, ''.join(seqs)  # yield a fastq record
-                    break
-            if last:  # reach EOF before reading enough quality
-                yield name, seq, None  # yield a fasta record instead
-                break
-
-
 def find_num_reads(file_list: list) -> int:
     """
     Function to count the number of reads in all FASTQ files in file_list
@@ -1269,14 +1233,15 @@ def find_num_reads(file_list: list) -> int:
     :param file_list: A list of FASTQ files
     :return: integer representing the number of reads in all FASTQ files provided
     """
+    logging.info("Finding number of reads in fastq files... ")
     num_reads = 0
     for fastq in file_list:
         if not fastq:
             continue
-        fq_in = open(fastq, 'r')
-        for read_dat in readfq(fq_in):
+        fq = pyfastx.Fastq(file_name=fastq, build_index=False)
+        for _ in fq:
             num_reads += 1
-        fq_in.close()
+    logging.info("done.\n")
     return num_reads
 
 
@@ -1291,8 +1256,7 @@ def map_ends(args, sample):
     blastdb_command += ["-dbtype", "nucl"]
     blastdb_command += ["-out", sample_prefix]
     blastdb_command += ["1>/dev/null", "2>/dev/null"]
-    p_makeblastdb = subprocess.Popen(" ".join(blastdb_command), shell=True, preexec_fn=os.setsid)
-    p_makeblastdb.wait()
+    subprocess_helper(blastdb_command)
 
     logging.info("Aligning fosmid ends to assembly... ", "out")
     blastn_command = [args.executables["blastn"]]
@@ -1304,8 +1268,8 @@ def map_ends(args, sample):
     blastn_command += ["-perc_identity", str(95)]
     blastn_command += ["-out", sample_prefix + "_endsMapped.tbl"]
     blastn_command += ["1>/dev/null", "2>/dev/null"]
-    p_align_ends = subprocess.Popen(" ".join(blastn_command), shell=True, preexec_fn=os.setsid)
-    p_align_ends.wait()
+    subprocess_helper(blastn_command)
+
     logging.info("done\n")
 
     return
@@ -1730,11 +1694,7 @@ def get_assembly_stats(sample, args, fosmid_assembly):
     nx_command += ["-m", str(2000)]
     nx_command.append(">" + sample.output_dir + os.sep + sample.id + "_nx.txt")
 
-    p_nx = subprocess.Popen(' '.join(nx_command), shell=True, preexec_fn=os.setsid)
-    p_nx.wait()
-    if p_nx.returncode != 0:
-        logging.error("getNx did not finish successfully!\n")
-        sys.exit(3)
+    subprocess_helper(nx_command)
 
     try:
         nx_stats = open(sample_prefix + "_nx.csv", 'r')
@@ -1920,9 +1880,8 @@ def align_nanopore_to_background(args, sample):
     blast_db_command += ["-dbtype", "nucl"]
     blast_db_command += ["-in", args.background]
     blast_db_command += ["-out", background_db]
-    p_makeblastdb = subprocess.Popen(' '.join(blast_db_command), shell=True, preexec_fn=os.setsid,
-                                     stderr=background_blastdb_stderr, stdout=background_blastdb_stdout)
-    p_makeblastdb.wait()
+
+    subprocess_helper(cmd_list=blast_db_command, stderr=background_blastdb_stderr, stdout=background_blastdb_stdout)
     background_blastdb_stderr.close()
     background_blastdb_stdout.close()
 
@@ -1935,8 +1894,7 @@ def align_nanopore_to_background(args, sample):
                        "sseqid", "slen", "qseqid", "pident", "length", "sstrand",
                        "sstart", "send", "bitscore", "qstart", "qend", "\""]
     blastn_command += ["-out", nanopore_background_alignments]
-    p_blastn = subprocess.Popen(' '.join(blastn_command), shell=True, preexec_fn=os.setsid)
-    p_blastn.wait()
+    subprocess_helper(blastn_command)
 
     # Remove the BLAST database
     blastdb_files = glob.glob('.'.join(args.background.split('.')[0:-1]) + "_BLAST.*")
@@ -2103,9 +2061,7 @@ def assemble_nanopore_reads(sample: Sample, args):
     else:
         canu_command += ["-nanopore-corrected", corrected_nanopore_fasta]
 
-    p_canu = subprocess.Popen(' '.join(canu_command), shell=True, preexec_fn=os.setsid,
-                              stderr=canu_stderr, stdout=canu_stdout)
-    p_canu.wait()
+    subprocess_helper(cmd_list=canu_command, stderr=canu_stderr, stdout=canu_stdout)
 
     shutil.move(canu_output + sample.id + ".contigs.fasta", sample.assembled_fosmids)
 
@@ -2147,7 +2103,7 @@ def main():
                              "Outputs for " + sample.id + " will be found in " + sample.output_dir + "\n")
                 sample.gather_reads(args.reads, args.reverse, args.interleaved, args.parity,
                                     args.executables, sample.output_dir, args.type)
-                sample.qc_reads(args.background, args.interleaved, args.parity, args.adapters,
+                sample.qc_reads(args.background, args.interleaved, args.parity, args.adaptor_trim,
                                 args.executables, args.threads)
                 if sample.nanopore:
                     sample.prep_nanopore(args, args.nanopore_reads)
