@@ -1838,7 +1838,7 @@ def update_metadata(metadata_file, library_metadata: Miffed,
     metadata.write(library_metadata.instrument + "\t")
     metadata.write(strftime("%Y-%m-%d") + "\t")
     metadata.write(str(read_stats.num_raw_reads) + "\t")
-    metadata.write(str(read_stats.percent_on_target) + "\t")
+    metadata.write(str(read_stats.percent_on_target()) + "\t")
     metadata.write(str(read_stats.num_reads_trimmed) + "\t")
     metadata.write(assembly_stats["Assembler"] + "\t")
     metadata.write(assembly_stats["Contigs"] + "\t")
