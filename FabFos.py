@@ -197,13 +197,13 @@ class Sample:
             sys.exit(3)
         return forward, reverse
 
-    def gather_reads(self, reads: str, reverse: str, interleaved: bool, parity: str,
+    def gather_reads(self, reads_dir: str, reverse: str, interleaved: bool, parity: str,
                      executables: dict, output_dir: str, file_type: str) -> None:
         """
         Finds all the FASTQ files for a sample, filling the Sample.forward_reads and Sample.reverse_reads attributes
         If the file_type == 'B' indicating BAM format, these files are also converted to FASTQs
 
-        :param reads: Path to the directory containing forward-oriented or interleaved FASTQ files or BAMs
+        :param reads_dir: Path to the directory containing forward-oriented or interleaved FASTQ files or BAMs
         :param reverse: Path the the directory containing reverse-oriented FASTQ files
         :param interleaved: Boolean indicating whether the reads in FASTQ are interleaved (True) or not (False)
         :param parity: String indicating the sequencing chemistry library for the library [pe (default)|se]
@@ -213,7 +213,7 @@ class Sample:
         :return: None
         """
         if file_type == "B":  # If the input are BAM files, convert them to FASTQ and split them here
-            fastq_list = bam2fastq(reads, self.id, self.output_dir, executables["bam2fastq"])
+            fastq_list = bam2fastq(reads_dir, self.id, self.output_dir, executables["bam2fastq"], parity)
             fwd_dir = output_dir + os.sep + "bam_split_fwd" + os.sep
             rev_dir = output_dir + os.sep + "bam_split_rev" + os.sep
             for fastq in fastq_list:
@@ -225,7 +225,7 @@ class Sample:
                     shutil.copy(fastq, rev_dir)
             raw_reads = find_raw_reads(fwd_dir, self.id, rev_dir)
         else:
-            raw_reads = find_raw_reads(reads, self.id, parity, reverse)
+            raw_reads = find_raw_reads(reads_dir, self.id, parity, reverse)
         if interleaved:
             raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq(raw_reads["forward"],
                                                                             self.output_dir)
@@ -264,12 +264,13 @@ class Sample:
         logging.info("done.\n")
         return
 
-    def qc_reads(self, background: str, interleaved: bool, parity: str, adapters: str, executables: dict, num_threads: int):
-        filtered_reads = filter_backbone(self, background, interleaved, executables, num_threads)
+    def qc_reads(self, background: str, interleaved: bool, parity: str, adapters: str,
+                 executables: dict, num_threads=2):
+        filtered_reads = filter_backbone(self, background, interleaved, executables, parity, num_threads)
         self.read_stats.num_filtered_reads = find_num_reads(filtered_reads)
         self.read_stats.calc_on_target()
-        logging.info("{0} reads removed from background filtering ({1}%).\n".format(self.read_stats.num_on_target,
-                                                                                    self.read_stats.percent_on_target()))
+        logging.info("{0} reads removed by filtering background ({1}%).\n".format(self.read_stats.num_on_target,
+                                                                                  self.read_stats.percent_on_target()))
         if self.read_stats.num_filtered_reads < 1600:
             # The number of reads remaining is too low for assembly (< 20X for a single fosmid)
             logging.warning("Number of reads remaining will provide less than 20X coverage for a single fosmid"
@@ -460,12 +461,18 @@ def subprocess_helper(cmd_list: list, graceful=False, stdout=None, stderr=None):
 
 def bam2fastq(input_file: str, sample_id: str, output_dir: str, bam2fastq_exe: str, parity="pe"):
     """
+
+    :param input_file: A BAM file with the aligned reads
+    :param sample_id: Name of the sample - to be used for identifying output reads
+    :param output_dir: Path to write the reads
+    :param bam2fastq_exe: Executable for bam2fastq
+    :param parity: Argument indicating whether the reads are from a paired-end (pe) or single-end (se) library
     :return: List of paths to FASTQ files converted from the BAM input_file
     """
     logging.info("Converting BAM file to FastQ format... ")
     fastq_extract = [bam2fastq_exe, "--no-aligned", "--quiet"]
     if parity == "pe":
-        fastq_extract += ["-o", os.path.join(output_dir, sample_id + "_#.fastq")]
+        fastq_extract += ["-o", os.path.join(output_dir, sample_id + "#.fastq")]
     if parity == "se":
         fastq_extract += ["-o", os.path.join(output_dir, sample_id + ".fastq")]
     fastq_extract.append(input_file)
@@ -708,7 +715,7 @@ def bwa_mem_wrapper(bwa_exe, index, sample_name, fwd_fq, output_dir,
     return sam_file
 
 
-def filter_backbone(sample: Sample, background: str, interleaved: bool, executables: dict, num_threads=2):
+def filter_backbone(sample: Sample, background: str, interleaved: bool, executables: dict, parity: str, num_threads=2):
     """
     Function to generate fastq files that do not contain any sequences in `background`.
     Depends on bwa, samtools, and bam2fastq
@@ -717,6 +724,7 @@ def filter_backbone(sample: Sample, background: str, interleaved: bool, executab
     :param background: Path to a FASTA file containing the genomic sequences to be removed
     :param interleaved: Boolean indicating whether the FASTQ file is paired-end
     :param executables: Dictionary containing paths to executables that is indexed by the executable name
+    :param parity: Argument indicating whether the reads are from a paired-end (pe) or single-end (se) library
     :param num_threads: Number of threads available for BWA and samtools to use
     :return: list of fastq files containing the filtered reads
     """
@@ -743,7 +751,10 @@ def filter_backbone(sample: Sample, background: str, interleaved: bool, executab
     p_samtools_stderr.close()
 
     # extract the unaligned reads using bam2fastq
-    filtered_reads = bam2fastq(bam_file, sample.id, sample.output_dir, executables["bam2fastq"])
+    filtered_dir = sample.output_dir + "filtered"
+    os.mkdir(filtered_dir)
+
+    filtered_reads = bam2fastq(bam_file, sample.id, filtered_dir, executables["bam2fastq"], parity)
     return filtered_reads
 
 
@@ -2157,6 +2168,7 @@ def main():
                              "Outputs for " + sample.id + " will be found in " + sample.output_dir + "\n")
                 sample.gather_reads(args.reads, args.reverse, args.interleaved, args.parity,
                                     args.executables, sample.output_dir, args.type)
+                args.interleaved = False
                 sample.qc_reads(args.background, args.interleaved, args.parity, fos_father.adaptor_trim,
                                 args.executables, args.threads)
                 if sample.nanopore:
