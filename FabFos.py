@@ -990,7 +990,7 @@ def spades_wrapper(sample: Sample, k_min: int, k_max: int, min_count: int, spade
     if len(sample.se_trimmed) >= 1:
         spades_command += ["-s", ','.join(sample.se_trimmed)]
     spades_command += ["--careful"]
-    spades_command += ["--memory", str(10)]
+    spades_command += ["--memory", str(20)]
     spades_command += ["--threads", str(num_threads)]
     spades_command += ["--cov-cutoff", str(min_count)]
     spades_command += ["-k", ','.join([str(k) for k in range(k_min, k_max, 10)])]
