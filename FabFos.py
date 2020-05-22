@@ -1112,21 +1112,25 @@ def deinterleave_fastq(fastq_file: str, output_dir="") -> (str, str):
 
 
 def match_file_with_sample(sample_name, file_list):
-    regex_sample = re.compile(sample_name)
-    match = ""
+    regex_sample = re.compile(r'^' + re.escape(sample_name) + r"[._-].*")
+    matches = []
     for f_name in file_list:
-        if regex_sample.search(os.path.basename(f_name)) and match == "":
-            match = os.path.join(os.getcwd(), f_name)
-        # Ensure there is a single fastq file for this sample
-        elif regex_sample.search(os.path.basename(f_name)) and match != "":
-            logging.error("More than 2 files match sample ID in reads directory: '{0}' and '{1}'\n" +
-                          "Please concatenate files from the same library and re-run.\n".format(match,
-                                                                                                os.path.basename(f_name)))
-            sys.exit(17)
+        if regex_sample.match(os.path.basename(f_name)):
+            matches.append(os.path.join(os.getcwd(), f_name))
         else:
             # File is not of the current sample
             pass
-    return match
+    # Ensure there is a single fastq file for this sample
+    if len(matches) > 1:
+        logging.error("More than two files match sample ID '{}' in reads directory: {}\n"
+                      "Please concatenate files from the same library and re-run.\n".format(sample_name,
+                                                                                            ', '.join(matches)))
+        sys.exit(17)
+    elif len(matches) == 0:
+        logging.error("Unable to find file matching sample ID '{}'".format(sample_name))
+        sys.exit(19)
+
+    return matches.pop()
 
 
 def find_raw_reads(reads_dir: str, sample_id: str, parity="pe", reverse="") -> dict:
