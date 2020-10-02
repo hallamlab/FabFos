@@ -1353,8 +1353,8 @@ def parse_miffed(args, fabfos: FabFos):
                 sys.exit(3)
             fields = line.strip().split(',')
             if len(fields) < 13:
-                raise AssertionError(str(len(fields)) + " fields in " + args.miffed +
-                                     " when at least 13 are expected\n" + line)
+                raise AssertionError("{} fields in {} when at least 13 are expected:\n{}\n"
+                                     "".format(len(fields), args.miffed, line))
             miffed_entry = Miffed(fields[0])
             miffed_entry.populate_info(fields)
             miffed_entry.output_dir = os.sep.join([fabfos.db_path, miffed_entry.project, miffed_entry.id]) + os.sep
@@ -1370,12 +1370,17 @@ def parse_miffed(args, fabfos: FabFos):
 
             # Check to ensure the output directory exist or ensure it is empty:
             if os.path.isdir(miffed_entry.output_dir):
-                files = glob.glob(miffed_entry.output_dir + "*")
+                files = glob.glob(miffed_entry.output_dir + "**", recursive=True)
                 if len(files) != 0:
                     miffed_entry.overwrite = get_overwrite_input(miffed_entry.id)
                     if miffed_entry.overwrite:
                         try:
-                            shutil.rmtree(miffed_entry.output_dir)
+                            # Replaced this with shutil.rmtree because rmtree was unreliable
+                            for f in reversed(files):  # type: str
+                                if os.path.isfile(f):
+                                    os.remove(f)
+                                elif os.path.isdir(f):
+                                    os.removedirs(f)
                             os.makedirs(miffed_entry.output_dir)
                         except Exception as e:
                             logging.error(str(e) + "\n")
