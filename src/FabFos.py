@@ -10,9 +10,11 @@ try:
     import subprocess
     import shutil
     import logging
-    import pyfastx
+    from packaging import version
     from time import strftime
-except ImportWarning:
+
+    import pyfastx
+except (ImportWarning, ModuleNotFoundError):
     sys.stderr.write("Could not load some user defined module functions")
     sys.stderr.write(traceback.print_exc(10))
     sys.exit(3)
@@ -22,7 +24,7 @@ FabFos: a pipeline for automatically performing quality controls, assembly, and 
 for fosmid sequence information. Circa 2016 - Hallam Lab, UBC
 """
 
-__version__ = "1.4"
+__version__ = "1.5"
 __author__ = "Connor Morgan-Lang"
 __license__ = "GPL-v3"
 __maintainer__ = "Connor Morgan-Lang"
@@ -213,7 +215,7 @@ class Sample:
         :return: None
         """
         if file_type == "B":  # If the input are BAM files, convert them to FASTQ and split them here
-            fastq_list = bam2fastq(reads_dir, self.id, self.output_dir, executables["bam2fastq"], parity)
+            fastq_list = bam2fastq(reads_dir, self.id, self.output_dir, executables["samtools"], parity)
             fwd_dir = output_dir + os.sep + "bam_split_fwd" + os.sep
             rev_dir = output_dir + os.sep + "bam_split_rev" + os.sep
             for fastq in fastq_list:
@@ -276,24 +278,24 @@ class Sample:
             logging.warning("Number of reads remaining will provide less than 20X coverage for a single fosmid"
                             " - skipping this sample\n")
             return
-        trimmed_reads = quality_trimming(executables["trimmomatic"], self, filtered_reads, parity, adapters, num_threads)
+        trimmed_reads = quality_trimming(executables["trimmomatic.jar"], self, filtered_reads, parity, adapters, num_threads)
         self.read_stats.num_reads_assembled = find_num_reads(trimmed_reads)
         self.read_stats.num_reads_trimmed = self.read_stats.num_filtered_reads - self.read_stats.num_reads_assembled
 
         self.prep_reads_for_assembly(trimmed_reads)
         return
 
-    def prep_nanopore(self, args, nanopore_reads: str):
+    def prep_nanopore(self, args, executables, nanopore_reads: str):
         raw_nanopore_fasta = read_fasta(nanopore_reads)
         self.read_stats.num_raw_reads = str(len(raw_nanopore_fasta.keys()))
         if self.error_correction is False:
             # Skip the error correction and filter the nanopore reads that don't align to Illumina reads
             # Set nanopore_reads to the filtered raw reads
-            self.nanopore = extract_nanopore_for_sample(args, self, raw_nanopore_fasta)
+            self.nanopore = extract_nanopore_for_sample(args, self, executables, raw_nanopore_fasta)
         else:
-            self.nanopore = correct_nanopore(args, self)
+            self.nanopore = correct_nanopore(args, executables, self)
         # Align the corrected reads to the trim_sequences.fasta file using LAST
-        nanopore_background_alignments = align_nanopore_to_background(args, self)
+        nanopore_background_alignments = align_nanopore_to_background(args, executables, self)
         # Trim the background sequences and reads shorter than 1000bp after removing background
         nanopore_reads, read_stats = filter_background_nanopore(self, nanopore_background_alignments)
         write_trimmed_reads(self, nanopore_reads)
@@ -448,43 +450,68 @@ class MyFormatter(logging.Formatter):
         return result
 
 
-def subprocess_helper(cmd_list: list, graceful=False, stdout=None, stderr=None):
-    proc = subprocess.Popen(' '.join(cmd_list), shell=True, preexec_fn=os.setsid, stdout=stdout, stderr=stderr)
-    proc.wait()
-    if proc.returncode != 0:
-        logging.error("'{0}' did not complete successfully!.\n"
-                      "Command used:\n{1}\n".format(str(cmd_list[0]), ' '.join(cmd_list)))
-        if not graceful:
-            sys.exit(9)
-    return
+def subprocess_helper(cmd_list, collect_all=True, graceful=False):
+    """
+    Wrapper function for opening subprocesses through subprocess.Popen()
+
+    :param cmd_list: A list of strings forming a complete command call
+    :param collect_all: A flag determining whether stdout and stderr are returned
+    via stdout or just stderr is returned leaving stdout to be written to the screen
+    :param graceful: Allows an executable to exit with a non-zero returncode and still return
+    :return: A string with stdout and/or stderr text and the returncode of the executable
+    """
+    stdout = ""
+    if collect_all:
+        proc = subprocess.Popen(' '.join(cmd_list),
+                                shell=True,
+                                preexec_fn=os.setsid,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT)
+        stdout = proc.communicate()[0].decode("utf-8")
+    else:
+        proc = subprocess.Popen(' '.join(cmd_list),
+                                shell=True,
+                                preexec_fn=os.setsid)
+        proc.wait()
+
+    # Ensure the command completed successfully
+    if proc.returncode != 0 and not graceful:
+        logging.error(cmd_list[0] + " did not complete successfully! Command used:\n" +
+                      ' '.join(cmd_list) + "\nOutput:\n" + stdout)
+        sys.exit(19)
+
+    return stdout, proc.returncode
 
 
-def bam2fastq(input_file: str, sample_id: str, output_dir: str, bam2fastq_exe: str, parity="pe"):
+def bam2fastq(input_file: str, sample_id: str, output_dir: str, samtools_exe: str, parity="pe"):
     """
 
     :param input_file: A BAM file with the aligned reads
     :param sample_id: Name of the sample - to be used for identifying output reads
     :param output_dir: Path to write the reads
-    :param bam2fastq_exe: Executable for bam2fastq
+    :param samtools_exe: Path to the samtools executable, version
     :param parity: Argument indicating whether the reads are from a paired-end (pe) or single-end (se) library
     :return: List of paths to FASTQ files converted from the BAM input_file
     """
     logging.info("Converting BAM file to FastQ format... ")
-    fastq_extract = [bam2fastq_exe, "--no-aligned", "--quiet"]
+    fastq_extract = [samtools_exe, "fastq", "--verbosity", str(1)]
     if parity == "pe":
-        fastq_extract += ["-o", os.path.join(output_dir, sample_id + "#.fastq")]
-    if parity == "se":
-        fastq_extract += ["-o", os.path.join(output_dir, sample_id + ".fastq")]
+        fastq_extract += ["-1", os.path.join(output_dir, sample_id + ".1.fastq")]
+        fastq_extract += ["-2", os.path.join(output_dir, sample_id + ".2.fastq")]
     fastq_extract.append(input_file)
-    fastq_extract += ["1>", output_dir + os.sep + "bam2fastq.stdout"]
-    fastq_extract += ["2>", output_dir + os.sep + "bam2fastq.stderr"]
+    if parity == "se":
+        fastq_extract += [">", os.path.join(output_dir, sample_id + ".fastq")]
+    bam2fastq_stdout = os.path.join(output_dir, "samtools_fastq.stdout")
 
-    subprocess_helper(fastq_extract, False)
+    stdout, retcode = subprocess_helper(fastq_extract, False)
+
+    with open(bam2fastq_stdout, 'w') as stdout_file:
+        stdout_file.write(stdout)
 
     glob_path = os.path.join(output_dir, sample_id + "*fastq")
     filtered_reads = glob.glob(glob_path)
     if len(filtered_reads) == 0:
-        logging.error("Path to bam2fastq filtered reads files is incorrect - no FASTQ files found! "
+        logging.error("Path to 'samtools fastq' filtered reads files is incorrect - no FASTQ files found! "
                       "Glob path used: '{0}'\n"
                       "Command used:\n"
                       "{1}".format(glob_path, ' '.join(fastq_extract)))
@@ -494,7 +521,7 @@ def bam2fastq(input_file: str, sample_id: str, output_dir: str, bam2fastq_exe: s
     return filtered_reads
 
 
-def get_options():
+def get_options(sys_args: list):
     parser = argparse.ArgumentParser(description="Pipeline for filtering, assembling and organizing "
                                                  "fosmid sequence information.\n",
                                      add_help=False)
@@ -545,7 +572,7 @@ def get_options():
     opts.add_argument("-h", "--help",
                       action="help", help="Show this help message and exit")
     
-    args = parser.parse_args()
+    args = parser.parse_args(sys_args)
     return args
 
 
@@ -653,12 +680,15 @@ def which(program):
         for path in os.environ["PATH"].split(os.pathsep):
             path = path.strip('"')
             exe_file = os.path.join(path, program)
+            prefix, ext = os.path.splitext(exe_file)
             if is_exe(exe_file):
+                return exe_file
+            elif ext == ".jar" and os.path.isfile(exe_file):
                 return exe_file
     return None
 
 
-def find_executables() -> dict:
+def find_executables(assembler: str, nanopore=False) -> dict:
     """
     Find the executables that are to be used in the pipeline:
     BWA, MEGAHIT, Trimmomatic, samtools
@@ -666,14 +696,99 @@ def find_executables() -> dict:
     :return: Dictionary with executable paths indexed by executable names
     """
     # TODO: Write the tool versions to the log file
-    required_execs = ["bwa", "samtools", "megahit", "bam2fastq", "trimmomatic", "fq2fa", "blastn", "makeblastdb",
-                      "splitFASTA", "getNx", "proovread", "canu"]
+    required_execs = ["bwa", "samtools", "trimmomatic.jar", "blastn", "makeblastdb"]
+    np_execs = ["proovread", "canu"]
     executables = dict()
     for executable in required_execs:
         executables[executable] = which(executable)
         if executables[executable] is None:
             raise EnvironmentError("Unable to find executable for " + executable)
+
+    if assembler == "spades":
+        executables["spades"] = which("spades.py")
+    elif assembler == "megahit":
+        executables["megahit"] = which("megahit")
+    else:
+        logging.error("Unsupported assembler specified: '{}'.\n".format(assembler))
+        sys.exit(3)
+
+    if nanopore:
+        for executable in np_execs:
+            executables[executable] = which(executable)
+            if executables[executable] is None:
+                raise EnvironmentError("Unable to find executable for " + executable)
     return executables
+
+
+def find_dependency_versions(exe_dict: dict) -> dict:
+    """
+    Function for retrieving the version numbers for each executable in exe_dict
+
+    :param exe_dict: A dictionary mapping names of software to the path to their executable
+    :return: A formatted string with the executable name and its respective version found
+    """
+    versions_dict = dict()
+
+    simple_v = ["megahit", "spades"]
+    version_param = ["blastn", "makeblastdb"]
+    no_params = ["bwa", "samtools"]
+    version_re = re.compile(r"[Vv]\d+.\d|[Vv]ersion:? \d.\d|\d\.\d\.\d")
+
+    for exe in exe_dict:
+        ##
+        # Get the version statement for the software
+        ##
+        versions_dict[exe] = ""
+        if exe in simple_v:
+            stdout, returncode = subprocess_helper([exe_dict[exe], "-v"])
+        elif exe in version_param:
+            stdout, returncode = subprocess_helper([exe_dict[exe], "-version"])
+        elif exe in no_params:
+            stdout, returncode = subprocess_helper([exe_dict[exe]], graceful=True)
+        elif exe == "trimmomatic.jar":
+            stdout, returncode = subprocess_helper(["java", "-Xmx10m", "-jar", exe_dict[exe], "-version"])
+            versions_dict[exe] = stdout.strip()
+            continue
+        else:
+            logging.warning("Unknown version command for " + exe + ".\n")
+            continue
+        ##
+        # Identify the line with the version number (since often more than a single line is returned)
+        ##
+        for line in stdout.split("\n"):
+            if version_re.search(line):
+                # If a line was identified, try to get just the string with the version number
+                for word in line.split(" "):
+                    if re.search(r"\d\.\d", word):
+                        versions_dict[exe] = re.sub(r"[,:()[\]]", '', word)
+                        break
+                break
+            else:
+                pass
+        if not versions_dict[exe]:
+            logging.debug("Unable to find version for " + exe + ".\n")
+
+    return versions_dict
+
+
+def summarize_dependency_versions(dep_versions: dict) -> None:
+    versions_string = "Software versions used:\n"
+    ##
+    # Format the string with the versions of all software
+    ##
+    for exe in sorted(dep_versions):
+        n_spaces = 20 - len(exe)
+        versions_string += "\t" + exe + ' ' * n_spaces + dep_versions[exe] + "\n"
+
+    logging.info(versions_string)
+
+    # Check versions for particular dependencies
+    if version.parse(dep_versions["samtools"]) < version.parse("1.10"):
+        logging.error("Version of samtools found ('{}') is not compatible with FabFos.\n"
+                      "".format(dep_versions["samtools"]))
+        sys.exit(17)
+
+    return
 
 
 def check_index(path, bwa_path):
@@ -734,27 +849,26 @@ def filter_backbone(sample: Sample, background: str, interleaved: bool, executab
                                sample.forward_reads, sample.output_dir, sample.reverse_reads, num_threads, interleaved)
 
     # Use samtools to convert sam to bam
-    bam_convert = [executables["samtools"], "view", "-bS", "-@", str(num_threads), sam_file, "|"]
+    bam_convert = [executables["samtools"], "view", "-bS", "-f", str(4), "-@", str(num_threads), sam_file, "|"]
     # Piping to samtools sort
     bam_file = sample.output_dir + os.sep + sample.id + "_sorted.bam"
     bam_convert.append(executables["samtools"])
     bam_convert += ["sort", "-@", str(num_threads), "-"]
     bam_convert += ["-o", bam_file]
     p_samtools_stdout = open(sample.output_dir + os.sep + "samtools.stdout", 'w')
-    p_samtools_stderr = open(sample.output_dir + os.sep + "samtools.stderr", 'w')
 
-    subprocess_helper(cmd_list=bam_convert, graceful=False, stdout=p_samtools_stdout, stderr=p_samtools_stderr)
+    stdout, retcode = subprocess_helper(cmd_list=bam_convert, graceful=False)
+    p_samtools_stdout.write(stdout)
 
     logging.info("done.\n")
 
     p_samtools_stdout.close()
-    p_samtools_stderr.close()
 
     # extract the unaligned reads using bam2fastq
     filtered_dir = sample.output_dir + "filtered"
     os.mkdir(filtered_dir)
 
-    filtered_reads = bam2fastq(bam_file, sample.id, filtered_dir, executables["bam2fastq"], parity)
+    filtered_reads = bam2fastq(bam_file, sample.id, filtered_dir, executables["samtools"], parity)
     return filtered_reads
 
 
@@ -811,19 +925,20 @@ def write_new_fasta(fasta_dict: dict, fasta_name: str, headers=None):
     return
 
 
-def extract_nanopore_for_sample(args, sample: Sample, raw_nanopore_fasta: dict):
+def extract_nanopore_for_sample(args, sample: Sample, executables: dict, raw_nanopore_fasta: dict):
     """
     Function aligns the Illumina reads to long reads and creates a new FASTA file of reads that were aligned to
 
     :param args:
     :param sample:
+    :param executables:
     :param raw_nanopore_fasta:
     :return: Name of the output FASTA file
     """
     logging.info("Aligning Illumina reads to long reads... ")
 
     select_nanopore = sample.output_dir + os.sep + sample.id + "_select_nanopore.fasta"
-    check_index(args.nanopore_reads, args.executables["bwa"])
+    check_index(args.nanopore_reads, executables["bwa"])
 
     filtered_forward = ""
     filtered_reverse = ""
@@ -833,7 +948,7 @@ def extract_nanopore_for_sample(args, sample: Sample, raw_nanopore_fasta: dict):
         else:
             filtered_reverse = fastq
 
-    align_command = [args.executables["bwa"], "mem", "-t", args.threads, args.nanopore_reads, filtered_forward]
+    align_command = [executables["bwa"], "mem", "-t", args.threads, args.nanopore_reads, filtered_forward]
     if args.reverse:
         align_command.append(filtered_reverse)
     align_command.append("1>")
@@ -858,35 +973,32 @@ def extract_nanopore_for_sample(args, sample: Sample, raw_nanopore_fasta: dict):
     return select_nanopore
 
 
-def correct_nanopore(args, sample):
+def correct_nanopore(args, executables, sample):
     """
     A function to correct errors in the nanoopore reads using short, accurate Illumina reads and proovread
 
     :param sample: Miffed object with information of current sample
     :param args: command-line arguments list
+    :param executables: A dictionary containing names of executables as keys and their respective file paths as values
     :return: Name of the corrected and trimmed nanopore reads
     """
     logging.info("Correcting errors in " + args.nanopore_reads + " using proovread... ")
 
     proovread_prefix = sample.output_dir + sample.id + "_proovread."
-    proovread_command = [args.executables["proovread"], "--threads", args.threads]
+    proovread_command = [executables["proovread"], "--threads", args.threads]
     proovread_command += ["--long-reads=" + args.nanopore_reads]
     proovread_command += ["--short-reads=" + sample.forward_reads]
     if args.reverse:
         proovread_command += ["--short-reads=" + sample.reverse_reads]
     proovread_command += ["-p", sample.output_dir + os.sep + "proovread"]  # prefix to output files
     try:
-        correct_stderr = open(proovread_prefix + "stderr", 'w')
-    except IOError:
-        raise IOError("ERROR: cannot open file: " + proovread_prefix + "stderr")
-    try:
         correct_stdout = open(proovread_prefix + "stdout", 'w')
     except IOError:
         raise IOError("ERROR: cannot open file: " + proovread_prefix + "stdout")
 
-    subprocess_helper(cmd_list=proovread_command, stderr=correct_stderr, stdout=correct_stdout)
+    stdout, retcode = subprocess_helper(cmd_list=proovread_command)
 
-    correct_stderr.close()
+    correct_stdout.write(stdout)
     correct_stdout.close()
     logging.info("done.\n")
     return sample.output_dir + os.sep + "proovread" + os.sep + "proovread.trimmed.fa"
@@ -928,19 +1040,14 @@ def quality_trimming(trimmomatic_exe: str, sample: Sample, filtered_reads: list,
     trimmomatic_command.append(adapters)
     trimmomatic_command += ["LEADING:3", "TRAILING:3", "SLIDINGWINDOW:4:15", "MINLEN:36"]
     try:
-        trim_stderr = open(trim_prefix + "stderr.txt", 'w')
-    except IOError:
-        logging.error("Cannot open file: " + trim_prefix + "stderr.txt for writing.\n")
-        sys.exit(3)
-    try:
         trim_stdout = open(trim_prefix + "stdout.txt", 'w')
     except IOError:
         logging.error("Cannot open file: " + trim_prefix + "stdout.txt for writing.\n")
         sys.exit(3)
 
-    subprocess_helper(cmd_list=trimmomatic_command, stderr=trim_stderr, stdout=trim_stdout)
+    stdout, retcode = subprocess_helper(cmd_list=trimmomatic_command)
 
-    trim_stderr.close()
+    trim_stdout.write(stdout)
     trim_stdout.close()
     logging.info("done.\n")
     return trimmomatic_outputs
@@ -1339,13 +1446,13 @@ def find_num_reads(file_list: list) -> int:
     return num_reads
 
 
-def map_ends(args, sample):
+def map_ends(executables, ends, sample):
     """
     Function for using blastn to align fosmid ends in a file to find the well of each contig
     """
     # Index the contigs
     sample_prefix = sample.output_dir + os.sep + sample.id
-    blastdb_command = [args.executables["makeblastdb"]]
+    blastdb_command = [executables["makeblastdb"]]
     blastdb_command += ["-in", sample_prefix + "_contigs.fasta"]
     blastdb_command += ["-dbtype", "nucl"]
     blastdb_command += ["-out", sample_prefix]
@@ -1353,12 +1460,12 @@ def map_ends(args, sample):
     subprocess_helper(blastdb_command)
 
     logging.info("Aligning fosmid ends to assembly... ", "out")
-    blastn_command = [args.executables["blastn"]]
+    blastn_command = [executables["blastn"]]
     blastn_command += ["-db", sample_prefix]
     blastn_command += ["-outfmt", "\"6",
                        "sseqid", "slen", "qseqid", "pident", "length", "sstrand",
                        "sstart", "send", "bitscore", "qstart", "qend", "\""]
-    blastn_command += ["-query", args.ends]
+    blastn_command += ["-query", ends]
     blastn_command += ["-perc_identity", str(95)]
     blastn_command += ["-out", sample_prefix + "_endsMapped.tbl"]
     blastn_command += ["1>/dev/null", "2>/dev/null"]
@@ -1730,6 +1837,7 @@ def read_fasta(fasta):
     :param fasta: A fasta file name (and path, if necessary)
     :return: dictionary with headers as keys and sequences for values
     """
+    # TODO: Replace this with the much faster pyfastx API
     fasta_dict = dict()
     header = ""
     sequence = ""
@@ -1776,37 +1884,43 @@ def get_assembler_version(assembler):
     return asm_ver
 
 
-def get_assembly_stats(sample, args, fosmid_assembly):
+def get_fasta_size(fasta_dict: dict) -> int:
+    return sum([len(seq) for seq in fasta_dict.values()])
+
+
+def get_assembly_nx(fasta_dict: dict, increment=0.1) -> dict:
+    """
+    Calculates Nx stats of an assembly stored in a dictionary according to some incrementing float
+
+    :param fasta_dict: A dictionary containing sequence names as keys and sequences as values
+    :param increment: A float to increment the proportion of the assembly to be calculated
+    :return: A dictionary mapping proportions (0-1) to the smallest sequence length required to sum to that proportion
+    """
+    nx_stats = {}
+    asm_len = get_fasta_size(fasta_dict)
+    proportion = 0.0
+    running_sum = 0
+    for name in reversed(sorted(fasta_dict, key=lambda x: len(fasta_dict[x]))):
+        seq = fasta_dict[name]
+        running_sum += len(seq)
+        while running_sum >= (asm_len*proportion) and proportion <= 1:
+            nx_stats[round(proportion, 1)] = len(seq)
+            proportion += increment
+    return nx_stats
+
+
+def get_assembly_stats(fosmid_assembly: dict, assembler: str, ):
     assembly_stats = dict()
-    assembly_stats["Assembler"] = get_assembler_version(args.assembler)
-    sample_prefix = sample.output_dir + os.sep + sample.id
-    nx_command = [args.executables["getNx"]]
-    nx_command += ["-i", sample_prefix + "_contigs.fasta"]
-    nx_command += ["-o", sample_prefix + "_nx.csv"]
-    nx_command += ["-m", str(2000)]
-    nx_command.append(">" + sample.output_dir + os.sep + sample.id + "_nx.txt")
+    assembly_stats["Assembler"] = get_assembler_version(assembler)
 
-    subprocess_helper(nx_command)
+    nx_stats = get_assembly_nx(fosmid_assembly)
 
-    try:
-        nx_stats = open(sample_prefix + "_nx.csv", 'r')
-    except IOError:
-        logging.error("getNx did not finish successfully: unable to open " + sample_prefix + "_nx.csv for reading!\n")
-        sys.exit(3)
-
-    nx_stats.readline()
-    line = nx_stats.readline()
-    while line:
-        line = line.strip()
-        proportion, n = line.split(',')
-        if float(proportion) == 0.5:
-            logging.info("N50 = " + str(n) + "\n")
-            assembly_stats["N50"] = str(n)
-        if float(proportion) == 0.9:
-            assembly_stats["N90"] = str(n)
-        if float(proportion) == 0:
-            logging.info("Longest contig = " + str(n) + "bp\t")
-        line = nx_stats.readline()
+    # Print some stats to the log
+    logging.info("N50 = " + str(nx_stats[0.5]) + "\n")
+    logging.info("Longest contig = " + str(nx_stats[0]) + "bp\t")
+    # Save Nx stats for the output
+    assembly_stats["N50"] = str(nx_stats[0.5])
+    assembly_stats["N90"] = str(nx_stats[0.9])
 
     size = 0
     num_27k = 0
@@ -1824,8 +1938,6 @@ def get_assembly_stats(sample, args, fosmid_assembly):
     assembly_stats["50kbp"] = str(num_50k)
     assembly_stats["Contigs"] = str(len(fosmid_assembly))
     assembly_stats["basepairs"] = str(size)
-
-    os.remove(sample.output_dir + os.sep + sample.id + "_nx.txt")
 
     return assembly_stats
 
@@ -1942,30 +2054,30 @@ def write_unique_fosmid_ends_to_bulk(args):
     return
 
 
-def align_nanopore_to_background(args, sample):
+def align_nanopore_to_background(args, executables, sample):
     logging.info("Aligning " + sample.nanopore + " to background sequences... ")
 
     # Make the BLAST database
     try:
-        background_blastdb_stderr = open(sample.output_dir + "background_blastdb.stderr", 'w')
         background_blastdb_stdout = open(sample.output_dir + "background_blastdb.stdout", 'w')
     except IOError:
-        logging.error("Unable to open " + sample.output_dir + "background_blastdb.stderr for writing")
+        logging.error("Unable to open " + sample.output_dir + "background_blastdb.stdout for writing")
         sys.exit(3)
 
     background_db = args.background + "_BLAST"
-    blast_db_command = [args.executables["makeblastdb"]]
+    blast_db_command = [executables["makeblastdb"]]
     blast_db_command += ["-dbtype", "nucl"]
     blast_db_command += ["-in", args.background]
     blast_db_command += ["-out", background_db]
 
-    subprocess_helper(cmd_list=blast_db_command, stderr=background_blastdb_stderr, stdout=background_blastdb_stdout)
-    background_blastdb_stderr.close()
+    stdout, retcode = subprocess_helper(cmd_list=blast_db_command)
+
+    background_blastdb_stdout.write(stdout)
     background_blastdb_stdout.close()
 
     # Align the corrected reads to the BLAST database
     nanopore_background_alignments = sample.output_dir + os.sep + "nanopore_background_BLAST.tbl"
-    blastn_command = [args.executables["blastn"]]
+    blastn_command = [executables["blastn"]]
     blastn_command += ["-query", sample.nanopore]
     blastn_command += ["-db", background_db]
     blastn_command += ["-outfmt", "\"6",
@@ -2103,12 +2215,14 @@ def determine_min_count(num_reads: int, num_fosmids: int, k_max: int):
     return min_count
 
 
-def assemble_nanopore_reads(sample: Sample, args):
+def assemble_nanopore_reads(sample: Sample, canu_exe, skip_correction, threads=2):
     """
     Wrapper function for launching canu assembler with the corrected nanopore reads
 
     :param sample:
-    :param args:
+    :param canu_exe:
+    :param skip_correction:
+    :param threads:
     :return:
     """
     logging.info("Assembling error-corrected nanopore reads with canu... ", "out")
@@ -2122,24 +2236,25 @@ def assemble_nanopore_reads(sample: Sample, args):
         raise IOError("Unable to make " + canu_output)
 
     corrected_nanopore_fasta = sample.output_dir + os.sep + sample.id + "_nanopore_trimmed.fasta"
-    canu_stderr = open(canu_output + "canu.stderr", 'w')
     canu_stdout = open(canu_output + "canu.stdout", 'w')
 
     genome_size = int(sample.num_fosmids_estimate) * 40
 
-    canu_command = [args.executables["canu"]]
-    canu_command += ["genomeSize=" + str(genome_size) + "k", "minThreads=" + str(args.threads)]
+    canu_command = [canu_exe]
+    canu_command += ["genomeSize=" + str(genome_size) + "k", "minThreads=" + str(threads)]
     if sample.error_correction is True:
         # TODO: Compare assemblies where proovread-corrected nanopore reads are just assembled or ran through all stages
         canu_command.append("-assemble")
     canu_command += ["-p", sample.id]
     canu_command += ["-d", canu_output]
-    if args.skip_correction:
+    if skip_correction:
         canu_command += ["-nanopore-raw", corrected_nanopore_fasta]
     else:
         canu_command += ["-nanopore-corrected", corrected_nanopore_fasta]
 
-    subprocess_helper(cmd_list=canu_command, stderr=canu_stderr, stdout=canu_stdout)
+    stdout, retcode = subprocess_helper(cmd_list=canu_command)
+    canu_stdout.write(stdout)
+    canu_stdout.close()
 
     shutil.move(canu_output + sample.id + ".contigs.fasta", sample.assembled_fosmids)
 
@@ -2148,11 +2263,14 @@ def assemble_nanopore_reads(sample: Sample, args):
     return
 
 
-def main():
-    args = get_options()
+def fabfos_main(sys_args):
+    args = get_options(sys_args)
     fos_father = FabFos(args.fabfos_path)
     review_arguments(args, fos_father)
-    args.executables = find_executables()
+    executables = find_executables(assembler=args.assembler, nanopore=args.nanopore_reads)
+    versions_dict = find_dependency_versions(executables)
+    summarize_dependency_versions(dep_versions=versions_dict)
+
     libraries = parse_miffed(args, fos_father)
 
     ends_stats = FosmidEnds()
@@ -2167,22 +2285,22 @@ def main():
                 logging.info("Processing raw data for " + sample.id + "\n" +
                              "Outputs for " + sample.id + " will be found in " + sample.output_dir + "\n")
                 sample.gather_reads(args.reads, args.reverse, args.interleaved, args.parity,
-                                    args.executables, sample.output_dir, args.type)
+                                    executables, sample.output_dir, args.type)
                 args.interleaved = False
                 sample.qc_reads(args.background, args.interleaved, args.parity, fos_father.adaptor_trim,
-                                args.executables, args.threads)
+                                executables, args.threads)
                 if sample.nanopore:
-                    sample.prep_nanopore(args, args.nanopore_reads)
+                    sample.prep_nanopore(args, executables, args.nanopore_reads)
                     # Assemble nanopore reads
-                    assemble_nanopore_reads(sample, args)
+                    assemble_nanopore_reads(sample, executables["canu"], args.skip_correction, args.threads)
                 else:
-                    sample.assemble_fosmids(args.assembler, args.executables, args.threads)
+                    sample.assemble_fosmids(args.assembler, executables, args.threads)
 
             fosmid_assembly = read_fasta(sample.assembled_fosmids)
-            assembly_stats = get_assembly_stats(sample, args, fosmid_assembly)
+            assembly_stats = get_assembly_stats(fosmid_assembly, args.assembler)
             # For mapping fosmid ends:
             if args.ends:
-                map_ends(args, sample)
+                map_ends(executables, args.ends, sample)
                 ends_mapping = parse_end_alignments(sample, fosmid_assembly, ends_stats)
                 clone_map, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
                 clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
@@ -2197,4 +2315,5 @@ def main():
             update_metadata(fos_father.master_metadata, sample, sample.read_stats, assembly_stats, ends_stats)
 
 
-main()
+if __name__ == "__main__":
+    fabfos_main(sys.argv[1:])
