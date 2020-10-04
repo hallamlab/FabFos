@@ -24,7 +24,7 @@ FabFos: a pipeline for automatically performing quality controls, assembly, and 
 for fosmid sequence information. Circa 2016 - Hallam Lab, UBC
 """
 
-__version__ = "1.5"
+__version__ = "1.6"
 __author__ = "Connor Morgan-Lang"
 __license__ = "GPL-v3"
 __maintainer__ = "Connor Morgan-Lang"
