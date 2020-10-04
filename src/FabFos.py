@@ -24,7 +24,7 @@ FabFos: a pipeline for automatically performing quality controls, assembly, and 
 for fosmid sequence information. Circa 2020 - Hallam Lab, UBC
 """
 
-__version__ = "1.7"
+__version__ = "1.8"
 __author__ = "Connor Morgan-Lang"
 __license__ = "GPL-v3"
 __maintainer__ = "Connor Morgan-Lang"
@@ -35,7 +35,6 @@ __status__ = "Unstable"
 class FabFos:
     def __init__(self, path):
         self.db_path = path
-        self.log_file_name = ""
 
         # Add new information:
         self.os = os_type()
@@ -44,7 +43,7 @@ class FabFos:
         else:
             self.py_version = 2
 
-        self.adaptor_trim = "/usr/local/share/Trimmomatic-0.35/adapters/"
+        self.adaptor_trim = "/usr/local/share/Trimmomatic-0.39/adapters/"
         self.master_metadata = os.path.join(self.db_path, "FabFos_master_metadata.tsv")
         self.metadata_header = "#Sample Name (LLLLL-PP-WWW)\tProject\tHuman selector\tVector Name\t" \
                                "Screen [in silico | functional]\tSelection criteria\tNumber of fosmids\t" \
@@ -166,6 +165,8 @@ class Sample:
         self.read_stats = ReadStats()
         self.output_dir = ""
         self.assembled_fosmids = ""
+        self.assembler = ""
+        self.assembly_mode = ""
         self.num_fosmids_estimate = 0
         self.parity = ""
         self.interleaved = False  # Boolean indicating whether the reads in FASTQ are interleaved (True) or not (False)
@@ -308,10 +309,10 @@ class Sample:
         except IndexError:
             return self.se_trimmed[0]
 
-    def assemble_fosmids(self, assembler, executables, num_threads):
-        k_min, k_max, = determine_k_values(self.get_test_fastq(), assembler)
+    def assemble_fosmids(self, executables, num_threads):
+        k_min, k_max, = determine_k_values(self.get_test_fastq(), self.assembler)
         min_count = determine_min_count(self.read_stats.num_reads_assembled, self.num_fosmids_estimate, k_max)
-        assemble_fosmids(self, assembler, k_min, k_max, min_count, executables, num_threads)
+        assemble_fosmids(self, self.assembler, self.assembly_mode, k_min, k_max, min_count, executables, num_threads)
         clean_intermediates(self)
         return
 
@@ -536,27 +537,28 @@ def get_options(sys_args: list):
     reads = parser.add_argument_group(title="Sequence read-specific arguments")
     nanopore = parser.add_argument_group(title="Nanopore-specific [development] options")
     opts = parser.add_argument_group(title="Optional arguments")
+    misc = parser.add_argument_group(title="Miscellaneous options")
 
-    reqs.add_argument("-m", "--miffed", type=str, required=True,
+    reqs.add_argument("-m", "--miffed", type=str, required=False,
                       help="The minimum information for fosmid environmental data (e.g., sample ID, "
                            "sequencing platform, environment, project) in a comma-separated file. [.csv]")
-    reqs.add_argument("-b", "--background", type=str, required=True,
+    reqs.add_argument("-b", "--background", type=str, required=False,
                       help="Path to the fosmid background database [.fasta]")
-    reqs.add_argument("-r", "--reads", type=str, required=True,
-                      help="Path to the directory containing reads formatted as either"
-                           " the forward strand file or the interleaved paired-end file."
-                           " Can be in either FastQ or BAM format. "
-                           "NOTE: a maximum of two sequence files per sample are permitted.")
 
     nanopore.add_argument("--nanopore_reads", type=str, default=None, required=False,
                           help="A FASTA file containing nanopore reads to be used in assembly.")
     nanopore.add_argument("--skip_correction", action="store_true", default=False, required=False,
                           help="Do not perform error-correction of nanopore reads using proovread")
 
-    reads.add_argument("-t", "--type", choices=["B", "F"], required=False, default="F",
-                       help="Enter B if input type is BAM, F for FastQ. [ DEFAULT = 'F' ]")
+    reads.add_argument("-r", "--reads", type=str, required=False,
+                       help="Path to the directory containing reads formatted as either"
+                            " the forward strand file or the interleaved paired-end file."
+                            " Can be in either FastQ or BAM format. "
+                            "NOTE: a maximum of two sequence files per sample are permitted.")
     reads.add_argument("-2", "--reverse", type=str, required=False,
                        help="Path to the directory containing reverse-end reads (if applicable) [.fastq]")
+    reads.add_argument("-t", "--type", choices=["B", "F"], required=False, default="F",
+                       help="Enter B if input type is BAM, F for FastQ. [ DEFAULT = 'F' ]")
     reads.add_argument("-i", "--interleaved", required=False, default=False, action="store_true",
                        help="Flag indicating the reads are interleaved "
                             "(i.e. forward and reverse pairs are in the same file). [DEFAULT = False]")
@@ -564,24 +566,28 @@ def get_options(sys_args: list):
                        help="Specifying the sequencing chemistry used, either paired-end (pe) or single-end (se). "
                             "[DEFAULT = 'pe']")
 
-    opts.add_argument("-a", "--assembler", choices=["spades", "megahit"], required=False, default="spades",
-                      help="Genome assembly software to use. [DEFAULT = spades]")
+    opts.add_argument("-a", "--assembler", required=False,
+                      choices=["spades_meta", "spades_isolate", "spades_sc", "megahit"], default="spades_isolate",
+                      help="Genome assembly software to use. [DEFAULT = spades_isolate]")
     opts.add_argument("-f", "--fabfos_path", type=str, required=False,
                       default="/mnt/nfs/sharknado/LimsData/FabFos/",
                       help="Path to FabFos database on sharknado [DEFAULT = /mnt/nfs/sharknado/LimsData/FabFos/]")
-    opts.add_argument("--force", required=False, default=False, action="store_true",
-                      help="FabFos will run even if the fabfos_path argument is a directory lacking a metadata file.")
-    opts.add_argument("--overwrite", required=False, default=False, action="store_true",
-                      help="This flag will remove outputs from a previous FabFos run for all samples in MIFFED file.")
     opts.add_argument("-T", "--threads", type=str, required=False, default=str(8),
                       help="The number of threads that can be used [DEFAULT = 8]")
     opts.add_argument("-e", "--ends", required=False, default=None,
                       help="FASTA file containing fosmid ends - these will be used for alignment to fosmid contigs.")
-    opts.add_argument("-v", "--verbose", required=False, default=False, action="store_true",
+
+    misc.add_argument("--force", required=False, default=False, action="store_true",
+                      help="FabFos will run even if the fabfos_path argument is a directory lacking a metadata file.")
+    misc.add_argument("--overwrite", required=False, default=False, action="store_true",
+                      help="This flag will remove outputs from a previous FabFos run for all samples in MIFFED file.")
+    misc.add_argument("--version", default=False, action="store_true",
+                      help="Print the FabFos version and exit.")
+    misc.add_argument("--verbose", required=False, default=False, action="store_true",
                       help="Increase the level of verbosity in runtime log.")
-    opts.add_argument("-h", "--help",
+    misc.add_argument("-h", "--help",
                       action="help", help="Show this help message and exit")
-    
+
     args = parser.parse_args(sys_args)
     return args
 
@@ -606,13 +612,13 @@ def os_type():
             return 'linux'
 
 
-def prep_logging(log_file_name, verbosity):
+def prep_logging(log_file_name: str, verbose=False):
     logging.basicConfig(level=logging.DEBUG,
                         filename=log_file_name,
                         filemode='w',
                         datefmt="%d/%m %H:%M:%S",
                         format="%(asctime)s %(levelname)s:\n%(message)s")
-    if verbosity:
+    if verbose:
         logging_level = logging.DEBUG
     else:
         logging_level = logging.INFO
@@ -638,6 +644,14 @@ def review_arguments(args, fabfos: FabFos) -> None:
     :return: None
     """
 
+    # Check if the miffed file was provided and exists
+    if not args.miffed:
+        logging.error("the following argument is required: -m/--miffed")
+        sys.exit(1)
+    elif not os.path.isfile(args.miffed):
+        logging.error("Path to the MIFFED file '{}' does not exist.\n")
+        sys.exit(3)
+
     if not os.path.isfile(fabfos.master_metadata):
         if not args.force:
             logging.error("The FabFos directory '{}' does not contain '{}'. "
@@ -649,11 +663,10 @@ def review_arguments(args, fabfos: FabFos) -> None:
             logging.info("Creating a new FabFos directory in '{}'".format(fabfos.db_path))
             fabfos.furnish()
 
-    # Setup the global logger and main log file
-    fabfos.log_file_name = args.fabfos_path + os.sep + "FabFos_log.txt"
-    prep_logging(fabfos.log_file_name, args.verbose)
-
     # Review the provided arguments:
+    if not args.reads:
+        logging.error("the following argument is required: -r/--reads\n")
+        sys.exit(1)
     if not os.path.isdir(args.reads):
         logging.error(args.reads + " is not a valid directory!\n")
         sys.exit(3)
@@ -661,6 +674,10 @@ def review_arguments(args, fabfos: FabFos) -> None:
         logging.error(args.reverse + " is not a valid directory!\n")
         sys.exit(3)
 
+    # Check if the background (FASTA including vector and source genome) file was provided and exists
+    if not args.background:
+        logging.error("the following argument is required: -b/--background\n")
+        sys.exit(1)
     if not os.path.isfile(args.background):
         logging.error(args.background + " does not exist!\n")
         sys.exit(3)
@@ -713,7 +730,7 @@ def find_executables(assembler: str, nanopore=False) -> dict:
         if executables[executable] is None:
             raise EnvironmentError("Unable to find executable for " + executable)
 
-    if assembler == "spades":
+    if assembler.startswith("spades"):
         executables["spades"] = which("spades.py")
     elif assembler == "megahit":
         executables["megahit"] = which("megahit")
@@ -800,8 +817,8 @@ def validate_dependency_versions(dep_versions: dict) -> bool:
 
 
 def summarize_dependency_versions(dep_versions: dict) -> None:
-    validate_dependency_versions(dep_versions)
-    versions_string = "Software versions used:\n"
+    versions_string = "FabFos version {}\n".format(__version__) +\
+                      "Software versions used:\n"
     ##
     # Format the string with the versions of all software
     ##
@@ -809,7 +826,10 @@ def summarize_dependency_versions(dep_versions: dict) -> None:
         n_spaces = 20 - len(exe)
         versions_string += "\t" + exe + ' ' * n_spaces + dep_versions[exe] + "\n"
 
-    logging.info(versions_string)
+    if logging.getLogger().hasHandlers():
+        logging.info(versions_string)
+    else:
+        print(versions_string)
 
     return
 
@@ -1106,7 +1126,8 @@ def determine_k_values(test_fastq: str, assembler: str):
     return k_min, k_max
 
 
-def spades_wrapper(sample: Sample, k_min: int, k_max: int, min_count: int, spades_exe=None, num_threads=2):
+def spades_wrapper(sample: Sample, k_min: int, k_max: int, min_count: int,
+                   spades_exe=None, mode="isolate", num_threads=2) -> (str, str, str):
     # The following is for assembling with SPAdes:
     if not spades_exe:
         spades_exe = "spades.py"
@@ -1119,12 +1140,13 @@ def spades_wrapper(sample: Sample, k_min: int, k_max: int, min_count: int, spade
             spades_command += ["-2", rev_fq]
     if len(sample.se_trimmed) >= 1:
         spades_command += ["-s", ','.join(sample.se_trimmed)]
-    spades_command += ["--careful"]
     spades_command += ["--memory", str(20)]
     spades_command += ["--threads", str(num_threads)]
-    spades_command += ["--cov-cutoff", str(min_count)]
     spades_command += ["-k", ','.join([str(k) for k in range(k_min, k_max, 10)])]
     spades_command += ["-o", sample.output_dir + "assembly"]
+    spades_command.append("--{}".format(mode))
+    if mode != "meta":
+        spades_command += ["--cov-cutoff", str(min_count)]
 
     subprocess_helper(spades_command)
 
@@ -1160,13 +1182,14 @@ def megahit_wrapper(sample: Sample, megahit_exe: str, k_min: int, k_max: int, mi
     return contigs, scaffolds, asm_log
 
 
-def assemble_fosmids(sample: Sample, assembler: str, k_min: int, k_max: int, min_count: int,
-                     executables: dict, num_threads=2):
+def assemble_fosmids(sample: Sample, assembler: str, assembly_mode: str, k_min: int, k_max: int, min_count: int,
+                     executables: dict, k_step=10, num_threads=2):
     """
     Wrapper function for the assembly process - multi-sized de Bruijn graph based assembler for metagenomes
 
     :param sample: Miffed object with information of current sample
     :param assembler: String indicating which assembler [megahit|spades] should be used
+    :param assembly_mode: When assembling with SPAdes, the assembly mode can be toggled between 'isolate' or 'meta'
     :param k_min: 71; painstakingly determined to be optimal for fosmids sequenced with Illumina
     :param k_max: 241; painstakingly determined to be optimal for fosmids sequenced with Illumina
     :param min_count: The minimum k-mer abundance to be used by megahit for building the succinct DBG
@@ -1174,12 +1197,18 @@ def assemble_fosmids(sample: Sample, assembler: str, k_min: int, k_max: int, min
     :param num_threads: Number of threads available for parallel computation
     :return:
     """
-    logging.info("Assembling sequences using " + assembler + "\n" +
-                 "Parameters:\n--k-min = " + str(k_min) + "\t--k-max = " + str(k_max) +
-                 "\t--k-step = 10\t--min-count = " + str(min_count) + "\n")
+    asm_param_stmt = "Assembling sequences using {}\n".format(assembler)
+    if assembly_mode != "NA":
+        asm_param_stmt += "Assembly mode is '{}'\n".format(assembly_mode)
+    asm_param_stmt += "Parameters:\n--k-min = {}\t--k-max = {}\t--k-step = {}".format(k_min, k_max, k_step)
+    if assembly_mode != "meta":
+        asm_param_stmt += "\t--min-count = {}\n".format(min_count)
+    else:
+        asm_param_stmt += "\n"
+    logging.info(asm_param_stmt)
 
     if assembler == "spades":
-        f_contigs, f_scaffolds, asm_log = spades_wrapper(sample=sample,
+        f_contigs, f_scaffolds, asm_log = spades_wrapper(sample=sample, mode=assembly_mode,
                                                          k_min=k_min, k_max=k_max, min_count=min_count,
                                                          num_threads=num_threads)
     elif assembler == "megahit":
@@ -1390,6 +1419,11 @@ def parse_miffed(args, fabfos: FabFos, clean=False):
                 miffed_entry.error_correction = False
             miffed_entry.parity = args.parity
             miffed_entry.interleaved = args.interleaved
+            # Split args.assembler into assembler and mode attributes
+            if args.assembler.startswith("spades"):
+                miffed_entry.assembler, miffed_entry.assembly_mode = args.assembler.split('_')
+            else:
+                miffed_entry.assembler, miffed_entry.assembly_mode = args.assembler, "NA"
 
             # Check to ensure the output directory exist or ensure it is empty:
             if os.path.isdir(miffed_entry.output_dir):
@@ -2295,11 +2329,21 @@ def assemble_nanopore_reads(sample: Sample, canu_exe, skip_correction, threads=2
 
 def fabfos_main(sys_args):
     args = get_options(sys_args)
+
+    executables = find_executables(assembler=args.assembler, nanopore=args.nanopore_reads)
+
+    versions_dict = find_dependency_versions(executables)
+    validate_dependency_versions(versions_dict)
+    if args.version:
+        summarize_dependency_versions(dep_versions=versions_dict)
+        sys.exit(0)
+
+    # Setup the global logger and main log file
+    prep_logging(args.fabfos_path + os.sep + "FabFos_log.txt", args.verbose)
+    summarize_dependency_versions(dep_versions=versions_dict)
+
     fos_father = FabFos(args.fabfos_path)
     review_arguments(args, fos_father)
-    executables = find_executables(assembler=args.assembler, nanopore=args.nanopore_reads)
-    versions_dict = find_dependency_versions(executables)
-    summarize_dependency_versions(dep_versions=versions_dict)
 
     libraries = parse_miffed(args, fabfos=fos_father, clean=args.overwrite)
 
@@ -2320,10 +2364,10 @@ def fabfos_main(sys_args):
                     # Assemble nanopore reads
                     assemble_nanopore_reads(sample, executables["canu"], args.skip_correction, args.threads)
                 else:
-                    sample.assemble_fosmids(args.assembler, executables, args.threads)
+                    sample.assemble_fosmids(executables, args.threads)
 
             fosmid_assembly = read_fasta(sample.assembled_fosmids)
-            assembly_stats = get_assembly_stats(fosmid_assembly, args.assembler)
+            assembly_stats = get_assembly_stats(fosmid_assembly, sample.assembler)
             # For mapping fosmid ends:
             if args.ends:
                 map_ends(executables, args.ends, sample)

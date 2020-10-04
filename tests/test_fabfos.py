@@ -14,7 +14,7 @@ class MyTestCase(unittest.TestCase):
         fabfos_main(["--miffed", self.test_data_dir + os.sep + "test_SE_miffed.csv",
                      "--background", self.backbone,
                      "--reads", self.test_data_dir,
-                     "--assembler", "spades",
+                     "--assembler", "spades_sc",
                      "--fabfos_path", self.fabfos_db_path,
                      "--threads", str(4),
                      "-p", "se",
@@ -27,7 +27,7 @@ class MyTestCase(unittest.TestCase):
         fabfos_main(["-m", self.test_data_dir + os.sep + "test_PE_miffed.csv",
                      "-b", self.backbone,
                      "-r", self.test_data_dir + os.sep + "fwd/", "-2", self.test_data_dir + os.sep + "rev/",
-                     "-a", "spades",
+                     "-a", "spades_meta",
                      "--fabfos_path", self.fabfos_db_path] +
                     "-T 4 --force --overwrite".split())
         self.assertTrue(True)
@@ -60,6 +60,11 @@ class MyTestCase(unittest.TestCase):
         from src.FabFos import validate_dependency_versions
         valid = validate_dependency_versions({"samtools": "1.11", "trimmomatic.jar": "0.40"})
         self.assertTrue(valid)
+        return
+
+    def test_summarize_dependency_versions(self):
+        from src.FabFos import summarize_dependency_versions
+        summarize_dependency_versions({})
         return
 
 
