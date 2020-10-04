@@ -21,10 +21,10 @@ except (ImportWarning, ModuleNotFoundError):
 
 """
 FabFos: a pipeline for automatically performing quality controls, assembly, and data storage management
-for fosmid sequence information. Circa 2016 - Hallam Lab, UBC
+for fosmid sequence information. Circa 2020 - Hallam Lab, UBC
 """
 
-__version__ = "1.6"
+__version__ = "1.7"
 __author__ = "Connor Morgan-Lang"
 __license__ = "GPL-v3"
 __maintainer__ = "Connor Morgan-Lang"
@@ -494,32 +494,38 @@ def bam2fastq(input_file: str, sample_id: str, output_dir: str, samtools_exe: st
     :param parity: Argument indicating whether the reads are from a paired-end (pe) or single-end (se) library
     :return: List of paths to FASTQ files converted from the BAM input_file
     """
-    logging.info("Converting BAM file to FastQ format... ")
-    fastq_extract = [samtools_exe, "fastq", "--verbosity", str(1)]
+    fastq_extract = [samtools_exe, "fastq", "--verbosity", str(1), "-N"]
     if parity == "pe":
-        fastq_extract += ["-1", os.path.join(output_dir, sample_id + ".1.fastq")]
-        fastq_extract += ["-2", os.path.join(output_dir, sample_id + ".2.fastq")]
-    fastq_extract.append(input_file)
-    if parity == "se":
-        fastq_extract += [">", os.path.join(output_dir, sample_id + ".fastq")]
-    bam2fastq_stdout = os.path.join(output_dir, "samtools_fastq.stdout")
+        fastq_files = [os.path.join(output_dir, sample_id + ".1.fastq"),
+                       os.path.join(output_dir, sample_id + ".2.fastq")]
+        fastq_extract += ["-1", fastq_files[0]]
+        fastq_extract += ["-2", fastq_files[1]]
+        # Need to include the singletons file so orphaned reads are removed
+        fastq_extract += ["-s", os.path.join(output_dir, sample_id + ".singletons.fastq")]
+    elif parity == "se":
+        fastq_files = [os.path.join(output_dir, sample_id + ".fastq")]
+        fastq_extract += [">", fastq_files[0]]
+    else:
+        raise AssertionError("Unknown value for parity '{}'. Expected either 'pe' or 'se'.\n")
 
-    stdout, retcode = subprocess_helper(fastq_extract, False)
+    bam2fastq_stdout = os.path.join(output_dir, "samtools_fastq.stdout")
+    fastq_extract.append(input_file)
+
+    logging.info("Converting BAM file to FastQ format... ")
+    stdout, retcode = subprocess_helper(fastq_extract, True)
+    logging.info("done.\n")
 
     with open(bam2fastq_stdout, 'w') as stdout_file:
         stdout_file.write(stdout)
 
-    glob_path = os.path.join(output_dir, sample_id + "*fastq")
-    filtered_reads = glob.glob(glob_path)
-    if len(filtered_reads) == 0:
-        logging.error("Path to 'samtools fastq' filtered reads files is incorrect - no FASTQ files found! "
-                      "Glob path used: '{0}'\n"
-                      "Command used:\n"
-                      "{1}".format(glob_path, ' '.join(fastq_extract)))
-        sys.exit(5)
+    for fq_path in fastq_files:
+        if not os.path.isfile(fq_path):
+            logging.error("Path to 'samtools fastq' output file {} doesn't exist.\n"
+                          "Command used:\n"
+                          "{}".format(fq_path, ' '.join(fastq_extract)))
+            sys.exit(5)
 
-    logging.info("done.\n")
-    return filtered_reads
+    return fastq_files
 
 
 def get_options(sys_args: list):

@@ -27,7 +27,7 @@ class MyTestCase(unittest.TestCase):
         fabfos_main(["-m", self.test_data_dir + os.sep + "test_PE_miffed.csv",
                      "-b", self.backbone,
                      "-r", self.test_data_dir + os.sep + "fwd/", "-2", self.test_data_dir + os.sep + "rev/",
-                     "-a", "megahit",
+                     "-a", "spades",
                      "--fabfos_path", self.fabfos_db_path] +
                     "-T 4 --force --overwrite".split())
         self.assertTrue(True)
