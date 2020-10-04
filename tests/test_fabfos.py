@@ -9,26 +9,38 @@ class MyTestCase(unittest.TestCase):
         self.fabfos_db_path = os.path.join(self.test_data_dir, "FabFos_DB")
         return
 
-    # TODO: flesh out basic integrative tests
     def test_fabfos_se(self):
         from src.FabFos import fabfos_main
-        fabfos_main(["--miffed", "test_data/test_SE_miffed.csv",
+        fabfos_main(["--miffed", self.test_data_dir + os.sep + "test_SE_miffed.csv",
                      "--background", self.backbone,
                      "--reads", self.test_data_dir,
                      "--assembler", "spades",
                      "--fabfos_path", self.fabfos_db_path,
                      "--threads", str(4),
                      "-p", "se",
-                     "--force"])
+                     "--force", "--overwrite"])
         self.assertEqual(True, True)
         return
 
     def test_fabfos_pe(self):
         from src.FabFos import fabfos_main
-        fabfos_main("-m tests/test_data/test_PE_miffed.csv "
-                    "-b tests/test_data/trim_sequences.fasta "
-                    "-r tests/test_data/fwd/ -2 tests/test_data/rev/ "
-                    "-a megahit --fabfos_path tests/test_data/FabFos_DB/ -T 4 --force".split())
+        fabfos_main(["-m", self.test_data_dir + os.sep + "test_PE_miffed.csv",
+                     "-b", self.backbone,
+                     "-r", self.test_data_dir + os.sep + "fwd/", "-2", self.test_data_dir + os.sep + "rev/",
+                     "-a", "megahit",
+                     "--fabfos_path", self.fabfos_db_path] +
+                    "-T 4 --force --overwrite".split())
+        self.assertTrue(True)
+        return
+
+    def test_fabfos_main_interleaved(self):
+        from src.FabFos import fabfos_main
+        fabfos_main(["-m", self.test_data_dir + os.sep + "miffed_monoaromatics.csv",
+                     "-b", self.backbone,
+                     "-r", self.test_data_dir + os.sep + "fwd",
+                     "-a", "megahit",
+                     "--fabfos_path", self.fabfos_db_path,
+                     "--interleaved", "--overwrite", "-T", str(4), "--verbose"])
         self.assertTrue(True)
         return
 

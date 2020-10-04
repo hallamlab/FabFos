@@ -168,6 +168,7 @@ class Sample:
         self.assembled_fosmids = ""
         self.num_fosmids_estimate = 0
         self.parity = ""
+        self.interleaved = False  # Boolean indicating whether the reads in FASTQ are interleaved (True) or not (False)
         self.forward_reads = None
         self.reverse_reads = None
         self.pe_trimmed = []
@@ -199,7 +200,7 @@ class Sample:
             sys.exit(3)
         return forward, reverse
 
-    def gather_reads(self, reads_dir: str, reverse: str, interleaved: bool, parity: str,
+    def gather_reads(self, reads_dir: str, reverse: str, parity: str,
                      executables: dict, output_dir: str, file_type: str) -> None:
         """
         Finds all the FASTQ files for a sample, filling the Sample.forward_reads and Sample.reverse_reads attributes
@@ -207,7 +208,6 @@ class Sample:
 
         :param reads_dir: Path to the directory containing forward-oriented or interleaved FASTQ files or BAMs
         :param reverse: Path the the directory containing reverse-oriented FASTQ files
-        :param interleaved: Boolean indicating whether the reads in FASTQ are interleaved (True) or not (False)
         :param parity: String indicating the sequencing chemistry library for the library [pe (default)|se]
         :param executables: Dictionary containing paths to executables that is indexed by the executable name
         :param output_dir: Used only if the input files are BAMs - path to write the new FASTQ files
@@ -228,9 +228,11 @@ class Sample:
             raw_reads = find_raw_reads(fwd_dir, self.id, rev_dir)
         else:
             raw_reads = find_raw_reads(reads_dir, self.id, parity, reverse)
-        if interleaved:
+        if self.interleaved:
             raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq(raw_reads["forward"],
                                                                             self.output_dir)
+            self.interleaved = False
+
         self.forward_reads = raw_reads["forward"]
         self.reverse_reads = raw_reads["reverse"]
         self.read_stats.num_raw_reads = find_num_reads([self.forward_reads, self.reverse_reads])
@@ -266,9 +268,8 @@ class Sample:
         logging.info("done.\n")
         return
 
-    def qc_reads(self, background: str, interleaved: bool, parity: str, adapters: str,
-                 executables: dict, num_threads=2):
-        filtered_reads = filter_backbone(self, background, interleaved, executables, parity, num_threads)
+    def qc_reads(self, background: str, parity: str, adapters: str, executables: dict, num_threads=2) -> None:
+        filtered_reads = filter_backbone(self, background, executables, parity, num_threads)
         self.read_stats.num_filtered_reads = find_num_reads(filtered_reads)
         self.read_stats.calc_on_target()
         logging.info("{0} reads removed by filtering background ({1}%).\n".format(self.read_stats.num_on_target,
@@ -562,7 +563,10 @@ def get_options(sys_args: list):
     opts.add_argument("-f", "--fabfos_path", type=str, required=False,
                       default="/mnt/nfs/sharknado/LimsData/FabFos/",
                       help="Path to FabFos database on sharknado [DEFAULT = /mnt/nfs/sharknado/LimsData/FabFos/]")
-    opts.add_argument("--force", required=False, default=False, action="store_true")
+    opts.add_argument("--force", required=False, default=False, action="store_true",
+                      help="FabFos will run even if the fabfos_path argument is a directory lacking a metadata file.")
+    opts.add_argument("--overwrite", required=False, default=False, action="store_true",
+                      help="This flag will remove outputs from a previous FabFos run for all samples in MIFFED file.")
     opts.add_argument("-T", "--threads", type=str, required=False, default=str(8),
                       help="The number of threads that can be used [DEFAULT = 8]")
     opts.add_argument("-e", "--ends", required=False, default=None,
@@ -843,14 +847,13 @@ def bwa_mem_wrapper(bwa_exe, index, sample_name, fwd_fq, output_dir,
     return sam_file
 
 
-def filter_backbone(sample: Sample, background: str, interleaved: bool, executables: dict, parity: str, num_threads=2):
+def filter_backbone(sample: Sample, background: str, executables: dict, parity: str, num_threads=2):
     """
     Function to generate fastq files that do not contain any sequences in `background`.
     Depends on bwa, samtools, and bam2fastq
 
     :param sample: Miffed object with information of current sample
     :param background: Path to a FASTA file containing the genomic sequences to be removed
-    :param interleaved: Boolean indicating whether the FASTQ file is paired-end
     :param executables: Dictionary containing paths to executables that is indexed by the executable name
     :param parity: Argument indicating whether the reads are from a paired-end (pe) or single-end (se) library
     :param num_threads: Number of threads available for BWA and samtools to use
@@ -858,8 +861,9 @@ def filter_backbone(sample: Sample, background: str, interleaved: bool, executab
     """
     logging.info("Filtering off-target reads... ")
     check_index(background, executables["bwa"])
-    sam_file = bwa_mem_wrapper(executables["bwa"], background, sample.id,
-                               sample.forward_reads, sample.output_dir, sample.reverse_reads, num_threads, interleaved)
+    sam_file = bwa_mem_wrapper(bwa_exe=executables["bwa"], index=background, num_threads=num_threads,
+                               sample_name=sample.id, fwd_fq=sample.forward_reads, rev_fq=sample.reverse_reads,
+                               output_dir=sample.output_dir, interleaved=sample.interleaved)
 
     # Use samtools to convert sam to bam
     bam_convert = [executables["samtools"], "view", "-bS", "-f", str(4), "-@", str(num_threads), sam_file, "|"]
@@ -1202,7 +1206,7 @@ def assemble_fosmids(sample: Sample, assembler: str, k_min: int, k_max: int, min
 
 
 def deinterleave_fastq(fastq_file: str, output_dir="") -> (str, str):
-    # TODO: support gizpped files
+    # TODO: support gzipped files
     logging.info("De-interleaving forward and reverse reads in " + fastq_file + "... ")
     if not output_dir:
         output_dir = os.path.dirname(fastq_file)
@@ -1343,17 +1347,18 @@ def get_assemble_input(sample):
     return assemble
 
 
-def parse_miffed(args, fabfos: FabFos):
+def parse_miffed(args, fabfos: FabFos, clean=False):
     """
     Finds the primary project name, submitter, sequencing platform and other information to help with processing
     and storage of the inputs/outputs.
 
     :param args: parsed command-line arguments from get_options()
     :param fabfos: An instance of the FabFos class
+    :param clean: Boolean indicating whether all of the samples' outputs should be removed
     :return: List of Miffed instances, one representing each row in the Miffed file
     """
     miffed = open(args.miffed, 'r')
-    line = miffed.readline()
+    line = miffed.readline().strip()
     libraries = list()
     header_re = re.compile(r"Sample.*Project.*Human selector.*Number of fosmids")
 
@@ -1380,12 +1385,15 @@ def parse_miffed(args, fabfos: FabFos):
             if args.skip_correction is True:
                 miffed_entry.error_correction = False
             miffed_entry.parity = args.parity
+            miffed_entry.interleaved = args.interleaved
 
             # Check to ensure the output directory exist or ensure it is empty:
             if os.path.isdir(miffed_entry.output_dir):
                 files = glob.glob(miffed_entry.output_dir + "**", recursive=True)
                 if len(files) != 0:
-                    miffed_entry.overwrite = get_overwrite_input(miffed_entry.id)
+                    miffed_entry.overwrite = clean
+                    if not miffed_entry.overwrite:
+                        miffed_entry.overwrite = get_overwrite_input(miffed_entry.id)
                     if miffed_entry.overwrite:
                         try:
                             # Replaced this with shutil.rmtree because rmtree was unreliable
@@ -1415,7 +1423,7 @@ def parse_miffed(args, fabfos: FabFos):
                 project_metadata.write(fabfos.metadata_header)
                 project_metadata.close()
             libraries.append(miffed_entry)
-        line = miffed.readline()
+        line = miffed.readline().strip()
     miffed.close()
     return libraries
 
@@ -2289,7 +2297,7 @@ def fabfos_main(sys_args):
     versions_dict = find_dependency_versions(executables)
     summarize_dependency_versions(dep_versions=versions_dict)
 
-    libraries = parse_miffed(args, fos_father)
+    libraries = parse_miffed(args, fabfos=fos_father, clean=args.overwrite)
 
     ends_stats = FosmidEnds()
     if args.ends:
@@ -2300,13 +2308,9 @@ def fabfos_main(sys_args):
     for sample in libraries:  # type: Miffed
         if not sample.exclude:
             if sample.assemble:
-                logging.info("Processing raw data for " + sample.id + "\n" +
-                             "Outputs for " + sample.id + " will be found in " + sample.output_dir + "\n")
-                sample.gather_reads(args.reads, args.reverse, args.interleaved, args.parity,
-                                    executables, sample.output_dir, args.type)
-                args.interleaved = False
-                sample.qc_reads(args.background, args.interleaved, args.parity, fos_father.adaptor_trim,
-                                executables, args.threads)
+                logging.info("Processing '{0}'. Outputs will written to {1}\n".format(sample.id, sample.output_dir))
+                sample.gather_reads(args.reads, args.reverse, args.parity, executables, sample.output_dir, args.type)
+                sample.qc_reads(args.background, args.parity, fos_father.adaptor_trim, executables, args.threads)
                 if sample.nanopore:
                     sample.prep_nanopore(args, executables, args.nanopore_reads)
                     # Assemble nanopore reads
