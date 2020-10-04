@@ -695,7 +695,6 @@ def find_executables(assembler: str, nanopore=False) -> dict:
 
     :return: Dictionary with executable paths indexed by executable names
     """
-    # TODO: Write the tool versions to the log file
     required_execs = ["bwa", "samtools", "trimmomatic.jar", "blastn", "makeblastdb"]
     np_execs = ["proovread", "canu"]
     executables = dict()
@@ -771,7 +770,27 @@ def find_dependency_versions(exe_dict: dict) -> dict:
     return versions_dict
 
 
+def validate_dependency_versions(dep_versions: dict) -> bool:
+    """
+    Ensure the versions of executables are compatible with FabFos.
+
+    :param dep_versions: A dictionary mapping executable names to the installed version
+    :return: Boolean indicating whether all of the installed executable dependencies (not Python libraries) are the
+    right version.
+    """
+    reqd_versions = {"samtools": "1.10",
+                     "trimmomatic.jar": "0.39"}
+    for dep, min_v in reqd_versions.items():
+        if version.parse(dep_versions[dep]) < version.parse(min_v):
+            logging.warning("{} version found ('{}') is not compatible with FabFos - {} or later required.\n"
+                            "".format(dep, dep_versions[dep], reqd_versions[dep]))
+            return False
+
+    return True
+
+
 def summarize_dependency_versions(dep_versions: dict) -> None:
+    validate_dependency_versions(dep_versions)
     versions_string = "Software versions used:\n"
     ##
     # Format the string with the versions of all software
@@ -781,12 +800,6 @@ def summarize_dependency_versions(dep_versions: dict) -> None:
         versions_string += "\t" + exe + ' ' * n_spaces + dep_versions[exe] + "\n"
 
     logging.info(versions_string)
-
-    # Check versions for particular dependencies
-    if version.parse(dep_versions["samtools"]) < version.parse("1.10"):
-        logging.error("Version of samtools found ('{}') is not compatible with FabFos.\n"
-                      "".format(dep_versions["samtools"]))
-        sys.exit(17)
 
     return
 

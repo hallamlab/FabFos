@@ -44,6 +44,12 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(100, nx_stats[1.0])
         return
 
+    def test_validate_dependency_versions(self):
+        from src.FabFos import validate_dependency_versions
+        valid = validate_dependency_versions({"samtools": "1.11", "trimmomatic.jar": "0.40"})
+        self.assertTrue(valid)
+        return
+
 
 if __name__ == '__main__':
     unittest.main()
