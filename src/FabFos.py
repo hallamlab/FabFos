@@ -1144,9 +1144,7 @@ def megahit_wrapper(sample: Sample, megahit_exe: str, k_min: int, k_max: int, mi
     megahit_output_dir = sample.output_dir + "assembly"
     megahit_command += ["--out-dir", megahit_output_dir]
     megahit_command += ["--num-cpu-threads", str(num_threads)]
-    megahit_command.append("--verbose")
     megahit_command.append("--no-mercy")  # Recommended for high-coverage datasets
-    megahit_command += ["1>", "/dev/null", "2>", "/dev/null"]
 
     subprocess_helper(megahit_command)
 
@@ -1943,7 +1941,7 @@ def get_assembly_stats(fosmid_assembly: dict, assembler: str, ):
 
     # Print some stats to the log
     logging.info("N50 = " + str(nx_stats[0.5]) + "\n")
-    logging.info("Longest contig = " + str(nx_stats[0]) + "bp\t")
+    logging.info("Longest contig = " + str(nx_stats[0]) + "bp\n")
     # Save Nx stats for the output
     assembly_stats["N50"] = str(nx_stats[0.5])
     assembly_stats["N90"] = str(nx_stats[0.9])
