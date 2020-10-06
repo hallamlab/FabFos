@@ -1238,6 +1238,24 @@ def assemble_fosmids(sample: Sample, assembler: str, assembly_mode: str, k_min: 
     return
 
 
+def read_fastq_to_dict(fastq_file: str) -> dict:
+    fq_dict = {}
+    acc = 0
+    matepair_re = re.compile(r".*/[12]$")
+    logging.info("Reading FASTQ file '{}'... ")
+    for name, seq, _ in pyfastx.Fastq(file_name=fastq_file, build_index=False):
+        if not matepair_re.match(name):
+            if acc % 2:
+                name += "/2"
+            else:
+                name += "/1"
+        fq_dict[name] = seq
+        acc += 1
+
+    logging.info("done.\n")
+    return fq_dict
+
+
 def deinterleave_fastq(fastq_file: str, output_dir="") -> (str, str):
     # TODO: support gzipped files
     logging.info("De-interleaving forward and reverse reads in " + fastq_file + "... ")
@@ -1267,7 +1285,9 @@ def deinterleave_fastq(fastq_file: str, output_dir="") -> (str, str):
         acc += 1
         if acc % 1E6 == 0:
             f_handler.write(f_string)
+            f_string = ""
             r_handler.write(r_string)
+            r_string = ""
 
     # Close up shop
     f_handler.write(f_string)

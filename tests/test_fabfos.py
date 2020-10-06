@@ -7,6 +7,8 @@ class MyTestCase(unittest.TestCase):
         self.test_data_dir = "test_data"
         self.backbone = os.path.join(self.test_data_dir, "trim_sequences.fasta")
         self.fabfos_db_path = os.path.join(self.test_data_dir, "FabFos_DB")
+        self.fq_interleaved = os.path.join(self.test_data_dir, "fwd",
+                                           "52414.2.321701.AACCGTTC-GAACGGTT.filter-METAGENOME.fosmid.fastq")
         return
 
     def test_fabfos_se(self):
@@ -65,6 +67,14 @@ class MyTestCase(unittest.TestCase):
     def test_summarize_dependency_versions(self):
         from src.FabFos import summarize_dependency_versions
         summarize_dependency_versions({})
+        return
+
+    def test_deinterleave_fastq(self):
+        from src.FabFos import deinterleave_fastq, read_fastq_to_dict
+        num_interleaved = len(read_fastq_to_dict(self.fq_interleaved))
+        fwd_fq, rev_fq = deinterleave_fastq(self.fq_interleaved, output_dir=self.test_data_dir)
+        num_split = sum([len(read_fastq_to_dict(fwd_fq)), len(read_fastq_to_dict(rev_fq))])
+        self.assertEqual(num_interleaved, num_split)
         return
 
 
