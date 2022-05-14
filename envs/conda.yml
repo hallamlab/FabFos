@@ -1,0 +1,13 @@
+name: fabfos
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - pyfastx >=0.8.4
+  - packaging >=21.3
+  - bwa >=0.7.17
+  - samtools >=1.15.1
+  - trimmomatic >=0.39
+  - blast
+  - megahit
+  - spades

@@ -17,11 +17,11 @@ Dependencies listed below will need to be independently installed.
 
 ### Dependencies
 
-FabFos relies on multiple other bioinformatic software and python libraries to process the fosmids.
+FabFos relies on multiple other bioinformatic software and python libraries.
+To make installation of these packages easier and more reliable please create and install dependencies with conda.
 
-To install the python requirements, use the command:
 ```shell script
-pip install -r requirements.txt
+conda env create -f envs/conda.yml
 ```
 
 Please consider citing these in your published work that relies on FabFos.

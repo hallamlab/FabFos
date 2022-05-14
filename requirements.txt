@@ -1,2 +1,2 @@
-pyfastx ==0.7.0
-packaging >=20.4
+pyfastx >=0.8.4
+packaging >=21.0

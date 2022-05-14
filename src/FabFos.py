@@ -280,7 +280,7 @@ class Sample:
             logging.warning("Number of reads remaining will provide less than 20X coverage for a single fosmid"
                             " - skipping this sample\n")
             return
-        trimmed_reads = quality_trimming(executables["trimmomatic.jar"], self, filtered_reads, parity, adapters, num_threads)
+        trimmed_reads = quality_trimming(executables["trimmomatic"], self, filtered_reads, parity, adapters, num_threads)
         self.read_stats.num_reads_assembled = find_num_reads(trimmed_reads)
         self.read_stats.num_reads_trimmed = self.read_stats.num_filtered_reads - self.read_stats.num_reads_assembled
 
@@ -722,7 +722,7 @@ def find_executables(assembler: str, nanopore=False) -> dict:
 
     :return: Dictionary with executable paths indexed by executable names
     """
-    required_execs = ["bwa", "samtools", "trimmomatic.jar", "blastn", "makeblastdb"]
+    required_execs = ["bwa", "samtools", "trimmomatic", "blastn", "makeblastdb"]
     np_execs = ["proovread", "canu"]
     executables = dict()
     for executable in required_execs:
@@ -771,8 +771,8 @@ def find_dependency_versions(exe_dict: dict) -> dict:
             stdout, returncode = subprocess_helper([exe_dict[exe], "-version"])
         elif exe in no_params:
             stdout, returncode = subprocess_helper([exe_dict[exe]], graceful=True)
-        elif exe == "trimmomatic.jar":
-            stdout, returncode = subprocess_helper(["java", "-Xmx10m", "-jar", exe_dict[exe], "-version"])
+        elif exe == "trimmomatic":
+            stdout, returncode = subprocess_helper([exe_dict[exe], "-version"])
             versions_dict[exe] = stdout.strip()
             continue
         else:
@@ -806,7 +806,7 @@ def validate_dependency_versions(dep_versions: dict) -> bool:
     right version.
     """
     reqd_versions = {"samtools": "1.10",
-                     "trimmomatic.jar": "0.39"}
+                     "trimmomatic": "0.39"}
     for dep, min_v in reqd_versions.items():
         if version.parse(dep_versions[dep]) < version.parse(min_v):
             logging.warning("{} version found ('{}') is not compatible with FabFos - {} or later required.\n"
@@ -1064,7 +1064,7 @@ def quality_trimming(trimmomatic_exe: str, sample: Sample, filtered_reads: list,
 
     trim_prefix = sample.output_dir + os.sep + sample.id + "_trim_"
 
-    trimmomatic_command = ["java", "-jar", trimmomatic_exe]
+    trimmomatic_command = [trimmomatic_exe]
     if parity == "pe":
         trimmomatic_command.append("PE")
         trimmomatic_outputs = [trim_prefix + "pe.1.fq", trim_prefix + "se.1.fq",
@@ -1523,9 +1523,12 @@ def find_num_reads(file_list: list) -> int:
     for fastq in file_list:
         if not fastq:
             continue
-        fq = pyfastx.Fastq(file_name=fastq, build_index=False)
-        for _ in fq:
-            num_reads += 1
+        if os.stat(fastq).st_size != 0:
+            fq = pyfastx.Fastq(file_name=fastq, build_index=False)
+            for _ in fq:
+                num_reads += 1
+        else:
+            logging.debug("FASTQ '{}' is empty.\n".format(fastq))
     logging.info("done.\n")
     return num_reads
 

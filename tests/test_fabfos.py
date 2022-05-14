@@ -8,7 +8,7 @@ class MyTestCase(unittest.TestCase):
         self.backbone = os.path.join(self.test_data_dir, "trim_sequences.fasta")
         self.fabfos_db_path = os.path.join(self.test_data_dir, "FabFos_DB")
         self.fq_interleaved = os.path.join(self.test_data_dir, "fwd",
-                                           "52414.2.321701.AACCGTTC-GAACGGTT.filter-METAGENOME.fosmid.fastq")
+                                           "52414.2.321701.AACCGTTC-GAACGGTT.filter-METAGENOME.fosmid.fastq.gz")
         return
 
     def test_fabfos_se(self):
@@ -60,7 +60,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_validate_dependency_versions(self):
         from src.FabFos import validate_dependency_versions
-        valid = validate_dependency_versions({"samtools": "1.11", "trimmomatic.jar": "0.40"})
+        valid = validate_dependency_versions({"samtools": "1.11", "trimmomatic": "0.39"})
         self.assertTrue(valid)
         return
 
