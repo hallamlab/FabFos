@@ -1,6 +1,7 @@
 NAME=fabfos
 DOCKER_IMAGE=quay.io/hallam_lab/$NAME
-echo image: $DOCKER_IMAGE
+VER=1.9
+echo image: $DOCKER_IMAGE:$VER
 echo ""
 
 HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -9,19 +10,16 @@ case $1 in
     --build|-b)
         # change the url in python if not txyliu
         # build the docker container locally *with the cog db* (see above)
-        rm -r docker/src
-        cp -r src docker/src
-        cd docker
         docker build -t $DOCKER_IMAGE .
     ;;
     --push|-p)
         # login and push image to quay.io
         # sudo docker login quay.io
-	    docker push $DOCKER_IMAGE:latest
+	    docker push $DOCKER_IMAGE:$VER
     ;;
     --sif)
         # test build singularity
-        singularity build $NAME.sif docker-daemon://$DOCKER_IMAGE:latest
+        singularity build $NAME.sif docker-daemon://$DOCKER_IMAGE:$VER
     ;;
     --run|-r)
         # test run docker image
