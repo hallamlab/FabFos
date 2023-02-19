@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
+  - python >=3.10
   - pyfastx >=0.8.4
   - packaging >=21.3
   - bwa >=0.7.17

@@ -10,6 +10,7 @@ try:
     import subprocess
     import shutil
     import logging
+    from pathlib import Path
     from packaging import version
     from time import strftime
 
@@ -311,8 +312,10 @@ class Sample:
 
     def assemble_fosmids(self, executables, num_threads):
         k_min, k_max, = determine_k_values(self.get_test_fastq(), self.assembler)
-        min_count = determine_min_count(self.read_stats.num_reads_assembled, self.num_fosmids_estimate, k_max)
-        assemble_fosmids(self, self.assembler, self.assembly_mode, k_min, k_max, min_count, executables, num_threads)
+        min_count, cov = determine_min_count(self.read_stats.num_reads_assembled, self.num_fosmids_estimate, k_max)
+        with open(Path(self.output_dir).joinpath(f"{self.id}_estimated_coverage.txt", "w")) as f_cov:
+            f_cov.write(f"{cov}\n")
+        assemble_fosmids(self, self.assembler, self.assembly_mode, k_min, k_max, min_count, executables, num_threads=num_threads)
         clean_intermediates(self)
         return
 
@@ -646,7 +649,7 @@ def review_arguments(args, fabfos: FabFos) -> None:
 
     # Check if the miffed file was provided and exists
     if not args.miffed:
-        logging.error("the following argument is required: -m/--miffed")
+        logging.error("the following argument is required: -m/--miffed\n")
         sys.exit(1)
     elif not os.path.isfile(args.miffed):
         logging.error("Path to the MIFFED file '{}' does not exist.\n")
@@ -655,12 +658,12 @@ def review_arguments(args, fabfos: FabFos) -> None:
     if not os.path.isfile(fabfos.master_metadata):
         if not args.force:
             logging.error("The FabFos directory '{}' does not contain '{}'. "
-                          "Are you sure its a bona fide FabFos repository?".format(fabfos.db_path,
+                          "Are you sure its a bona fide FabFos repository?\n".format(fabfos.db_path,
                                                                                    os.path.basename(
                                                                                        fabfos.master_metadata)))
             sys.exit(3)
         else:
-            logging.info("Creating a new FabFos directory in '{}'".format(fabfos.db_path))
+            logging.info("Creating a new FabFos directory in '{}'\n".format(fabfos.db_path))
             fabfos.furnish()
 
     # Review the provided arguments:
@@ -2299,7 +2302,7 @@ def determine_min_count(num_reads: int, num_fosmids: int, k_max: int):
     if dist_tail > min_count:
         min_count = int(dist_tail)
 
-    return min_count
+    return min_count, approx_coverage
 
 
 def assemble_nanopore_reads(sample: Sample, canu_exe, skip_correction, threads=2):
