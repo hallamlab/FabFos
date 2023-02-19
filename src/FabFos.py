@@ -313,7 +313,7 @@ class Sample:
     def assemble_fosmids(self, executables, num_threads):
         k_min, k_max, = determine_k_values(self.get_test_fastq(), self.assembler)
         min_count, cov = determine_min_count(self.read_stats.num_reads_assembled, self.num_fosmids_estimate, k_max)
-        with open(Path(self.output_dir).joinpath(f"{self.id}_estimated_coverage.txt", "w")) as f_cov:
+        with open(Path(self.output_dir).joinpath(f"{self.id}_estimated_coverage.txt"), "w") as f_cov:
             f_cov.write(f"{cov}\n")
         assemble_fosmids(self, self.assembler, self.assembly_mode, k_min, k_max, min_count, executables, num_threads=num_threads)
         clean_intermediates(self)

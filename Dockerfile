@@ -5,7 +5,8 @@ FROM condaforge/mambaforge as build-env
 # name must match what is in conda.yml
 ENV CONDA_ENV "fabfos"
 COPY ./envs/conda.yml /opt/
-RUN mamba env create --no-default-packages -f /opt/conda.yml
+RUN mamba env create --no-default-packages -f /opt/conda.yml\
+    && mamba clean -afy
 
 # Singularity uses tini, but raises warnings
 # we set it up here correctly for singularity
@@ -14,7 +15,9 @@ ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
 
 # use a smaller runtime image
-FROM ubuntu:22.10
+# jammy is ver. 22.04 LTS
+# https://wiki.ubuntu.com/Releases
+FROM ubuntu:jammy
 ENV CONDA_ENV "fabfos"
 COPY --from=build-env /opt/conda/envs/${CONDA_ENV} /opt/conda/envs/${CONDA_ENV}
 COPY --from=build-env /tini /tini

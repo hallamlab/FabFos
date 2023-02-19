@@ -10,7 +10,7 @@ case $1 in
     --build|-b)
         # change the url in python if not txyliu
         # build the docker container locally *with the cog db* (see above)
-        docker build -t $DOCKER_IMAGE .
+        docker build -t $DOCKER_IMAGE:$VER .
     ;;
     --push|-p)
         # login and push image to quay.io
