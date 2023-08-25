@@ -24,8 +24,9 @@ except (ImportWarning, ModuleNotFoundError):
 FabFos: a pipeline for automatically performing quality controls, assembly, and data storage management
 for fosmid sequence information. Circa 2020 - Hallam Lab, UBC
 """
-
-__version__ = "1.9"
+HERE = Path("/".join(os.path.realpath(__file__).split('/')[:-1]))
+with open(HERE.joinpath("version.txt")) as f:
+    __version__ = f.read()
 __author__ = "Connor Morgan-Lang"
 __license__ = "GPL-v3"
 __maintainer__ = "Connor Morgan-Lang"
@@ -44,7 +45,7 @@ class FabFos:
         else:
             self.py_version = 2
 
-        self.adaptor_trim = "/usr/local/share/Trimmomatic-0.39/adapters/"
+        self.adaptor_trim = "/opt/conda/envs/fabfos/share/trimmomatic/adapters/"
         self.master_metadata = os.path.join(self.db_path, "FabFos_master_metadata.tsv")
         self.metadata_header = "#Sample Name (LLLLL-PP-WWW)\tProject\tHuman selector\tVector Name\t" \
                                "Screen [in silico | functional]\tSelection criteria\tNumber of fosmids\t" \
@@ -409,11 +410,8 @@ class Alignment:
 
 class EndAlignment(Alignment):
     def parse_fosmid_end_name(self):
-        # full_name = self.qseqid.split('.')[1]
-        prefix = self.qseqid.split('.')[0]
-        direction, name = prefix.split('_')
-        self.direction = direction[-1]
-        self.name = prefix + '.' + name
+        self.direction = "F" if ENDS_FW_FLAG in self.qseqid else "R"
+        self.name = get_fosmid_end_name(self.qseqid)
 
 
 class MyFormatter(logging.Formatter):
@@ -531,7 +529,8 @@ def bam2fastq(input_file: str, sample_id: str, output_dir: str, samtools_exe: st
 
     return fastq_files
 
-
+ENDS_NAME_REGEX = None
+ENDS_FW_FLAG = None
 def get_options(sys_args: list):
     parser = argparse.ArgumentParser(description="Pipeline for filtering, assembling and organizing "
                                                  "fosmid sequence information.\n",
@@ -579,7 +578,11 @@ def get_options(sys_args: list):
                       help="The number of threads that can be used [DEFAULT = 8]")
     opts.add_argument("-e", "--ends", required=False, default=None,
                       help="FASTA file containing fosmid ends - these will be used for alignment to fosmid contigs.")
-
+    opts.add_argument("-en", "--ends-name-pattern", required=False, default=None,
+                      help='regex for getting name of endseq., ex. "\\w+_\\d+" would get ABC_123 from ABC_123_FW')
+    opts.add_argument("-ef", "--ends-fw-flag", required=False, default=None,
+                    help='string that marks forward ends, ex. "_FW" would cause ABC_123_FW and ABC_123_RE to be assigned to forward and reverse respectively.')
+    
     misc.add_argument("--force", required=False, default=False, action="store_true",
                       help="FabFos will run even if the fabfos_path argument is a directory lacking a metadata file.")
     misc.add_argument("--overwrite", required=False, default=False, action="store_true",
@@ -592,6 +595,16 @@ def get_options(sys_args: list):
                       action="help", help="Show this help message and exit")
 
     args = parser.parse_args(sys_args)
+
+    if args.ends:
+        # yes, using global variables is lazy, but this is also a 2k+ line python file...
+        name_pattern = args.ends_name_pattern
+        assert name_pattern is not None, f"if using endseq, also provide name pattern"
+        fw_flag = args.ends_fw_flag
+        assert fw_flag is not None, f"if using endseq, also provide forward direction flag"
+        global ENDS_NAME_REGEX, ENDS_FW_FLAG
+        ENDS_NAME_REGEX = name_pattern
+        ENDS_FW_FLAG = fw_flag
     return args
 
 
@@ -1480,6 +1493,8 @@ def parse_miffed(args, fabfos: FabFos, clean=False):
             project_metadata_file = os.path.join(fabfos.db_path, miffed_entry.project,
                                                  "FabFos_" + miffed_entry.project + "_metadata.tsv")
             if not os.path.isfile(project_metadata_file):
+                project_metadata_path = Path(project_metadata_file).parent
+                os.makedirs(project_metadata_path, exist_ok=True)
                 project_metadata = open(project_metadata_file, 'w')
                 project_metadata.write(fabfos.metadata_header)
                 project_metadata.close()
@@ -1570,12 +1585,17 @@ def get_fosmid_end_name(string):
     """
     This function is very unstable and currently needs to be manually changed for every FabFos run
     """
-    # PPSLIBM-08-H17_F.ab1
-    full_name = string.split('.')[0]
-    prefix = full_name.split('-')[0]
-    # print "string= ", string, "\tfull= ", full_name, "\tprefix= ", prefix
-    name, direction = full_name.split('_')
-    # name = prefix + '.' + name
+    i1, i2 = next(re.finditer(ENDS_NAME_REGEX, string)).span()
+    name = string[i1:i2]
+    # print(name)
+
+    # print(string[i1:i2])
+    # # PPSLIBM-08-H17_F.ab1
+    # full_name = string.split('.')[0]
+    # prefix = full_name.split('-')[0]
+    # # print "string= ", string, "\tfull= ", full_name, "\tprefix= ", prefix
+    # name, direction = full_name.split('_')
+    # # name = prefix + '.' + name
     return name
 
 
@@ -1937,9 +1957,9 @@ def read_fasta(fasta):
         logging.error("Cannot open FASTA file (" + fasta + ") for reading!")
         sys.exit(3)
 
-    line = fasta_seqs.readline()
-    while line:
-        line = line.strip()
+    for line in fasta_seqs:
+        line = line.replace("\n", "").strip()
+        if len(line) == 0: continue
         if line[0] == '>':
             if header != "":
                 fasta_dict[header] = sequence
@@ -1948,7 +1968,6 @@ def read_fasta(fasta):
             sequence = ""
         else:
             sequence += line
-        line = fasta_seqs.readline()
     fasta_dict[header] = sequence
 
     fasta_seqs.close()

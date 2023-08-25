@@ -1,6 +1,6 @@
 NAME=fabfos
-DOCKER_IMAGE=quay.io/hallam_lab/$NAME
-VER=1.9
+DOCKER_IMAGE=quay.io/hallamlab/$NAME
+VER=$(cat ./src/version.txt)
 echo image: $DOCKER_IMAGE:$VER
 echo ""
 
@@ -29,7 +29,7 @@ case $1 in
             # --workdir="/ws" \
             # -u $(id -u):$(id -g) \
         shift
-        docker run -it --rm $DOCKER_IMAGE fabfos $@
+        docker run -it --rm $DOCKER_IMAGE:$VER /bin/bash
 
     ;;
     
@@ -37,14 +37,30 @@ case $1 in
         #
         # scratch space for testing stuff
         #
+            # --threads 14 --fabfos_path ./ --force --assembler megahit \
         cd scratch
+        # docker run -it --rm \
+        #     --mount type=bind,source="./",target="/ws" \
+        #     --workdir="/ws" \
+        #     -u $(id -u):$(id -g) \
+        #     $DOCKER_IMAGE:$VER fabfos --threads 14 --fabfos_path ./ --force --overwrite \
+        #     --assembler spades_meta \
+        #     --interleaved \
+        #     -m miffed.csv --reads ./reads -i -b ecoli_k12_mg1655.fasta
+
+            # --assembler spades_meta \
         docker run -it --rm \
+            --mount type=bind,source="/home/tony/workspace/grad/FabFos/src",target="/app" \
             --mount type=bind,source="./",target="/ws" \
             --workdir="/ws" \
             -u $(id -u):$(id -g) \
-            $DOCKER_IMAGE fabfos \
-            --threads 14 --fabfos_path ./ --force --assembler megahit \
-            -m miffed.csv --reads ./reads -i -b ecoli_k12_mg1655.fasta
+            $DOCKER_IMAGE:$VER fabfos --threads 14 --fabfos_path ./ --force --overwrite \
+            --assembler megahit \
+            --interleaved \
+            --ends ./beaver_cecum_2ndhits/endseqs.fasta \
+            --ends-name-pattern "\\w+_\\d+" \
+            --ends-fw-flag "FW" \
+            -m endseq.csv --reads ./beaver_cecum_2ndhits/EKL/Raw_Data -i -b ecoli_k12_mg1655.fasta
     ;;
     *)
         echo "bad option"
