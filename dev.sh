@@ -1,10 +1,10 @@
+HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
 NAME=fabfos
 DOCKER_IMAGE=quay.io/hallamlab/$NAME
-VER=$(cat ./src/version.txt)
+VER=$(cat $HERE/src/version.txt)
 echo image: $DOCKER_IMAGE:$VER
 echo ""
-
-HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 case $1 in
     --build|-b)
@@ -34,11 +34,23 @@ case $1 in
     ;;
     
     -t)
-        #
+
+        cd scratch
+        $HERE/src/fabfos  --threads 14 --output ./no_miffed_test \
+            --assembler megahit \
+            --interleaved \
+            --ends ./beaver_cecum_2ndhits/endseqs.fasta \
+            --ends-name-pattern "\\w+_\\d+" \
+            --ends-fw-flag "FW" \
+            -m endseq.csv \
+            -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits.fastq.gz \
+            -b ecoli_k12_mg1655.fasta
+
+            #
         # scratch space for testing stuff
         #
             # --threads 14 --fabfos_path ./ --force --assembler megahit \
-        cd scratch
+        # cd scratch
         # docker run -it --rm \
         #     --mount type=bind,source="./",target="/ws" \
         #     --workdir="/ws" \
@@ -49,18 +61,18 @@ case $1 in
         #     -m miffed.csv --reads ./reads -i -b ecoli_k12_mg1655.fasta
 
             # --assembler spades_meta \
-        docker run -it --rm \
-            --mount type=bind,source="/home/tony/workspace/grad/FabFos/src",target="/app" \
-            --mount type=bind,source="./",target="/ws" \
-            --workdir="/ws" \
-            -u $(id -u):$(id -g) \
-            $DOCKER_IMAGE:$VER fabfos --threads 14 --fabfos_path ./ --force --overwrite \
-            --assembler megahit \
-            --interleaved \
-            --ends ./beaver_cecum_2ndhits/endseqs.fasta \
-            --ends-name-pattern "\\w+_\\d+" \
-            --ends-fw-flag "FW" \
-            -m endseq.csv --reads ./beaver_cecum_2ndhits/EKL/Raw_Data -i -b ecoli_k12_mg1655.fasta
+        # docker run -it --rm \
+        #     --mount type=bind,source="/home/tony/workspace/grad/FabFos/src",target="/app" \
+        #     --mount type=bind,source="./",target="/ws" \
+        #     --workdir="/ws" \
+        #     -u $(id -u):$(id -g) \
+        #     $DOCKER_IMAGE:$VER fabfos --threads 14 --fabfos_path ./ --force --overwrite \
+        #     --assembler megahit \
+        #     --interleaved \
+        #     --ends ./beaver_cecum_2ndhits/endseqs.fasta \
+        #     --ends-name-pattern "\\w+_\\d+" \
+        #     --ends-fw-flag "FW" \
+        #     -m endseq.csv --reads ./beaver_cecum_2ndhits/EKL/Raw_Data -i -b ecoli_k12_mg1655.fasta
     ;;
     *)
         echo "bad option"

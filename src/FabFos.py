@@ -5,7 +5,6 @@ try:
     import sys
     import glob
     import os
-    import traceback
     import re
     import subprocess
     import shutil
@@ -16,8 +15,9 @@ try:
 
     import pyfastx
 except (ImportWarning, ModuleNotFoundError):
+    import traceback
     sys.stderr.write("Could not load some user defined module functions")
-    sys.stderr.write(traceback.print_exc(10))
+    sys.stderr.write(str(traceback.print_exc(10)))
     sys.exit(3)
 
 """
@@ -45,8 +45,8 @@ class FabFos:
         else:
             self.py_version = 2
 
-        self.adaptor_trim = "/opt/conda/envs/fabfos/share/trimmomatic/adapters/"
-        self.master_metadata = os.path.join(self.db_path, "FabFos_master_metadata.tsv")
+        # this assumes a conda environment
+        self.adaptor_trim = f"{Path(sys.executable).parents[1]}/share/trimmomatic/adapters/"
         self.metadata_header = "#Sample Name (LLLLL-PP-WWW)\tProject\tHuman selector\tVector Name\t" \
                                "Screen [in silico | functional]\tSelection criteria\tNumber of fosmids\t" \
                                "Sequencing submission date (YYYY-MM-DD)\tGlycerol plate name\tSequencing center\t" \
@@ -60,12 +60,7 @@ class FabFos:
     def furnish(self) -> None:
         if not os.path.isdir(self.db_path):
             os.makedirs(self.db_path)
-
-        with open(self.master_metadata, 'w') as metadata_handler:
-            metadata_handler.write(self.metadata_header)
-
         return
-
 
 class FosmidEnds:
     """
@@ -203,37 +198,34 @@ class Sample:
             sys.exit(3)
         return forward, reverse
 
-    def gather_reads(self, reads_dir: str, reverse: str, parity: str,
+    def gather_reads(self, reads_file: str, reverse_file: str, parity: str,
                      executables: dict, output_dir: str, file_type: str) -> None:
         """
         Finds all the FASTQ files for a sample, filling the Sample.forward_reads and Sample.reverse_reads attributes
         If the file_type == 'B' indicating BAM format, these files are also converted to FASTQs
 
-        :param reads_dir: Path to the directory containing forward-oriented or interleaved FASTQ files or BAMs
-        :param reverse: Path the the directory containing reverse-oriented FASTQ files
+        :param reads_file: Path to the forward-oriented or interleaved FASTQ files or BAMs
+        :param reverse: Path the the reverse-oriented FASTQ files
         :param parity: String indicating the sequencing chemistry library for the library [pe (default)|se]
         :param executables: Dictionary containing paths to executables that is indexed by the executable name
         :param output_dir: Used only if the input files are BAMs - path to write the new FASTQ files
         :param file_type: String indicating whether the input reads are provided in FASTQ (F) or BAM (B) format
         :return: None
         """
+
         if file_type == "B":  # If the input are BAM files, convert them to FASTQ and split them here
-            fastq_list = bam2fastq(reads_dir, self.id, self.output_dir, executables["samtools"], parity)
-            fwd_dir = output_dir + os.sep + "bam_split_fwd" + os.sep
-            rev_dir = output_dir + os.sep + "bam_split_rev" + os.sep
+            fastq_list = bam2fastq(reads_file, self.id, self.output_dir, executables["samtools"], parity)
+            raw_reads = {}
             for fastq in fastq_list:
                 if re.search("1.fastq", fastq):
-                    os.makedirs(fwd_dir)
-                    shutil.copy(fastq, fwd_dir)
+                    raw_reads["forward"] = fastq
                 else:
-                    os.makedirs(rev_dir)
-                    shutil.copy(fastq, rev_dir)
-            raw_reads = find_raw_reads(fwd_dir, self.id, rev_dir)
+                    raw_reads["reverse"] = fastq
         else:
-            raw_reads = find_raw_reads(reads_dir, self.id, parity, reverse)
+            raw_reads = {"forward": reads_file}
+            if reverse_file is not None: raw_reads["reverse"] = reverse_file
         if self.interleaved:
-            raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq(raw_reads["forward"],
-                                                                            self.output_dir)
+            raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq(raw_reads["forward"], self.output_dir)
             self.interleaved = False
 
         self.forward_reads = raw_reads["forward"]
@@ -553,12 +545,10 @@ def get_options(sys_args: list):
                           help="Do not perform error-correction of nanopore reads using proovread")
 
     reads.add_argument("-r", "--reads", type=str, required=False,
-                       help="Path to the directory containing reads formatted as either"
-                            " the forward strand file or the interleaved paired-end file."
-                            " Can be in either FastQ or BAM format. "
-                            "NOTE: a maximum of two sequence files per sample are permitted.")
+                       help="Path to the forward strand file or the interleaved paired-end file."
+                            "Can be in either FastQ or BAM format.")
     reads.add_argument("-2", "--reverse", type=str, required=False,
-                       help="Path to the directory containing reverse-end reads (if applicable) [.fastq]")
+                       help="Path to the reverse-end read file (if applicable)")
     reads.add_argument("-t", "--type", choices=["B", "F"], required=False, default="F",
                        help="Enter B if input type is BAM, F for FastQ. [ DEFAULT = 'F' ]")
     reads.add_argument("-i", "--interleaved", required=False, default=False, action="store_true",
@@ -571,22 +561,17 @@ def get_options(sys_args: list):
     opts.add_argument("-a", "--assembler", required=False,
                       choices=["spades_meta", "spades_isolate", "spades_sc", "megahit"], default="spades_isolate",
                       help="Genome assembly software to use. [DEFAULT = spades_isolate]")
-    opts.add_argument("-f", "--fabfos_path", type=str, required=False,
-                      default="/mnt/nfs/sharknado/LimsData/FabFos/",
-                      help="Path to FabFos database on sharknado [DEFAULT = /mnt/nfs/sharknado/LimsData/FabFos/]")
+    opts.add_argument("-o", "--output", type=str, required=False,
+                      default="./",
+                      help="path to temp. workspace [DEFAULT = /tmp]")
     opts.add_argument("-T", "--threads", type=str, required=False, default=str(8),
                       help="The number of threads that can be used [DEFAULT = 8]")
     opts.add_argument("-e", "--ends", required=False, default=None,
                       help="FASTA file containing fosmid ends - these will be used for alignment to fosmid contigs.")
-    opts.add_argument("-en", "--ends-name-pattern", required=False, default=None,
+    opts.add_argument("--ends-name-pattern", required=False, default=None,
                       help='regex for getting name of endseq., ex. "\\w+_\\d+" would get ABC_123 from ABC_123_FW')
-    opts.add_argument("-ef", "--ends-fw-flag", required=False, default=None,
+    opts.add_argument("--ends-fw-flag", required=False, default=None,
                     help='string that marks forward ends, ex. "_FW" would cause ABC_123_FW and ABC_123_RE to be assigned to forward and reverse respectively.')
-    
-    misc.add_argument("--force", required=False, default=False, action="store_true",
-                      help="FabFos will run even if the fabfos_path argument is a directory lacking a metadata file.")
-    misc.add_argument("--overwrite", required=False, default=False, action="store_true",
-                      help="This flag will remove outputs from a previous FabFos run for all samples in MIFFED file.")
     misc.add_argument("--version", default=False, action="store_true",
                       help="Print the FabFos version and exit.")
     misc.add_argument("--verbose", required=False, default=False, action="store_true",
@@ -660,34 +645,18 @@ def review_arguments(args, fabfos: FabFos) -> None:
     :return: None
     """
 
-    # Check if the miffed file was provided and exists
-    if not args.miffed:
-        logging.error("the following argument is required: -m/--miffed\n")
-        sys.exit(1)
-    elif not os.path.isfile(args.miffed):
-        logging.error("Path to the MIFFED file '{}' does not exist.\n")
-        sys.exit(3)
-
-    if not os.path.isfile(fabfos.master_metadata):
-        if not args.force:
-            logging.error("The FabFos directory '{}' does not contain '{}'. "
-                          "Are you sure its a bona fide FabFos repository?\n".format(fabfos.db_path,
-                                                                                   os.path.basename(
-                                                                                       fabfos.master_metadata)))
-            sys.exit(3)
-        else:
-            logging.info("Creating a new FabFos directory in '{}'\n".format(fabfos.db_path))
-            fabfos.furnish()
+    # create temp workspace
+    fabfos.furnish()
 
     # Review the provided arguments:
     if not args.reads:
         logging.error("the following argument is required: -r/--reads\n")
         sys.exit(1)
-    if not os.path.isdir(args.reads):
-        logging.error(args.reads + " is not a valid directory!\n")
+    if not os.path.isfile(args.reads):
+        logging.error(args.reads + " is not a file\n")
         sys.exit(3)
-    if args.reverse and not os.path.isdir(args.reverse):
-        logging.error(args.reverse + " is not a valid directory!\n")
+    if args.reverse and not os.path.isfile(args.reverse):
+        logging.error(args.reverse + " is not a file\n")
         sys.exit(3)
 
     # Check if the background (FASTA including vector and source genome) file was provided and exists
@@ -775,7 +744,6 @@ def find_dependency_versions(exe_dict: dict) -> dict:
     version_param = ["blastn", "makeblastdb"]
     no_params = ["bwa", "samtools"]
     version_re = re.compile(r"[Vv]\d+.\d|[Vv]ersion:? \d.\d|\d\.\d\.\d")
-
     for exe in exe_dict:
         ##
         # Get the version statement for the software
@@ -902,8 +870,12 @@ def filter_backbone(sample: Sample, background: str, executables: dict, parity: 
     :return: list of fastq files containing the filtered reads
     """
     logging.info("Filtering off-target reads... ")
-    check_index(background, executables["bwa"])
-    sam_file = bwa_mem_wrapper(bwa_exe=executables["bwa"], index=background, num_threads=num_threads,
+    # print(sample.output_dir)
+    # os._exit(0)
+    shutil.copy(background, sample.output_dir)
+    bpath = f"{Path(sample.output_dir).joinpath(Path(background).name)}"
+    check_index(bpath, executables["bwa"])
+    sam_file = bwa_mem_wrapper(bwa_exe=executables["bwa"], index=bpath, num_threads=num_threads,
                                sample_name=sample.id, fwd_fq=sample.forward_reads, rev_fq=sample.reverse_reads,
                                output_dir=sample.output_dir, interleaved=sample.interleaved)
 
@@ -1416,14 +1388,13 @@ def get_assemble_input(sample):
     return assemble
 
 
-def parse_miffed(args, fabfos: FabFos, clean=False):
+def parse_miffed(args, fabfos: FabFos):
     """
     Finds the primary project name, submitter, sequencing platform and other information to help with processing
     and storage of the inputs/outputs.
 
     :param args: parsed command-line arguments from get_options()
     :param fabfos: An instance of the FabFos class
-    :param clean: Boolean indicating whether all of the samples' outputs should be removed
     :return: List of Miffed instances, one representing each row in the Miffed file
     """
     miffed = open(args.miffed, 'r')
@@ -1444,7 +1415,8 @@ def parse_miffed(args, fabfos: FabFos, clean=False):
                                      "".format(len(fields), args.miffed, line))
             miffed_entry = Miffed(fields[0])
             miffed_entry.populate_info(fields)
-            miffed_entry.output_dir = os.sep.join([fabfos.db_path, miffed_entry.project, miffed_entry.id]) + os.sep
+            # miffed_entry.output_dir = os.sep.join([fabfos.db_path, miffed_entry.project, miffed_entry.id]) + os.sep
+            miffed_entry.output_dir = os.sep.join([fabfos.db_path, "workspace"]) + os.sep
             miffed_entry.assembled_fosmids = miffed_entry.output_dir + os.sep + miffed_entry.id + "_contigs.fasta"
             complete = miffed_entry.ensure_completeness(args.miffed)
             if complete is False:
@@ -1464,40 +1436,28 @@ def parse_miffed(args, fabfos: FabFos, clean=False):
             # Check to ensure the output directory exist or ensure it is empty:
             if os.path.isdir(miffed_entry.output_dir):
                 files = glob.glob(miffed_entry.output_dir + "**", recursive=True)
-                if len(files) != 0:
-                    miffed_entry.overwrite = clean
-                    if not miffed_entry.overwrite:
-                        miffed_entry.overwrite = get_overwrite_input(miffed_entry.id)
-                    if miffed_entry.overwrite:
-                        try:
-                            # Replaced this with shutil.rmtree because rmtree was unreliable
-                            for f in reversed(files):  # type: str
-                                if os.path.isfile(f):
-                                    os.remove(f)
-                                elif os.path.isdir(f):
-                                    os.removedirs(f)
-                            os.makedirs(miffed_entry.output_dir)
-                        except Exception as e:
-                            logging.error(str(e) + "\n")
-                            raise
-                    else:
-                        # Check to see if sample should be excluded entirely or not
-                        miffed_entry.exclude = get_exclude_input(miffed_entry.id)
-
-                        if not miffed_entry.exclude:
-                            if os.path.isfile(miffed_entry.assembled_fosmids):
-                                miffed_entry.assemble = get_assemble_input(miffed_entry)
+                try:
+                    # Replaced this with shutil.rmtree because rmtree was unreliable
+                    for f in reversed(files):  # type: str
+                        if os.path.isfile(f):
+                            os.remove(f)
+                        elif os.path.isdir(f):
+                            os.removedirs(f)
+                    os.makedirs(miffed_entry.output_dir)
+                except Exception as e:
+                    logging.error(str(e) + "\n")
+                    raise
             else:
                 os.makedirs(miffed_entry.output_dir)
 
-            project_metadata_file = os.path.join(fabfos.db_path, miffed_entry.project,
-                                                 "FabFos_" + miffed_entry.project + "_metadata.tsv")
-            if not os.path.isfile(project_metadata_file):
-                project_metadata_path = Path(project_metadata_file).parent
-                os.makedirs(project_metadata_path, exist_ok=True)
-                project_metadata = open(project_metadata_file, 'w')
-                project_metadata.write(fabfos.metadata_header)
-                project_metadata.close()
+            # project_metadata_file = os.path.join(fabfos.db_path, miffed_entry.project,
+            #                                      "FabFos_" + miffed_entry.project + "_metadata.tsv")
+            # if not os.path.isfile(project_metadata_file):
+            #     project_metadata_path = Path(project_metadata_file).parent
+            #     os.makedirs(project_metadata_path, exist_ok=True)
+            #     project_metadata = open(project_metadata_file, 'w')
+            #     project_metadata.write(fabfos.metadata_header)
+            #     project_metadata.close()
             libraries.append(miffed_entry)
         line = miffed.readline().strip()
     miffed.close()
@@ -1951,11 +1911,8 @@ def read_fasta(fasta):
     fasta_dict = dict()
     header = ""
     sequence = ""
-    try:
-        fasta_seqs = open(fasta, 'r')
-    except IOError:
-        logging.error("Cannot open FASTA file (" + fasta + ") for reading!")
-        sys.exit(3)
+    if not os.path.exists(fasta): return {}
+    fasta_seqs = open(fasta, 'r')
 
     for line in fasta_seqs:
         line = line.replace("\n", "").strip()
@@ -2143,7 +2100,7 @@ def write_fosmid_end_failures(sample: Miffed, ends_stats: FosmidEnds) -> None:
 def write_unique_fosmid_ends_to_bulk(args):
     logging.info("Writing new fosmid end sequences to the legacy fosmid end file... ")
     new_fosmid_ends = read_fasta(args.ends)
-    bulk_ends_file = args.fabfos_path + "FabFos_legacy_ends.fasta"
+    bulk_ends_file = args.output + "/FabFos_legacy_ends.fasta"
     bulk_ends = read_fasta(bulk_ends_file)
 
     try:
@@ -2384,13 +2341,13 @@ def fabfos_main(sys_args):
         sys.exit(0)
 
     # Setup the global logger and main log file
-    prep_logging(args.fabfos_path + os.sep + "FabFos_log.txt", args.verbose)
+    prep_logging(args.output + os.sep + "FabFos_log.txt", args.verbose)
     summarize_dependency_versions(dep_versions=versions_dict)
 
-    fos_father = FabFos(args.fabfos_path)
+    fos_father = FabFos(args.output)
     review_arguments(args, fos_father)
 
-    libraries = parse_miffed(args, fabfos=fos_father, clean=args.overwrite)
+    libraries: list[Miffed] = parse_miffed(args, fabfos=fos_father)
 
     ends_stats = FosmidEnds()
     if args.ends:
@@ -2398,7 +2355,7 @@ def fabfos_main(sys_args):
         ends_stats.load_ends()
 
     # Sequence processing and filtering:
-    for sample in libraries:  # type: Miffed
+    for sample in libraries:
         if not sample.exclude:
             if sample.assemble:
                 logging.info("Processing '{0}'. Outputs will written to {1}\n".format(sample.id, sample.output_dir))
@@ -2421,14 +2378,12 @@ def fabfos_main(sys_args):
                 clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
                 write_fosmid_assignments(sample, clone_map)
                 write_fosmid_end_failures(sample, ends_stats)
-                write_unique_fosmid_ends_to_bulk(args)
+                # write_unique_fosmid_ends_to_bulk(args)
                 # TODO: Remove blast database for ends
                 # TODO: include a visualization to show where the fosmid ends mapped on each contig.
-            project_metadata_file = os.path.join(args.fabfos_path, sample.project,
+            project_metadata_file = os.path.join(args.output, sample.project,
                                                  "FabFos_" + sample.project + "_metadata.tsv")
-            update_metadata(project_metadata_file, sample, sample.read_stats, assembly_stats, ends_stats)
-            update_metadata(fos_father.master_metadata, sample, sample.read_stats, assembly_stats, ends_stats)
-
+            # update_metadata(project_metadata_file, sample, sample.read_stats, assembly_stats, ends_stats)
 
 if __name__ == "__main__":
     fabfos_main(sys.argv[1:])
