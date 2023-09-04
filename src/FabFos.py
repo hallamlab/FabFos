@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+from email.policy import default
+from genericpath import exists
+
+
 try:
     import argparse
     import sys
@@ -12,8 +16,8 @@ try:
     from pathlib import Path
     from packaging import version
     from time import strftime
-
     import pyfastx
+    from more import EstimateFosmidPoolSize
 except (ImportWarning, ModuleNotFoundError):
     import traceback
     sys.stderr.write("Could not load some user defined module functions")
@@ -36,7 +40,7 @@ __status__ = "Unstable"
 
 class FabFos:
     def __init__(self, path):
-        self.db_path = path
+        self.workspace = path
 
         # Add new information:
         self.os = os_type()
@@ -58,8 +62,8 @@ class FabFos:
         return
 
     def furnish(self) -> None:
-        if not os.path.isdir(self.db_path):
-            os.makedirs(self.db_path)
+        os.makedirs(self.workspace, exist_ok=True)
+        os.makedirs(Path(self.workspace).joinpath("filter"), exist_ok=True)
         return
 
 class FosmidEnds:
@@ -179,7 +183,7 @@ class Sample:
         self.exclude = False
 
         # Nanopore-specific
-        self.nanopore = ""
+        self.nanopore: str|bool = ""
         self.error_correction = True
 
     def retrieve_separate_pe_fq(self):
@@ -213,8 +217,10 @@ class Sample:
         :return: None
         """
 
+        folder = str(Path(self.output_dir).joinpath("reads"))
+        os.makedirs(folder, exist_ok=True)
         if file_type == "B":  # If the input are BAM files, convert them to FASTQ and split them here
-            fastq_list = bam2fastq(reads_file, self.id, self.output_dir, executables["samtools"], parity)
+            fastq_list = bam2fastq(reads_file, self.id, folder, executables["samtools"], parity)
             raw_reads = {}
             for fastq in fastq_list:
                 if re.search("1.fastq", fastq):
@@ -225,12 +231,12 @@ class Sample:
             raw_reads = {"forward": reads_file}
             if reverse_file is not None: raw_reads["reverse"] = reverse_file
         if self.interleaved:
-            raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq(raw_reads["forward"], self.output_dir)
+            raw_reads["forward"], raw_reads["reverse"] = deinterleave_fastq(raw_reads["forward"], folder)
             self.interleaved = False
 
         self.forward_reads = raw_reads["forward"]
-        self.reverse_reads = raw_reads["reverse"]
-        self.read_stats.num_raw_reads = find_num_reads([self.forward_reads, self.reverse_reads])
+        self.reverse_reads = raw_reads.get("reverse")
+        self.read_stats.num_raw_reads = find_num_reads([x for x in [self.forward_reads, self.reverse_reads] if x is not None])
 
         if self.read_stats.num_raw_reads == 0:
             logging.error("No reads found for " + self.id + "\n")
@@ -240,7 +246,7 @@ class Sample:
 
     def prep_reads_for_assembly(self, trimmed_reads: list):
         logging.info("Preparing quality FASTQ files for assembly... ")
-        singletons_cat_fq = self.output_dir + "singletons.fastq"
+        singletons_cat_fq = str(Path(self.output_dir).joinpath("trim").joinpath("singletons.fastq"))
         for fastq in trimmed_reads:
             if re.search(r'pe.[1-2].fq$', fastq):
                 self.pe_trimmed.append(fastq)
@@ -261,29 +267,28 @@ class Sample:
         self.se_trimmed = [singletons_cat_fq]
 
         logging.info("done.\n")
-        return
+        return self.pe_trimmed, self.se_trimmed
 
-    def qc_reads(self, background: str, parity: str, adapters: str, executables: dict, num_threads=2) -> None:
+    def qc_reads(self, background: str, parity: str, adapters: str, executables: dict, num_threads=2):
         filtered_reads = filter_backbone(self, background, executables, parity, num_threads)
         self.read_stats.num_filtered_reads = find_num_reads(filtered_reads)
         self.read_stats.calc_on_target()
         logging.info("{0} reads removed by filtering background ({1}%).\n".format(self.read_stats.num_on_target,
                                                                                   self.read_stats.percent_on_target()))
-        if self.read_stats.num_filtered_reads < 1600:
-            # The number of reads remaining is too low for assembly (< 20X for a single fosmid)
-            logging.warning("Number of reads remaining will provide less than 20X coverage for a single fosmid"
-                            " - skipping this sample\n")
-            return
+        # if self.read_stats.num_filtered_reads < 1600:
+        #     # The number of reads remaining is too low for assembly (< 20X for a single fosmid)
+        #     logging.warning("Number of reads remaining will provide less than 20X coverage for a single fosmid"
+        #                     " - skipping this sample\n")
+        #     return [], []
         trimmed_reads = quality_trimming(executables["trimmomatic"], self, filtered_reads, parity, adapters, num_threads)
         self.read_stats.num_reads_assembled = find_num_reads(trimmed_reads)
         self.read_stats.num_reads_trimmed = self.read_stats.num_filtered_reads - self.read_stats.num_reads_assembled
 
-        self.prep_reads_for_assembly(trimmed_reads)
-        return
+        return self.prep_reads_for_assembly(trimmed_reads)
 
     def prep_nanopore(self, args, executables, nanopore_reads: str):
         raw_nanopore_fasta = read_fasta(nanopore_reads)
-        self.read_stats.num_raw_reads = str(len(raw_nanopore_fasta.keys()))
+        self.read_stats.num_raw_reads = len(raw_nanopore_fasta.keys())
         if self.error_correction is False:
             # Skip the error correction and filter the nanopore reads that don't align to Illumina reads
             # Set nanopore_reads to the filtered raw reads
@@ -306,66 +311,67 @@ class Sample:
     def assemble_fosmids(self, executables, num_threads):
         k_min, k_max, = determine_k_values(self.get_test_fastq(), self.assembler)
         min_count, cov = determine_min_count(self.read_stats.num_reads_assembled, self.num_fosmids_estimate, k_max)
-        with open(Path(self.output_dir).joinpath(f"{self.id}_estimated_coverage.txt"), "w") as f_cov:
+        with open(Path(self.output_dir).joinpath(f"estimated_coverage.txt"), "w") as f_cov:
             f_cov.write(f"{cov}\n")
         assemble_fosmids(self, self.assembler, self.assembly_mode, k_min, k_max, min_count, executables, num_threads=num_threads)
-        clean_intermediates(self)
+        # clean_intermediates(self)
+        self.assembled_fosmids = str(Path(self.output_dir).joinpath("assembly").joinpath("final.contigs.fa"))
         return
 
 
-class Miffed(Sample):
-    def __init__(self, sample_id):
-        Sample.__init__(self, sample_id)
-        self.project = ""
-        self.selector = ""
-        self.vector = ""
-        self.screen = ""
-        self.selection = ""
-        self.seq_submission_date = ""
-        self.glycerol_plate = ""
-        self.seq_center = ""
-        self.seq_type = ""
-        self.read_length = ""
-        self.instrument = ""
+# class Miffed(Sample):
+#     def __init__(self, sample_id):
+#         Sample.__init__(self, sample_id)
+#         self.project = ""
+#         self.selector = ""
+#         self.vector = ""
+#         self.screen = ""
+#         self.selection = ""
+#         self.seq_submission_date = ""
+#         self.glycerol_plate = ""
+#         self.seq_center = ""
+#         self.seq_type = ""
+#         self.read_length = ""
+#         self.instrument = ""
 
-    def populate_info(self, fields):
-        self.project = fields[1]
-        self.selector = fields[2]
-        self.vector = fields[3]
-        self.screen = fields[4]
-        self.selection = fields[5]
-        self.seq_submission_date = fields[7]
-        self.glycerol_plate = fields[8]
-        self.seq_center = fields[9]
-        self.seq_type = fields[10]
-        self.instrument = fields[12]
-        try:
-            self.num_fosmids_estimate = int(fields[6])
-        except ValueError:
-            logging.error("Number of fosmids field (column 7) is not an integer!\n")
-            sys.exit(3)
-        try:
-            self.read_length = int(fields[11])
-        except ValueError:
-            logging.error("Read length field (column 12) is not an integer!\n")
-            sys.exit(3)
+    # def populate_info(self, fields):
+    #     self.project = fields[1]
+    #     self.selector = fields[2]
+    #     self.vector = fields[3]
+    #     self.screen = fields[4]
+    #     self.selection = fields[5]
+    #     self.seq_submission_date = fields[7]
+    #     self.glycerol_plate = fields[8]
+    #     self.seq_center = fields[9]
+    #     self.seq_type = fields[10]
+    #     self.instrument = fields[12]
+    #     try:
+    #         self.num_fosmids_estimate = int(fields[6])
+    #     except ValueError:
+    #         logging.error("Number of fosmids field (column 7) is not an integer!\n")
+    #         sys.exit(3)
+    #     try:
+    #         self.read_length = int(fields[11])
+    #     except ValueError:
+    #         logging.error("Read length field (column 12) is not an integer!\n")
+    #         sys.exit(3)
 
-    def ensure_completeness(self, miffed):
-        if self.id is None:
-            logging.warning("Sample name missing in " + miffed + ". Exiting!\n")
-            sys.exit()
-        if self.project is None:
-            logging.warning(self.id + " is not associated with a project!. Skipping this library!\n")
-            return False
-        if self.selector is None:
-            logging.warning(self.id + " is not associated with a human (selector). Skipping this library!\n")
-            return False
-        if self.vector is None:
-            logging.warning(self.id + " is not associated with a vector (e.g. PCC1). Skipping this library!\n")
-            return False
-        if self.screen != "in silico" and self.screen != "functional":
-            logging.warning(self.screen + " was provided for screen in sample " + self.id + ". Is this correct?\n")
-        return True
+    # def ensure_completeness(self, miffed):
+    #     if self.id is None:
+    #         logging.warning("Sample name missing in " + miffed + ". Exiting!\n")
+    #         sys.exit()
+    #     if self.project is None:
+    #         logging.warning(self.id + " is not associated with a project!. Skipping this library!\n")
+    #         return False
+    #     if self.selector is None:
+    #         logging.warning(self.id + " is not associated with a human (selector). Skipping this library!\n")
+    #         return False
+    #     if self.vector is None:
+    #         logging.warning(self.id + " is not associated with a vector (e.g. PCC1). Skipping this library!\n")
+    #         return False
+    #     if self.screen != "in silico" and self.screen != "functional":
+    #         logging.warning(self.screen + " was provided for screen in sample " + self.id + ". Is this correct?\n")
+    #     return True
 
 
 class Alignment:
@@ -478,9 +484,8 @@ def subprocess_helper(cmd_list, collect_all=True, graceful=False):
     return stdout, proc.returncode
 
 
-def bam2fastq(input_file: str, sample_id: str, output_dir: str, samtools_exe: str, parity="pe"):
+def bam2fastq(input_file: str, prefix: str, output_dir: str, samtools_exe: str, parity="pe"):
     """
-
     :param input_file: A BAM file with the aligned reads
     :param sample_id: Name of the sample - to be used for identifying output reads
     :param output_dir: Path to write the reads
@@ -488,23 +493,23 @@ def bam2fastq(input_file: str, sample_id: str, output_dir: str, samtools_exe: st
     :param parity: Argument indicating whether the reads are from a paired-end (pe) or single-end (se) library
     :return: List of paths to FASTQ files converted from the BAM input_file
     """
+    output_dir = os.path.abspath(output_dir)
     fastq_extract = [samtools_exe, "fastq", "--verbosity", str(1), "-N"]
     if parity == "pe":
-        fastq_files = [os.path.join(output_dir, sample_id + ".1.fastq"),
-                       os.path.join(output_dir, sample_id + ".2.fastq")]
+        fastq_files = [os.path.join(output_dir, prefix + ".1.fastq"),
+                       os.path.join(output_dir, prefix + ".2.fastq")]
         fastq_extract += ["-1", fastq_files[0]]
         fastq_extract += ["-2", fastq_files[1]]
         # Need to include the singletons file so orphaned reads are removed
-        fastq_extract += ["-s", os.path.join(output_dir, sample_id + ".singletons.fastq")]
+        fastq_extract += ["-s", os.path.join(output_dir, prefix + ".singletons.fastq")]
+        fastq_extract += [input_file]
     elif parity == "se":
-        fastq_files = [os.path.join(output_dir, sample_id + ".fastq")]
-        fastq_extract += [">", fastq_files[0]]
+        fastq_files = [os.path.join(output_dir, prefix + ".fastq")]
+        fastq_extract += [input_file, ">", fastq_files[0]]
     else:
         raise AssertionError("Unknown value for parity '{}'. Expected either 'pe' or 'se'.\n")
-
+    
     bam2fastq_stdout = os.path.join(output_dir, "samtools_fastq.stdout")
-    fastq_extract.append(input_file)
-
     logging.info("Converting BAM file to FastQ format... ")
     stdout, retcode = subprocess_helper(fastq_extract, True)
     logging.info("done.\n")
@@ -533,12 +538,13 @@ def get_options(sys_args: list):
     opts = parser.add_argument_group(title="Optional arguments")
     misc = parser.add_argument_group(title="Miscellaneous options")
 
-    reqs.add_argument("-m", "--miffed", type=str, required=False,
-                      help="The minimum information for fosmid environmental data (e.g., sample ID, "
-                           "sequencing platform, environment, project) in a comma-separated file. [.csv]")
     reqs.add_argument("-b", "--background", type=str, required=False,
-                      help="Path to the fosmid background database [.fasta]")
-
+                      help="Path to fosmid background fasta")
+    reqs.add_argument("-v", "--vector", type=str, required=False,
+                      help="Path to vector backbone fasta, required if --pool-size not given")
+    reqs.add_argument("-n", "--pool-size", type=int, required=False,
+                      help="Estimate of number of fosmids in pool, required if --vector not given")
+    
     nanopore.add_argument("--nanopore_reads", type=str, default=None, required=False,
                           help="A FASTA file containing nanopore reads to be used in assembly.")
     nanopore.add_argument("--skip_correction", action="store_true", default=False, required=False,
@@ -570,8 +576,10 @@ def get_options(sys_args: list):
                       help="FASTA file containing fosmid ends - these will be used for alignment to fosmid contigs.")
     opts.add_argument("--ends-name-pattern", required=False, default=None,
                       help='regex for getting name of endseq., ex. "\\w+_\\d+" would get ABC_123 from ABC_123_FW')
+    opts.add_argument("--overwrite", required=False, default=False, action="store_true",
+                      help="overwrite the output directory if it already exists")
     opts.add_argument("--ends-fw-flag", required=False, default=None,
-                    help='string that marks forward ends, ex. "_FW" would cause ABC_123_FW and ABC_123_RE to be assigned to forward and reverse respectively.')
+                      help='string that marks forward ends, ex. "_FW" would cause ABC_123_FW and ABC_123_RE to be assigned to forward and reverse respectively.')
     misc.add_argument("--version", default=False, action="store_true",
                       help="Print the FabFos version and exit.")
     misc.add_argument("--verbose", required=False, default=False, action="store_true",
@@ -632,9 +640,7 @@ def prep_logging(log_file_name: str, verbose=False):
     formatter = MyFormatter()
     ch.setFormatter(formatter)
     logging.getLogger('').addHandler(ch)
-
     return
-
 
 def review_arguments(args, fabfos: FabFos) -> None:
     """
@@ -644,9 +650,6 @@ def review_arguments(args, fabfos: FabFos) -> None:
     :param fabfos: Instance of the FabFos class
     :return: None
     """
-
-    # create temp workspace
-    fabfos.furnish()
 
     # Review the provided arguments:
     if not args.reads:
@@ -659,9 +662,18 @@ def review_arguments(args, fabfos: FabFos) -> None:
         logging.error(args.reverse + " is not a file\n")
         sys.exit(3)
 
+    # warning: nanopore is experimental
+    if args.nanopore_reads is not None:
+        logging.warn(f"using nanopore reads is an experimental feature!")
+
+    # at least one of --vector or --pool-size must be provided
+    if args.vector is None and args.pool_size is None:
+        logging.error("at least one of --vector or --size must be provided\n")
+        sys.exit(6)
+
     # Check if the background (FASTA including vector and source genome) file was provided and exists
     if not args.background:
-        logging.error("the following argument is required: -b/--background\n")
+        logging.error("a fasta for the host background is required: -b/--background\n")
         sys.exit(1)
     if not os.path.isfile(args.background):
         logging.error(args.background + " does not exist!\n")
@@ -675,7 +687,6 @@ def review_arguments(args, fabfos: FabFos) -> None:
         logging.error("FabFos is not capable of dealing with BAM files generated from single-end sequencing.\n"
                       "Please convert the BAM to a FASTQ file, using samtools or bam2fastq, and provide those.\n")
         sys.exit(5)
-
     return
 
 
@@ -742,8 +753,7 @@ def find_dependency_versions(exe_dict: dict) -> dict:
 
     simple_v = ["megahit", "spades"]
     version_param = ["blastn", "makeblastdb"]
-    no_params = ["bwa", "samtools"]
-    version_re = re.compile(r"[Vv]\d+.\d|[Vv]ersion:? \d.\d|\d\.\d\.\d")
+    no_params = ["bwa", "samtools", ]
     for exe in exe_dict:
         ##
         # Get the version statement for the software
@@ -766,15 +776,9 @@ def find_dependency_versions(exe_dict: dict) -> dict:
         # Identify the line with the version number (since often more than a single line is returned)
         ##
         for line in stdout.split("\n"):
-            if version_re.search(line):
-                # If a line was identified, try to get just the string with the version number
-                for word in line.split(" "):
-                    if re.search(r"\d\.\d", word):
-                        versions_dict[exe] = re.sub(r"[,:()[\]]", '', word)
-                        break
-                break
-            else:
-                pass
+            matches = re.findall(r"\d+\.\d+(?:\.[^\s,\.]+)?", line)
+            if len(matches) == 0: continue
+            versions_dict[exe] = matches[0]
         if not versions_dict[exe]:
             logging.debug("Unable to find version for " + exe + ".\n")
 
@@ -814,7 +818,6 @@ def summarize_dependency_versions(dep_versions: dict) -> None:
         logging.info(versions_string)
     else:
         print(versions_string)
-
     return
 
 
@@ -836,19 +839,19 @@ def check_index(path, bwa_path):
     return
 
 
-def bwa_mem_wrapper(bwa_exe, index, sample_name, fwd_fq, output_dir,
-                    rev_fq="", num_threads=2, interleaved=False) -> str:
+def bwa_mem_wrapper(bwa_exe, index, fwd_fq, output_dir,
+                    rev_fq=None, num_threads=2, interleaved=False) -> str:
     align_command = [bwa_exe, "mem",
                      "-t", str(num_threads),
                      index,
                      fwd_fq]
-    if len(rev_fq) > 0:
+    if rev_fq is not None:
         align_command.append(rev_fq)
     if interleaved:
         align_command.append("-p")
 
     align_command.append("1>")
-    sam_file = output_dir + sample_name + ".sam"
+    sam_file = str(Path(output_dir).joinpath("aligned.sam"))
     align_command.append(sam_file)
     align_command += ["2>", "/dev/null"]
 
@@ -870,36 +873,31 @@ def filter_backbone(sample: Sample, background: str, executables: dict, parity: 
     :return: list of fastq files containing the filtered reads
     """
     logging.info("Filtering off-target reads... ")
-    # print(sample.output_dir)
-    # os._exit(0)
-    shutil.copy(background, sample.output_dir)
-    bpath = f"{Path(sample.output_dir).joinpath(Path(background).name)}"
+    folder = str(Path(sample.output_dir).joinpath("filter"))
+    os.makedirs(folder, exist_ok=True)
+    shutil.copy(background, folder)
+    bpath = f"{Path(folder).joinpath(Path(background).name)}"
     check_index(bpath, executables["bwa"])
     sam_file = bwa_mem_wrapper(bwa_exe=executables["bwa"], index=bpath, num_threads=num_threads,
-                               sample_name=sample.id, fwd_fq=sample.forward_reads, rev_fq=sample.reverse_reads,
-                               output_dir=sample.output_dir, interleaved=sample.interleaved)
+                               fwd_fq=sample.forward_reads, rev_fq=sample.reverse_reads,
+                               output_dir=folder, interleaved=sample.interleaved)
 
     # Use samtools to convert sam to bam
     bam_convert = [executables["samtools"], "view", "-bS", "-f", str(4), "-@", str(num_threads), sam_file, "|"]
     # Piping to samtools sort
-    bam_file = sample.output_dir + os.sep + sample.id + "_sorted.bam"
+    bam_file = folder + os.sep  + "sorted.bam"
     bam_convert.append(executables["samtools"])
     bam_convert += ["sort", "-@", str(num_threads), "-"]
     bam_convert += ["-o", bam_file]
-    p_samtools_stdout = open(sample.output_dir + os.sep + "samtools.stdout", 'w')
+    p_samtools_stdout = open(folder + os.sep + "samtools.stdout", 'w')
 
     stdout, retcode = subprocess_helper(cmd_list=bam_convert, graceful=False)
     p_samtools_stdout.write(stdout)
-
     logging.info("done.\n")
-
     p_samtools_stdout.close()
 
     # extract the unaligned reads using bam2fastq
-    filtered_dir = sample.output_dir + "filtered"
-    os.mkdir(filtered_dir)
-
-    filtered_reads = bam2fastq(bam_file, sample.id, filtered_dir, executables["samtools"], parity)
+    filtered_reads = bam2fastq(bam_file, "filtered", folder, executables["samtools"], parity)
     return filtered_reads
 
 
@@ -1050,7 +1048,9 @@ def quality_trimming(trimmomatic_exe: str, sample: Sample, filtered_reads: list,
     """
     logging.info("Trimming reads... ")
 
-    trim_prefix = sample.output_dir + os.sep + sample.id + "_trim_"
+    folder = str(Path(sample.output_dir).joinpath("trim"))
+    os.makedirs(folder, exist_ok=True)
+    trim_prefix = folder + os.sep
 
     trimmomatic_command = [trimmomatic_exe]
     if parity == "pe":
@@ -1207,22 +1207,21 @@ def assemble_fosmids(sample: Sample, assembler: str, assembly_mode: str, k_min: 
         logging.error("Unknown assembly software '{}' requested.\n".format(assembler))
         sys.exit(3)
 
-    logging.info("Cleaning up assembly outputs... ")
     if not os.path.isfile(f_contigs):
         logging.error("{0} assembly outputs were not created!\n"
                       "Check {1} log for an error.".format(f_contigs, sample.output_dir + "assembly" + os.sep))
         sys.exit(3)
 
+    # logging.info("Cleaning up assembly outputs... ")
     # Move the output files to their final destinations
-    shutil.move(f_contigs, sample.output_dir + os.sep + sample.id + "_contigs.fasta")
-    shutil.move(asm_log, sample.output_dir + os.sep + assembler + "_log.txt")
-    if len(f_scaffolds) > 0:
-        # Only available for SPAdes
-        shutil.move(f_scaffolds,
-                    sample.output_dir + os.sep + sample.id + "_scaffolds.fasta")
-    shutil.rmtree(sample.output_dir + "assembly" + os.sep)
+    # shutil.move(f_contigs, sample.output_dir + os.sep + sample.id + "_contigs.fasta")
+    # shutil.move(asm_log, sample.output_dir + os.sep + assembler + "_log.txt")
+    # if len(f_scaffolds) > 0:
+    #     # Only available for SPAdes
+    #     shutil.move(f_scaffolds,
+    #                 sample.output_dir + os.sep + sample.id + "_scaffolds.fasta")
+    # shutil.rmtree(sample.output_dir + "assembly" + os.sep)
     logging.info("done.\n")
-
     return
 
 
@@ -1244,7 +1243,7 @@ def read_fastq_to_dict(fastq_file: str) -> dict:
     return fq_dict
 
 
-def deinterleave_fastq(fastq_file: str, output_dir="") -> (str, str):
+def deinterleave_fastq(fastq_file: str, output_dir) -> (str, str):
     # TODO: support gzipped files
     logging.info("De-interleaving forward and reverse reads in " + fastq_file + "... ")
     if not output_dir:
@@ -1374,95 +1373,33 @@ def get_overwrite_input(sample_id):
     return overwrite
 
 
-def get_assemble_input(sample):
-    response = input("Assembled fosmids for " + sample.id + " already exists. Do you want to re-assemble? [y|n]")
-    if response == "y":
-        assemble = True
-        logging.info("Re-assembling " + str(sample.id) + "\n")
-    elif response == "n":
-        assemble = False
-        logging.info("Using " + str(sample.assembled_fosmids) + "\n")
+# def get_assemble_input(sample):
+#     response = input("Assembled fosmids for " + sample.id + " already exists. Do you want to re-assemble? [y|n]")
+#     if response == "y":
+#         assemble = True
+#         logging.info("Re-assembling " + str(sample.id) + "\n")
+#     elif response == "n":
+#         assemble = False
+#         logging.info("Using " + str(sample.assembled_fosmids) + "\n")
+#     else:
+#         logging.info("Unknown response" + "\n")
+#         assemble = get_overwrite_input(sample.id)
+#     return assemble
+
+# due to horrific design, this function attempts to sync the states between the passed in objects
+def ghetto_sync_args(args, fabfos: FabFos, sample: Sample):
+    sample.output_dir = os.sep.join([fabfos.workspace]) + os.sep
+    if args.nanopore_reads:
+        sample.nanopore = True
+    if args.skip_correction is True:
+        sample.error_correction = False
+    sample.parity = args.parity
+    sample.interleaved = args.interleaved
+    # Split args.assembler into assembler and mode attributes
+    if args.assembler.startswith("spades"):
+        sample.assembler, sample.assembly_mode = args.assembler.split('_')
     else:
-        logging.info("Unknown response" + "\n")
-        assemble = get_overwrite_input(sample.id)
-    return assemble
-
-
-def parse_miffed(args, fabfos: FabFos):
-    """
-    Finds the primary project name, submitter, sequencing platform and other information to help with processing
-    and storage of the inputs/outputs.
-
-    :param args: parsed command-line arguments from get_options()
-    :param fabfos: An instance of the FabFos class
-    :return: List of Miffed instances, one representing each row in the Miffed file
-    """
-    miffed = open(args.miffed, 'r')
-    line = miffed.readline().strip()
-    libraries = list()
-    header_re = re.compile(r"Sample.*Project.*Human selector.*Number of fosmids")
-
-    while line:
-        if header_re.search(line):
-            pass
-        elif not line[0] == '#':
-            if ',' not in line:
-                logging.error("MIFFED input file doesn't seem to be in csv format!\n")
-                sys.exit(3)
-            fields = line.strip().split(',')
-            if len(fields) < 13:
-                raise AssertionError("{} fields in {} when at least 13 are expected:\n{}\n"
-                                     "".format(len(fields), args.miffed, line))
-            miffed_entry = Miffed(fields[0])
-            miffed_entry.populate_info(fields)
-            # miffed_entry.output_dir = os.sep.join([fabfos.db_path, miffed_entry.project, miffed_entry.id]) + os.sep
-            miffed_entry.output_dir = os.sep.join([fabfos.db_path, "workspace"]) + os.sep
-            miffed_entry.assembled_fosmids = miffed_entry.output_dir + os.sep + miffed_entry.id + "_contigs.fasta"
-            complete = miffed_entry.ensure_completeness(args.miffed)
-            if complete is False:
-                miffed_entry.exclude = True
-            if args.nanopore_reads:
-                miffed_entry.nanopore = True
-            if args.skip_correction is True:
-                miffed_entry.error_correction = False
-            miffed_entry.parity = args.parity
-            miffed_entry.interleaved = args.interleaved
-            # Split args.assembler into assembler and mode attributes
-            if args.assembler.startswith("spades"):
-                miffed_entry.assembler, miffed_entry.assembly_mode = args.assembler.split('_')
-            else:
-                miffed_entry.assembler, miffed_entry.assembly_mode = args.assembler, "NA"
-
-            # Check to ensure the output directory exist or ensure it is empty:
-            if os.path.isdir(miffed_entry.output_dir):
-                files = glob.glob(miffed_entry.output_dir + "**", recursive=True)
-                try:
-                    # Replaced this with shutil.rmtree because rmtree was unreliable
-                    for f in reversed(files):  # type: str
-                        if os.path.isfile(f):
-                            os.remove(f)
-                        elif os.path.isdir(f):
-                            os.removedirs(f)
-                    os.makedirs(miffed_entry.output_dir)
-                except Exception as e:
-                    logging.error(str(e) + "\n")
-                    raise
-            else:
-                os.makedirs(miffed_entry.output_dir)
-
-            # project_metadata_file = os.path.join(fabfos.db_path, miffed_entry.project,
-            #                                      "FabFos_" + miffed_entry.project + "_metadata.tsv")
-            # if not os.path.isfile(project_metadata_file):
-            #     project_metadata_path = Path(project_metadata_file).parent
-            #     os.makedirs(project_metadata_path, exist_ok=True)
-            #     project_metadata = open(project_metadata_file, 'w')
-            #     project_metadata.write(fabfos.metadata_header)
-            #     project_metadata.close()
-            libraries.append(miffed_entry)
-        line = miffed.readline().strip()
-    miffed.close()
-    return libraries
-
+        sample.assembler, sample.assembly_mode = args.assembler, "NA"
 
 def clean_intermediates(sample):
     """
@@ -1497,47 +1434,54 @@ def find_num_reads(file_list: list) -> int:
     :return: integer representing the number of reads in all FASTQ files provided
     """
     logging.info("Finding number of reads in fastq files... ")
-    num_reads = 0
-    for fastq in file_list:
-        if not fastq:
-            continue
-        if os.stat(fastq).st_size != 0:
-            fq = pyfastx.Fastq(file_name=fastq, build_index=False)
-            for _ in fq:
-                num_reads += 1
-        else:
-            logging.debug("FASTQ '{}' is empty.\n".format(fastq))
+    num_reads, nucleotides = 0, 0
+    for f in file_list:
+        proc = subprocess.Popen(f"cat {f} | awk 'NR % 4 == 2' | wc -cl",
+                        shell=True,
+                        preexec_fn=os.setsid,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT)
+        stdout = proc.communicate()[0].decode("utf-8")
+        toks = stdout[:-1].strip()
+        if "\t" in toks: toks = toks.split("\t")
+        else: toks = [t for t in toks.split(" ") if len(t)>0]
+        nr, nuc = [int(t) for t in toks]
+        num_reads += nr
+        nucleotides += nuc
     logging.info("done.\n")
     return num_reads
 
 
-def map_ends(executables, ends, sample):
+def map_ends(executables, ends, sample: Sample):
     """
     Function for using blastn to align fosmid ends in a file to find the well of each contig
     """
+    folder = str(Path(sample.output_dir).joinpath("end_seqs"))
+    os.makedirs(folder, exist_ok=True)
+
     # Index the contigs
-    sample_prefix = sample.output_dir + os.sep + sample.id
+    logging.info("Indexing assembled contigs... ")
+    db = folder + "/contigs"
     blastdb_command = [executables["makeblastdb"]]
-    blastdb_command += ["-in", sample_prefix + "_contigs.fasta"]
+    blastdb_command += ["-in", sample.assembled_fosmids]
     blastdb_command += ["-dbtype", "nucl"]
-    blastdb_command += ["-out", sample_prefix]
+    blastdb_command += ["-out", db]
     blastdb_command += ["1>/dev/null", "2>/dev/null"]
     subprocess_helper(blastdb_command)
+    logging.info("done\n")
 
-    logging.info("Aligning fosmid ends to assembly... ", "out")
+    logging.info("Aligning fosmid ends to assembly... ")
     blastn_command = [executables["blastn"]]
-    blastn_command += ["-db", sample_prefix]
+    blastn_command += ["-db", db]
     blastn_command += ["-outfmt", "\"6",
                        "sseqid", "slen", "qseqid", "pident", "length", "sstrand",
                        "sstart", "send", "bitscore", "qstart", "qend", "\""]
     blastn_command += ["-query", ends]
-    blastn_command += ["-perc_identity", str(95)]
-    blastn_command += ["-out", sample_prefix + "_endsMapped.tbl"]
+    blastn_command += ["-perc_identity", str(80)]
+    blastn_command += ["-out", folder + f"/endsMapped.tbl"]
     blastn_command += ["1>/dev/null", "2>/dev/null"]
     subprocess_helper(blastn_command)
-
     logging.info("done\n")
-
     return
 
 
@@ -1559,7 +1503,7 @@ def get_fosmid_end_name(string):
     return name
 
 
-def parse_end_alignments(sample, fosmid_assembly, ends_stats: FosmidEnds) -> dict:
+def parse_end_alignments(sample: Sample, fosmid_assembly, ends_stats: FosmidEnds) -> dict:
     """
     Function parses BLAST alignments of fosmid ends mapped to the MEGAHIT assemblies
 
@@ -1569,7 +1513,7 @@ def parse_end_alignments(sample, fosmid_assembly, ends_stats: FosmidEnds) -> dic
     :return: dictionary of contig names (keys) and list of EndAlignment objects (values) or empty list
     """
     ends_mapping = dict()
-    blast_output = sample.output_dir + os.sep + sample.id + "_endsMapped.tbl"
+    blast_output = str(Path(sample.output_dir).joinpath(f"end_seqs/endsMapped.tbl"))
     try:
         blast_table = open(blast_output, 'r')
     except IOError:
@@ -1675,13 +1619,13 @@ def get_exterior_positions(hits, clone):
                 positions_dict["plus_strand"].append(alignment.sstart)
                 positions_dict["plus_strand"].append(alignment.send)
 
-    if not forward_aligned:
-        logging.warning("Forward strand did not align in single-pair clone " + clone + "\n")
-    if not reverse_aligned:
-        logging.warning("Reverse strand did not align in single-pair clone " + clone + "\n")
-    if len(positions_dict["minus_strand"]) == 0 or len(positions_dict["plus_strand"]) == 0:
-        logging.warning("Forward and reverse mate-pairs of " + clone + " aligned to the same strand of " + contig +
-                        "!\nThis sequence should not be trusted due to assembly or library preparation errors\n")
+    # if not forward_aligned:
+    #     logging.warning("Forward strand did not align in single-pair clone " + clone + "\n")
+    # if not reverse_aligned:
+    #     logging.warning("Reverse strand did not align in single-pair clone " + clone + "\n")
+    # if len(positions_dict["minus_strand"]) == 0 or len(positions_dict["plus_strand"]) == 0:
+    #     logging.warning("Forward and reverse mate-pairs of " + clone + " aligned to the same strand of " + contig +
+    #                     "!\nThis sequence should not be trusted due to assembly or library preparation errors\n")
 
     positions = positions_dict["plus_strand"] + positions_dict["minus_strand"]
     start = min(positions)
@@ -1799,7 +1743,7 @@ def assign_clones(ends_mapping, ends_stats: FosmidEnds, fosmid_assembly):
 
 
 def prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map):
-    fragments_tsv = sample.output_dir + os.sep + "potential_fosmid_fragments.tsv"
+    fragments_tsv = sample.output_dir + os.sep + f"{sample.id}_potential_fosmid_fragments.tsv"
 
     try:
         fragments = open(fragments_tsv, 'w')
@@ -1873,7 +1817,7 @@ def prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map):
 
 def write_fosmid_assignments(sample, clone_map):
     coord_name = sample.output_dir + os.sep + sample.id + "_fosmid_coordinates.tsv"
-    fasta_name = sample.output_dir + os.sep + sample.id + "_formatted.fasta"
+    fasta_name = sample.output_dir + os.sep + sample.id + "_contigs.fasta"
     try:
         fos_coord = open(coord_name, 'w')
     except IOError:
@@ -1911,9 +1855,7 @@ def read_fasta(fasta):
     fasta_dict = dict()
     header = ""
     sequence = ""
-    if not os.path.exists(fasta): return {}
     fasta_seqs = open(fasta, 'r')
-
     for line in fasta_seqs:
         line = line.replace("\n", "").strip()
         if len(line) == 0: continue
@@ -2008,52 +1950,52 @@ def get_assembly_stats(fosmid_assembly: dict, assembler: str, ):
     return assembly_stats
 
 
-def update_metadata(metadata_file, library_metadata: Miffed,
-                    read_stats: ReadStats, assembly_stats, ends_stats: FosmidEnds):
-    try:
-        metadata = open(metadata_file, 'a')
-    except IOError:
-        logging.error("Unable to open " + metadata_file + " to append library metadata!\n")
-        sys.exit(3)
+# def update_metadata(metadata_file, library_metadata: Miffed,
+#                     read_stats: ReadStats, assembly_stats, ends_stats: FosmidEnds):
+#     try:
+#         metadata = open(metadata_file, 'a')
+#     except IOError:
+#         logging.error("Unable to open " + metadata_file + " to append library metadata!\n")
+#         sys.exit(3)
 
-    metadata.write(library_metadata.id + "\t")
-    metadata.write(library_metadata.project + "\t")
-    metadata.write(library_metadata.selector + "\t")
-    metadata.write(library_metadata.vector + "\t")
-    metadata.write(library_metadata.screen + "\t")
-    metadata.write(library_metadata.selection + "\t")
-    metadata.write(str(library_metadata.num_fosmids_estimate) + "\t")
-    metadata.write(library_metadata.seq_submission_date + "\t")
-    metadata.write(library_metadata.glycerol_plate + "\t")
-    metadata.write(library_metadata.seq_center + "\t")
-    metadata.write(library_metadata.seq_type + "\t")
-    metadata.write(str(library_metadata.read_length) + "\t")
-    metadata.write(library_metadata.instrument + "\t")
-    metadata.write(strftime("%Y-%m-%d") + "\t")
-    metadata.write(str(read_stats.num_raw_reads) + "\t")
-    metadata.write(str(read_stats.percent_on_target()) + "\t")
-    metadata.write(str(read_stats.num_reads_trimmed) + "\t")
-    metadata.write(assembly_stats["Assembler"] + "\t")
-    metadata.write(assembly_stats["Contigs"] + "\t")
-    metadata.write(assembly_stats["N50"] + "\t")
-    metadata.write(assembly_stats["N90"] + "\t")
-    metadata.write(assembly_stats["27kbp"] + "\t")
-    metadata.write(assembly_stats["50kbp"] + "\t")
-    metadata.write(str(ends_stats.single_pair) + "\t")
-    metadata.write(str(ends_stats.multi_pair) + "\t")
-    metadata.write(str(ends_stats.single_orphan) + "\t")
-    metadata.write(str(ends_stats.multi_orphan) + "\t")
-    metadata.write(str(ends_stats.unassigned) + "\t")
-    metadata.write(str(ends_stats.num_total) + "\t")
-    metadata.write(str(ends_stats.num_aligned) + "\t")
-    metadata.write(str(ends_stats.num_unaligned) + "\t")
-    metadata.write(str(ends_stats.num_failed) + "\n")
+#     metadata.write(library_metadata.id + "\t")
+#     metadata.write(library_metadata.project + "\t")
+#     metadata.write(library_metadata.selector + "\t")
+#     metadata.write(library_metadata.vector + "\t")
+#     metadata.write(library_metadata.screen + "\t")
+#     metadata.write(library_metadata.selection + "\t")
+#     metadata.write(str(library_metadata.num_fosmids_estimate) + "\t")
+#     metadata.write(library_metadata.seq_submission_date + "\t")
+#     metadata.write(library_metadata.glycerol_plate + "\t")
+#     metadata.write(library_metadata.seq_center + "\t")
+#     metadata.write(library_metadata.seq_type + "\t")
+#     metadata.write(str(library_metadata.read_length) + "\t")
+#     metadata.write(library_metadata.instrument + "\t")
+#     metadata.write(strftime("%Y-%m-%d") + "\t")
+#     metadata.write(str(read_stats.num_raw_reads) + "\t")
+#     metadata.write(str(read_stats.percent_on_target()) + "\t")
+#     metadata.write(str(read_stats.num_reads_trimmed) + "\t")
+#     metadata.write(assembly_stats["Assembler"] + "\t")
+#     metadata.write(assembly_stats["Contigs"] + "\t")
+#     metadata.write(assembly_stats["N50"] + "\t")
+#     metadata.write(assembly_stats["N90"] + "\t")
+#     metadata.write(assembly_stats["27kbp"] + "\t")
+#     metadata.write(assembly_stats["50kbp"] + "\t")
+#     metadata.write(str(ends_stats.single_pair) + "\t")
+#     metadata.write(str(ends_stats.multi_pair) + "\t")
+#     metadata.write(str(ends_stats.single_orphan) + "\t")
+#     metadata.write(str(ends_stats.multi_orphan) + "\t")
+#     metadata.write(str(ends_stats.unassigned) + "\t")
+#     metadata.write(str(ends_stats.num_total) + "\t")
+#     metadata.write(str(ends_stats.num_aligned) + "\t")
+#     metadata.write(str(ends_stats.num_unaligned) + "\t")
+#     metadata.write(str(ends_stats.num_failed) + "\n")
 
-    metadata.close()
-    return
+#     metadata.close()
+#     return
 
 
-def write_fosmid_end_failures(sample: Miffed, ends_stats: FosmidEnds) -> None:
+def write_fosmid_end_failures(sample: Sample, ends_stats: FosmidEnds) -> None:
     """
     Writes the names of fosmid ends that could not be aligned and failed
 
@@ -2294,12 +2236,7 @@ def assemble_nanopore_reads(sample: Sample, canu_exe, skip_correction, threads=2
     logging.info("Assembling error-corrected nanopore reads with canu... ", "out")
 
     canu_output = sample.output_dir + os.sep + "canu" + os.sep
-    if os.path.isdir(canu_output):
-        shutil.rmtree(canu_output)
-    try:
-        os.makedirs(canu_output)
-    except IOError:
-        raise IOError("Unable to make " + canu_output)
+    os.makedirs(canu_output, exist_ok=True)
 
     corrected_nanopore_fasta = sample.output_dir + os.sep + sample.id + "_nanopore_trimmed.fasta"
     canu_stdout = open(canu_output + "canu.stdout", 'w')
@@ -2322,68 +2259,127 @@ def assemble_nanopore_reads(sample: Sample, canu_exe, skip_correction, threads=2
     canu_stdout.write(stdout)
     canu_stdout.close()
 
-    shutil.move(canu_output + sample.id + ".contigs.fasta", sample.assembled_fosmids)
-
+    sample.assembled_fosmids = str(Path(canu_output).joinpath(f"{sample.id }.contigs.fasta"))
     logging.info("done.\n")
-
     return
-
 
 def fabfos_main(sys_args):
     args = get_options(sys_args)
 
-    executables = find_executables(assembler=args.assembler, nanopore=args.nanopore_reads)
+    out_path = Path(args.output)
+    if out_path.exists():
+        if args.overwrite:
+            os.system(f"rm -r {out_path}")
+        else:
+            logging.error(f"output folder [{out_path}] already exists\n")
+            sys.exit(1)
+    
+    fos_father = FabFos(args.output)
+    # create temp workspace
+    fos_father.furnish()
+    # Setup the global logger and main log file
+    prep_logging(args.output + os.sep + "fabfos.log", args.verbose)
 
+    executables = find_executables(assembler=args.assembler, nanopore=args.nanopore_reads)
     versions_dict = find_dependency_versions(executables)
     validate_dependency_versions(versions_dict)
     if args.version:
         summarize_dependency_versions(dep_versions=versions_dict)
         sys.exit(0)
-
-    # Setup the global logger and main log file
-    prep_logging(args.output + os.sep + "FabFos_log.txt", args.verbose)
     summarize_dependency_versions(dep_versions=versions_dict)
-
-    fos_father = FabFos(args.output)
     review_arguments(args, fos_father)
-
-    libraries: list[Miffed] = parse_miffed(args, fabfos=fos_father)
 
     ends_stats = FosmidEnds()
     if args.ends:
         ends_stats.fasta_path = args.ends
         ends_stats.load_ends()
 
-    # Sequence processing and filtering:
-    for sample in libraries:
-        if not sample.exclude:
-            if sample.assemble:
-                logging.info("Processing '{0}'. Outputs will written to {1}\n".format(sample.id, sample.output_dir))
-                sample.gather_reads(args.reads, args.reverse, args.parity, executables, sample.output_dir, args.type)
-                sample.qc_reads(args.background, args.parity, fos_father.adaptor_trim, executables, args.threads)
-                if sample.nanopore:
-                    sample.prep_nanopore(args, executables, args.nanopore_reads)
-                    # Assemble nanopore reads
-                    assemble_nanopore_reads(sample, executables["canu"], args.skip_correction, args.threads)
-                else:
-                    sample.assemble_fosmids(executables, args.threads)
+    sample_id = out_path.name
+    sample = Sample(sample_id)
+    ghetto_sync_args(args, fos_father, sample)
 
-            fosmid_assembly = read_fasta(sample.assembled_fosmids)
-            assembly_stats = get_assembly_stats(fosmid_assembly, sample.assembler)
-            # For mapping fosmid ends:
-            if args.ends:
-                map_ends(executables, args.ends, sample)
-                ends_mapping = parse_end_alignments(sample, fosmid_assembly, ends_stats)
-                clone_map, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
-                clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
-                write_fosmid_assignments(sample, clone_map)
-                write_fosmid_end_failures(sample, ends_stats)
-                # write_unique_fosmid_ends_to_bulk(args)
-                # TODO: Remove blast database for ends
-                # TODO: include a visualization to show where the fosmid ends mapped on each contig.
-            project_metadata_file = os.path.join(args.output, sample.project,
-                                                 "FabFos_" + sample.project + "_metadata.tsv")
-            # update_metadata(project_metadata_file, sample, sample.read_stats, assembly_stats, ends_stats)
+    sample.gather_reads(args.reads, args.reverse, args.parity, executables, sample.output_dir, args.type)
+    qc_pe, qc_se = sample.qc_reads(args.background, args.parity, fos_father.adaptor_trim, executables, args.threads)
+    
+    if args.pool_size is None:
+        logging.info(f"Estimating fosmid pool size... ")
+        qced_reads = qc_pe if len(qc_pe) > 0 else [qc_se[0]]
+        size_estimate = EstimateFosmidPoolSize([Path(r) for r in qced_reads], Path(args.vector), Path(args.output).joinpath("pool_size_estimate"), args.threads)
+        if size_estimate is None:
+            if args.pool_size is None:
+                logging.error(f"failed to estimate pool size")
+                sys.exit(1)
+            else:
+                size_estimate = args.pool_size
+        logging.info(f"done.\n")
+    else:
+        size_estimate = args.pool_size
+    sample.num_fosmids_estimate = size_estimate # used in determine_min_count() of assemble_fosmids()
+    
+    if sample.nanopore:
+        sample.prep_nanopore(args, executables, args.nanopore_reads)
+        # Assemble nanopore reads
+        assemble_nanopore_reads(sample, executables["canu"], args.skip_correction, args.threads)
+    else:
+        sample.assemble_fosmids(executables, args.threads)
+    
+    if not Path(sample.assembled_fosmids).exists():
+        logging.error(f"assembly failed")
+        sys.exit(1)
+    fosmid_assembly = read_fasta(sample.assembled_fosmids)
+    assembly_stats = get_assembly_stats(fosmid_assembly, sample.assembler)
+    assembly_stats["est_n_fosmids"] = size_estimate
+
+    # For mapping fosmid ends:
+    if args.ends:
+        map_ends(executables, args.ends, sample)
+        ends_mapping = parse_end_alignments(sample, fosmid_assembly, ends_stats)
+        clone_map, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
+        clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
+        write_fosmid_assignments(sample, clone_map)
+        write_fosmid_end_failures(sample, ends_stats)
+    else:
+        # some function above does this if ends are provided and also adds end mappings to the headers
+        shutil.copy(sample.assembled_fosmids, Path(sample.output_dir).joinpath(f"{sample.id}_contigs.fasta"))
+
+
+    # clean up, organize outputs
+    ws = Path(sample.output_dir)
+    tmp_cov = ws.joinpath("estimated_coverage.txt")
+    with open(tmp_cov) as f:
+        cov = f.readline()[:-1]
+    os.unlink(tmp_cov)
+    with open(ws.joinpath(f"{sample.id}_read_stats.tsv"), "w") as f:
+        f.write("\t".join(["n_reads", "after_qc", "est_fosmid_coverage"])+"\n")
+        vals = [str(v) for v in [sample.read_stats.num_raw_reads, sample.read_stats.num_filtered_reads, cov]]
+        f.write("\t".join(vals)+"\n")
+
+    with open(ws.joinpath(f"{sample.id}_assembly_stats.tsv"), "w") as f:
+        header, values = [], []
+        for k, v in assembly_stats.items():
+            header.append(str(k))
+            values.append(str(v))
+        f.write("\t".join(header)+"\n")
+        f.write("\t".join(values)+"\n")
+
+    size_est = ws.joinpath("pool_size_estimate/results.tsv")
+    if size_est.exists(): shutil.copy(size_est, ws.joinpath(f"{sample.id}_pool_size_estimate.tsv"))
+
+    end_map = ws.joinpath("end_seqs/endsMapped.tbl")
+    if end_map.exists():
+        with open(ws.joinpath(f"{sample_id}_end_mapping.tsv"), "w") as out:
+            HEADER = [
+                "sseqid", "slen", "qseqid", "pident", "length", "sstrand",
+                "sstart", "send", "bitscore", "qstart", "qend"
+            ]
+            out.write("\t".join(HEADER)+"\n")
+            with open(end_map) as f:
+                for l in f: out.write(l)
+
 
 if __name__ == "__main__":
-    fabfos_main(sys.argv[1:])
+    try:
+        fabfos_main(sys.argv[1:])
+    except KeyboardInterrupt:
+        print("\nkilled")
+        sys.exit(1)

@@ -1,3 +1,5 @@
+__pycache__
+
 .idea/
 *_env/
 *.sif
@@ -5,6 +7,7 @@
 tests/test_data/FabFos_DB/
 trim_sequences.fasta.*
 
+/data
 /scratch
 /docker/src
 /secrets

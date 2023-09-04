@@ -32,21 +32,34 @@ case $1 in
         docker run -it --rm $DOCKER_IMAGE:$VER /bin/bash
 
     ;;
+    --env)
+        cd $HERE/envs
+        mamba env create --no-default-packages -f ./conda.yml
+    ;;
     
     -t)
+            # --size 20 \
 
         cd scratch
-        $HERE/src/fabfos  --threads 14 --output ./no_miffed_test \
+        python $HERE/src/FabFos.py \
+            --overwrite \
+            --threads 12 \
+            --output ./no_miffed_test \
             --assembler megahit \
-            --interleaved \
-            --ends ./beaver_cecum_2ndhits/endseqs.fasta \
-            --ends-name-pattern "\\w+_\\d+" \
-            --ends-fw-flag "FW" \
-            -m endseq.csv \
-            -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits.fastq.gz \
-            -b ecoli_k12_mg1655.fasta
+            -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
+            -b ./ecoli_k12_mg1655.fasta \
+            --pool-size 20
+            # --vector ./pcc1.fasta
 
-            #
+            # --ends ./beaver_cecum_2ndhits/endseqs.fasta \
+            # --ends-name-pattern "\\w+_\\d+" \
+            # --ends-fw-flag "FW" \
+
+            # -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss10.fastq \
+            # --nanopore_reads beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
+
+
+
         # scratch space for testing stuff
         #
             # --threads 14 --fabfos_path ./ --force --assembler megahit \
