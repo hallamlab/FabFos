@@ -2,27 +2,76 @@ HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 NAME=fabfos
 DOCKER_IMAGE=quay.io/hallamlab/$NAME
-VER=$(cat $HERE/src/version.txt)
+VER=$(cat $HERE/src/$NAME/version.txt)
 echo image: $DOCKER_IMAGE:$VER
 echo ""
 
 case $1 in
-    --build|-b)
+    ###################################################
+    # init dev environment
+
+    -ic) # conda
+        cd $HERE/envs
+        mamba env create --no-default-packages -f ./dev.yml
+    ;;
+
+    ###################################################
+    # build
+
+    -bp) # pip
+        # build pip package for upload to pypi
+        rm -r build && rm -r dist
+        python -m build --wheel
+    ;;
+    -bi) # pip - test install
+        python setup.py install
+    ;;
+    -bx) # pip - remove package
+        pip uninstall -y $NAME
+    ;;
+    -bc) # conda
         # change the url in python if not txyliu
         # build the docker container locally *with the cog db* (see above)
         docker build -t $DOCKER_IMAGE:$VER .
     ;;
-    --push|-p)
-        # login and push image to quay.io
-        # sudo docker login quay.io
-	    docker push $DOCKER_IMAGE:$VER
+    -bd) # docker
+        # change the url in python if not txyliu
+        # build the docker container locally *with the cog db* (see above)
+        docker build -t $DOCKER_IMAGE:$VER .
     ;;
-    --sif)
-        # test build singularity
+    -bs) # singularity image *from docker*
         singularity build $NAME.sif docker-daemon://$DOCKER_IMAGE:$VER
     ;;
-    --run|-r)
-        # test run docker image
+
+    ###################################################
+    # upload
+
+    # -up) # pip (pypi)
+    #     # login and push image to quay.io
+    #     # sudo docker login quay.io
+	#     docker push $DOCKER_IMAGE:$VER
+    # ;;
+    # -uc) # conda (personal channel)
+    #     # login and push image to quay.io
+    #     # sudo docker login quay.io
+	#     docker push $DOCKER_IMAGE:$VER
+    # ;;
+    # -ud) # docker
+    #     # login and push image to quay.io
+    #     # sudo docker login quay.io
+	#     docker push $DOCKER_IMAGE:$VER
+    # ;;
+    
+    ###################################################
+    # run
+
+    -r)
+        shift
+        PYTHONPATH=$HERE/src:$PATH
+        python -m $NAME $@
+    ;;
+    -rd) # docker
+            # test run docker image
             # --mount type=bind,source="$HERE/scratch",target="/ws" \
             # --mount type=bind,source="$HERE/scratch/res",target="/ref"\
             # -e XDG_CACHE_HOME="/ws"\
@@ -30,14 +79,8 @@ case $1 in
             # -u $(id -u):$(id -g) \
         shift
         docker run -it --rm $DOCKER_IMAGE:$VER /bin/bash
-
     ;;
-    --env)
-        cd $HERE/envs
-        mamba env create --no-default-packages -f ./conda.yml
-    ;;
-    
-    -t)
+    -rt) # single manual test
             # --size 20 \
 
         cd scratch

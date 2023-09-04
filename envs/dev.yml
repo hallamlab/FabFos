@@ -18,3 +18,5 @@ dependencies:
   - pip
   - pip:
     - pyfastx==1.1
+    - twine
+    - build

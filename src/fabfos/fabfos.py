@@ -1,8 +1,17 @@
-#!/usr/bin/env python3
-
-from email.policy import default
-from genericpath import exists
-
+# This file is part of FabFos.
+# 
+# FabFos is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# FabFos is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with FabFos. If not, see <https://www.gnu.org/licenses/>.
 
 try:
     import argparse
@@ -15,28 +24,18 @@ try:
     import logging
     from pathlib import Path
     from packaging import version
-    from time import strftime
     import pyfastx
-    from more import EstimateFosmidPoolSize
+    from .addons import EstimateFosmidPoolSize
+    
 except (ImportWarning, ModuleNotFoundError):
     import traceback
     sys.stderr.write("Could not load some user defined module functions")
     sys.stderr.write(str(traceback.print_exc(10)))
     sys.exit(3)
 
-"""
-FabFos: a pipeline for automatically performing quality controls, assembly, and data storage management
-for fosmid sequence information. Circa 2020 - Hallam Lab, UBC
-"""
-HERE = Path("/".join(os.path.realpath(__file__).split('/')[:-1]))
+HERE = Path(os.path.realpath(__file__)).parent
 with open(HERE.joinpath("version.txt")) as f:
-    __version__ = f.read()
-__author__ = "Connor Morgan-Lang"
-__license__ = "GPL-v3"
-__maintainer__ = "Connor Morgan-Lang"
-__email__ = "c.morganlang@gmail.com"
-__status__ = "Unstable"
-
+    VERSION = f.read()
 
 class FabFos:
     def __init__(self, path):
@@ -568,7 +567,7 @@ def get_options(sys_args: list):
                       choices=["spades_meta", "spades_isolate", "spades_sc", "megahit"], default="spades_isolate",
                       help="Genome assembly software to use. [DEFAULT = spades_isolate]")
     opts.add_argument("-o", "--output", type=str, required=False,
-                      default="./",
+                      default=os.path.abspath("./"),
                       help="path to temp. workspace [DEFAULT = /tmp]")
     opts.add_argument("-T", "--threads", type=str, required=False, default=str(8),
                       help="The number of threads that can be used [DEFAULT = 8]")
@@ -805,7 +804,7 @@ def validate_dependency_versions(dep_versions: dict) -> bool:
 
 
 def summarize_dependency_versions(dep_versions: dict) -> None:
-    versions_string = "FabFos version {}\n".format(__version__) +\
+    versions_string = "FabFos version {}\n".format(VERSION) +\
                       "Software versions used:\n"
     ##
     # Format the string with the versions of all software
@@ -2375,11 +2374,3 @@ def fabfos_main(sys_args):
             out.write("\t".join(HEADER)+"\n")
             with open(end_map) as f:
                 for l in f: out.write(l)
-
-
-if __name__ == "__main__":
-    try:
-        fabfos_main(sys.argv[1:])
-    except KeyboardInterrupt:
-        print("\nkilled")
-        sys.exit(1)

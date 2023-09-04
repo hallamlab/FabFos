@@ -3,10 +3,13 @@ __pycache__
 .idea/
 *_env/
 *.sif
+*.egg-info
 
 tests/test_data/FabFos_DB/
 trim_sequences.fasta.*
 
+/dist
+/build
 /data
 /scratch
 /docker/src
