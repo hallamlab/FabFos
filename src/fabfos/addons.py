@@ -1,7 +1,23 @@
+# This file is part of FabFos.
+# 
+# FabFos is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# FabFos is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with FabFos. If not, see <https://www.gnu.org/licenses/>.
+
+# copyright 2023 Tony Liu, Connor Morgan-Lang, Avery Noonan,
+# Zach Armstrong, and Steven J. Hallam
+
 from Bio import SeqIO
-import uuid
 from pathlib import Path
-import json
 
 import subprocess
 import os
@@ -89,14 +105,13 @@ def EstimateFosmidPoolSize(
 
 
         uclust_cmd = [
-            f"{src}/usearch",
+            f"vsearch",
             "-cluster_fast", f"{BACKBONE}-5-020.fasta",
             "-uc", f"{BACKBONE}-5-020.uc",
             "-id", str(0.9),
             "-consout", f"{BACKBONE}-5-020_clusters.fasta",
             "-sizeout",
             "-centroids", f"{BACKBONE}-5-020_centroids.fasta",
-            "-minsize", str(2),
         ]
         if threads is not None:
             # print(f"\nusing {threads} threads for usearch")
@@ -109,7 +124,7 @@ def EstimateFosmidPoolSize(
             centroids = SeqIO.parse(str(f'{BACKBONE}-5-020_centroids.fasta'), "fasta")
             size_ones, estimate = 0, 0
             for c in centroids:
-                id, size, _ = c.id.split(";")
+                id, size = c.id.split(";")
                 id = int(id)
                 rev, original = recs[kept_indicies[id]]
                 header = f">{original.id};{'forward' if not rev else 'reverse_compliment'};{size}"

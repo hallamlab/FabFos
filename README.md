@@ -1,16 +1,18 @@
 # FabFos: A python-driven fosmid processing pipeline
 
-Connor Morgan-Lang, Zach Armstrong and Steven J. Hallam
+Tony Liu, Connor Morgan-Lang, Avery Noonan, Zach Armstrong, and Steven J. Hallam
+
+## _A major update has just occurred, documentation will update soon_
 
 ## Overview:
 
 A python pipeline for generating high-quality fosmid assemblies and interrogating fosmid pseudomolecules
  for clone identification using end-sequences.
 
-## Download:
+## Install:
 
 ```
-git clone git@github.com:hallamlab/FabFos.git
+conda install -c tony-xy-liu -c imperial-college-research-computing -c bioconda -c conda-forge fabfos
 ```
 
 Dependencies listed below will need to be independently installed.

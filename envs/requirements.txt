@@ -1,2 +1,1 @@
-pyfastx >=0.8.4
 packaging >=21.0

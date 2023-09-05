@@ -3,10 +3,17 @@ __pycache__
 .idea/
 *_env/
 *.sif
+*.egg-info
 
 tests/test_data/FabFos_DB/
 trim_sequences.fasta.*
 
+/dist
+/build
+/conda_build
+/conda_recipe/*
+!/conda_recipe/compile_recipe.py
+!/conda_recipe/meta_template.yaml
 /data
 /scratch
 /docker/src

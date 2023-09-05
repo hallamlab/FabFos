@@ -1,8 +1,20 @@
-#!/usr/bin/env python3
+# This file is part of FabFos.
+# 
+# FabFos is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# FabFos is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with FabFos. If not, see <https://www.gnu.org/licenses/>.
 
-from email.policy import default
-from genericpath import exists
-
+# copyright 2023 Tony Liu, Connor Morgan-Lang, Avery Noonan,
+# Zach Armstrong, and Steven J. Hallam
 
 try:
     import argparse
@@ -13,30 +25,20 @@ try:
     import subprocess
     import shutil
     import logging
+    from Bio import SeqIO
     from pathlib import Path
     from packaging import version
-    from time import strftime
-    import pyfastx
-    from more import EstimateFosmidPoolSize
+    from .addons import EstimateFosmidPoolSize
+    
 except (ImportWarning, ModuleNotFoundError):
     import traceback
     sys.stderr.write("Could not load some user defined module functions")
     sys.stderr.write(str(traceback.print_exc(10)))
     sys.exit(3)
 
-"""
-FabFos: a pipeline for automatically performing quality controls, assembly, and data storage management
-for fosmid sequence information. Circa 2020 - Hallam Lab, UBC
-"""
-HERE = Path("/".join(os.path.realpath(__file__).split('/')[:-1]))
+HERE = Path(os.path.realpath(__file__)).parent
 with open(HERE.joinpath("version.txt")) as f:
-    __version__ = f.read()
-__author__ = "Connor Morgan-Lang"
-__license__ = "GPL-v3"
-__maintainer__ = "Connor Morgan-Lang"
-__email__ = "c.morganlang@gmail.com"
-__status__ = "Unstable"
-
+    VERSION = f.read()
 
 class FabFos:
     def __init__(self, path):
@@ -529,9 +531,11 @@ def bam2fastq(input_file: str, prefix: str, output_dir: str, samtools_exe: str, 
 ENDS_NAME_REGEX = None
 ENDS_FW_FLAG = None
 def get_options(sys_args: list):
-    parser = argparse.ArgumentParser(description="Pipeline for filtering, assembling and organizing "
-                                                 "fosmid sequence information.\n",
-                                     add_help=False)
+    parser = argparse.ArgumentParser(
+        prog="ffs",
+        description="Pipeline for filtering, assembling and organizing fosmid sequence information.\n",
+        add_help=False
+    )
     reqs = parser.add_argument_group(title="Required arguments")
     reads = parser.add_argument_group(title="Sequence read-specific arguments")
     nanopore = parser.add_argument_group(title="Nanopore-specific [development] options")
@@ -540,8 +544,8 @@ def get_options(sys_args: list):
 
     reqs.add_argument("-b", "--background", type=str, required=False,
                       help="Path to fosmid background fasta")
-    reqs.add_argument("-v", "--vector", type=str, required=False,
-                      help="Path to vector backbone fasta, required if --pool-size not given")
+    reqs.add_argument("--vector", type=str, required=False,
+                      help="Path to vector backbone fasta, used for estimating pool size, required if --pool-size not given")
     reqs.add_argument("-n", "--pool-size", type=int, required=False,
                       help="Estimate of number of fosmids in pool, required if --vector not given")
     
@@ -568,7 +572,7 @@ def get_options(sys_args: list):
                       choices=["spades_meta", "spades_isolate", "spades_sc", "megahit"], default="spades_isolate",
                       help="Genome assembly software to use. [DEFAULT = spades_isolate]")
     opts.add_argument("-o", "--output", type=str, required=False,
-                      default="./",
+                      default=os.path.abspath("./"),
                       help="path to temp. workspace [DEFAULT = /tmp]")
     opts.add_argument("-T", "--threads", type=str, required=False, default=str(8),
                       help="The number of threads that can be used [DEFAULT = 8]")
@@ -580,7 +584,7 @@ def get_options(sys_args: list):
                       help="overwrite the output directory if it already exists")
     opts.add_argument("--ends-fw-flag", required=False, default=None,
                       help='string that marks forward ends, ex. "_FW" would cause ABC_123_FW and ABC_123_RE to be assigned to forward and reverse respectively.')
-    misc.add_argument("--version", default=False, action="store_true",
+    misc.add_argument("-v", "--version", default=False, action="store_true",
                       help="Print the FabFos version and exit.")
     misc.add_argument("--verbose", required=False, default=False, action="store_true",
                       help="Increase the level of verbosity in runtime log.")
@@ -805,14 +809,14 @@ def validate_dependency_versions(dep_versions: dict) -> bool:
 
 
 def summarize_dependency_versions(dep_versions: dict) -> None:
-    versions_string = "FabFos version {}\n".format(__version__) +\
-                      "Software versions used:\n"
-    ##
-    # Format the string with the versions of all software
-    ##
-    for exe in sorted(dep_versions):
-        n_spaces = 20 - len(exe)
-        versions_string += "\t" + exe + ' ' * n_spaces + dep_versions[exe] + "\n"
+    versions_string = "FabFos v{}".format(VERSION)
+                    #   "Software versions used:\n"
+    # ##
+    # # Format the string with the versions of all software
+    # ##
+    # for exe in sorted(dep_versions):
+    #     n_spaces = 20 - len(exe)
+    #     versions_string += "\t" + exe + ' ' * n_spaces + dep_versions[exe] + "\n"
 
     if logging.getLogger().hasHandlers():
         logging.info(versions_string)
@@ -922,9 +926,7 @@ def get_reference_names_from_sam(sam_file):
         line = sam.readline()
 
     sam.close()
-
     return reference_names
-
 
 def write_new_fasta(fasta_dict: dict, fasta_name: str, headers=None):
     """
@@ -1095,7 +1097,7 @@ def determine_k_values(test_fastq: str, assembler: str):
     # Sample the first paired-end FASTQ file
 
     x = 0
-    for _, seq, _ in pyfastx.Fastq(file_name=test_fastq, build_index=False):
+    for _, seq in read_fastq(test_fastq):
         read_length = len(seq)
         read_lengths.append(read_length)
         if read_length > max_read_length:
@@ -1221,7 +1223,7 @@ def assemble_fosmids(sample: Sample, assembler: str, assembly_mode: str, k_min: 
     #     shutil.move(f_scaffolds,
     #                 sample.output_dir + os.sep + sample.id + "_scaffolds.fasta")
     # shutil.rmtree(sample.output_dir + "assembly" + os.sep)
-    logging.info("done.\n")
+    logging.info("Assembly done.\n")
     return
 
 
@@ -1230,7 +1232,7 @@ def read_fastq_to_dict(fastq_file: str) -> dict:
     acc = 0
     matepair_re = re.compile(r".*/[12]$")
     logging.info("Reading FASTQ file '{}'... ")
-    for name, seq, _ in pyfastx.Fastq(file_name=fastq_file, build_index=False):
+    for name, seq in read_fastq(fastq_file):
         if not matepair_re.match(name):
             if acc % 2:
                 name += "/2"
@@ -1246,43 +1248,19 @@ def read_fastq_to_dict(fastq_file: str) -> dict:
 def deinterleave_fastq(fastq_file: str, output_dir) -> (str, str):
     # TODO: support gzipped files
     logging.info("De-interleaving forward and reverse reads in " + fastq_file + "... ")
+
     if not output_dir:
         output_dir = os.path.dirname(fastq_file)
     prefix = '.'.join(os.path.basename(fastq_file).split('.')[:-1])
     fwd_fq = output_dir + os.sep + prefix + "_R1.fastq"
     rev_fq = output_dir + os.sep + prefix + "_R2.fastq"
 
-    try:
-        f_handler = open(fwd_fq, 'w')
-        r_handler = open(rev_fq, 'w')
-    except IOError:
-        logging.error("Unable to open deinterleaved FASTQ files for writing in " + output_dir + "\n")
-        sys.exit(3)
+    # https://gist.github.com/nathanhaigh/3521724
+    os.system(f"""\
+        {HERE}/deinterleave_fastq.sh <{fastq_file} {fwd_fq} {rev_fq}
+    """)
 
-    f_string = ""
-    r_string = ""
-    acc = 0
-
-    for name, seq, qual in pyfastx.Fastq(file_name=fastq_file, build_index=False):
-        if acc % 2:
-            r_string += "\n".join(["@" + name, seq, '+', qual]) + "\n"
-        else:
-            f_string += "\n".join(["@" + name, seq, '+', qual]) + "\n"
-
-        acc += 1
-        if acc % 1E6 == 0:
-            f_handler.write(f_string)
-            f_string = ""
-            r_handler.write(r_string)
-            r_string = ""
-
-    # Close up shop
-    f_handler.write(f_string)
-    f_handler.close()
-    r_handler.write(r_string)
-    r_handler.close()
     logging.info("done.\n")
-
     return fwd_fq, rev_fq
 
 
@@ -1843,6 +1821,10 @@ def write_fosmid_assignments(sample, clone_map):
 
     return
 
+def read_fastq(file_path):
+    fq = SeqIO.parse(file_path, "fastq")
+    for entry in fq:
+        yield entry.id, entry.seq
 
 def read_fasta(fasta):
     """
@@ -2266,6 +2248,16 @@ def assemble_nanopore_reads(sample: Sample, canu_exe, skip_correction, threads=2
 def fabfos_main(sys_args):
     args = get_options(sys_args)
 
+    executables = find_executables(assembler=args.assembler, nanopore=args.nanopore_reads)
+    versions_dict = find_dependency_versions(executables)
+    validate_dependency_versions(versions_dict)
+    summarize_dependency_versions(dep_versions=versions_dict)
+    if args.version:
+        sys.exit(0)
+
+    fos_father = FabFos(args.output)
+    review_arguments(args, fos_father)
+    
     out_path = Path(args.output)
     if out_path.exists():
         if args.overwrite:
@@ -2273,21 +2265,11 @@ def fabfos_main(sys_args):
         else:
             logging.error(f"output folder [{out_path}] already exists\n")
             sys.exit(1)
-    
-    fos_father = FabFos(args.output)
+
     # create temp workspace
     fos_father.furnish()
     # Setup the global logger and main log file
     prep_logging(args.output + os.sep + "fabfos.log", args.verbose)
-
-    executables = find_executables(assembler=args.assembler, nanopore=args.nanopore_reads)
-    versions_dict = find_dependency_versions(executables)
-    validate_dependency_versions(versions_dict)
-    if args.version:
-        summarize_dependency_versions(dep_versions=versions_dict)
-        sys.exit(0)
-    summarize_dependency_versions(dep_versions=versions_dict)
-    review_arguments(args, fos_father)
 
     ends_stats = FosmidEnds()
     if args.ends:
@@ -2306,12 +2288,15 @@ def fabfos_main(sys_args):
         qced_reads = qc_pe if len(qc_pe) > 0 else [qc_se[0]]
         size_estimate = EstimateFosmidPoolSize([Path(r) for r in qced_reads], Path(args.vector), Path(args.output).joinpath("pool_size_estimate"), args.threads)
         if size_estimate is None:
+            logging.error(f"failed to estimate pool size, defaulting to given estimate\n")
             if args.pool_size is None:
-                logging.error(f"failed to estimate pool size")
+                logging.error(f"no given estimate\n")
                 sys.exit(1)
             else:
                 size_estimate = args.pool_size
-        logging.info(f"done.\n")
+        else:
+            logging.info(f"done.\n")
+        logging.info(f"Pool size estimate = {size_estimate}\n")
     else:
         size_estimate = args.pool_size
     sample.num_fosmids_estimate = size_estimate # used in determine_min_count() of assemble_fosmids()
@@ -2332,18 +2317,21 @@ def fabfos_main(sys_args):
 
     # For mapping fosmid ends:
     if args.ends:
+        logging.info(f"Mapping end sequences... ")
         map_ends(executables, args.ends, sample)
         ends_mapping = parse_end_alignments(sample, fosmid_assembly, ends_stats)
         clone_map, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
         clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
         write_fosmid_assignments(sample, clone_map)
         write_fosmid_end_failures(sample, ends_stats)
+        logging.info(f"done.\n")
     else:
         # some function above does this if ends are provided and also adds end mappings to the headers
         shutil.copy(sample.assembled_fosmids, Path(sample.output_dir).joinpath(f"{sample.id}_contigs.fasta"))
 
 
     # clean up, organize outputs
+    logging.info(f"Final cleanup... ")
     ws = Path(sample.output_dir)
     tmp_cov = ws.joinpath("estimated_coverage.txt")
     with open(tmp_cov) as f:
@@ -2376,10 +2364,5 @@ def fabfos_main(sys_args):
             with open(end_map) as f:
                 for l in f: out.write(l)
 
-
-if __name__ == "__main__":
-    try:
-        fabfos_main(sys.argv[1:])
-    except KeyboardInterrupt:
-        print("\nkilled")
-        sys.exit(1)
+    logging.info(f"done.\n")
+    logging.info(f"Results are in: {sample.output_dir}\n")

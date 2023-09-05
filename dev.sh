@@ -2,27 +2,110 @@ HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 NAME=fabfos
 DOCKER_IMAGE=quay.io/hallamlab/$NAME
-VER=$(cat $HERE/src/version.txt)
+VER=$(cat $HERE/src/$NAME/version.txt)
+# CONDA=conda
+CONDA=mamba # https://mamba.readthedocs.io/en/latest/mamba-installation.html#mamba-install
 echo image: $DOCKER_IMAGE:$VER
 echo ""
 
+# this file contains a list of commands useful for dev,
+# providing automation for some build tasks
+#
+# example workflow 1, pip:
+# dev.sh --idev # create a local conda dev env
+# # add pypi api token as file to ./secrets [https://pypi.org/help/#apitoken]
+# # make some changes to source
+# # bump up ./src/fabfos/version.txt
+# dev.sh -bp # build the pip package
+# dev.sh -up # test upload to testpypi
+# dev.sh -upload-pypi # release to pypi index for pip install
+#
+# example workflow 2, conda:
+# dev.sh --idev # create a local conda dev env
+# dev.sh -bp # build the pip package
+# dev.sh -bc # build conda package from pip package
+# dev.sh -uc # publish to conda index
+#
+# example workflow 3, containerization:
+# dev.sh --idev # create a local conda dev env
+# dev.sh -bd # build docker image
+# dev.sh -ud # publish to quay.io
+# dev.sh -bs # build singularity image from local docker image
+
 case $1 in
-    --build|-b)
-        # change the url in python if not txyliu
-        # build the docker container locally *with the cog db* (see above)
+    ###################################################
+    # environments
+
+    --idev) # with dev tools for packaging
+        cd $HERE/envs
+        $CONDA env create --no-default-packages -n $NAME -f ./base.yml
+        $CONDA env update -n $NAME -f ./dev.yml
+    ;;
+    --ibase) # base only
+        cd $HERE/envs
+        $CONDA env create --no-default-packages -n $NAME -f ./base.yml
+    ;;
+
+    ###################################################
+    # build
+
+    -bp) # pip
+        # build pip package
+        rm -r build
+        rm -r dist
+        python -m build
+    ;;
+    -bpi) # pip - test install
+        python setup.py install
+    ;;
+    -bpx) # pip - remove package
+        pip uninstall -y $NAME
+    ;;
+    -bc) # conda
+        python ./conda_recipe/compile_recipe.py
+        ./conda_recipe/call_build.sh
+    ;;
+    -bd) # docker
         docker build -t $DOCKER_IMAGE:$VER .
     ;;
-    --push|-p)
+    -bs) # singularity image *from docker*
+        singularity build $NAME.sif docker-daemon://$DOCKER_IMAGE:$VER
+    ;;
+
+    ###################################################
+    # upload
+
+    -up) # pip (testpypi)
+        PYPI=testpypi
+        TOKEN=$(cat secrets/${PYPI}) # https://pypi.org/help/#apitoken
+        python -m twine upload --repository $PYPI dist/*.whl -u __token__ -p $TOKEN
+    ;;
+    -upload-pypi) # pip (pypi)
+        echo "not all dependencies are available on pypi, so this is not a good idea..."
+        # PYPI=pypi
+        # TOKEN=$(cat secrets/${PYPI}) # https://pypi.org/help/#apitoken
+        # python -m twine upload --repository $PYPI dist/*.whl -u __token__ -p $TOKEN
+    ;;
+    -uc) # conda (personal channel)
+        # run `anaconda login` first
+        find ./conda_build -name *.tar.bz2 | xargs -I % anaconda upload %
+    ;;
+    -ud) # docker
         # login and push image to quay.io
         # sudo docker login quay.io
 	    docker push $DOCKER_IMAGE:$VER
     ;;
-    --sif)
-        # test build singularity
-        singularity build $NAME.sif docker-daemon://$DOCKER_IMAGE:$VER
+    
+    ###################################################
+    # run
+
+    -r)
+        shift
+        PYTHONPATH=$HERE/src:$PATH
+        python -m $NAME $@
     ;;
-    --run|-r)
-        # test run docker image
+    -rd) # docker
+            # test run docker image
             # --mount type=bind,source="$HERE/scratch",target="/ws" \
             # --mount type=bind,source="$HERE/scratch/res",target="/ref"\
             # -e XDG_CACHE_HOME="/ws"\
@@ -30,62 +113,28 @@ case $1 in
             # -u $(id -u):$(id -g) \
         shift
         docker run -it --rm $DOCKER_IMAGE:$VER /bin/bash
-
     ;;
-    --env)
-        cd $HERE/envs
-        mamba env create --no-default-packages -f ./conda.yml
-    ;;
-    
-    -t)
+    -rt) # single manual test
             # --size 20 \
 
+        PYTHONPATH=$HERE/src:$PATH
         cd scratch
-        python $HERE/src/FabFos.py \
+        python -m $NAME \
             --overwrite \
             --threads 12 \
             --output ./no_miffed_test \
             --assembler megahit \
             -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
             -b ./ecoli_k12_mg1655.fasta \
-            --pool-size 20
-            # --vector ./pcc1.fasta
+            --vector ./pcc1.fasta
 
+            # --pool-size 20
             # --ends ./beaver_cecum_2ndhits/endseqs.fasta \
             # --ends-name-pattern "\\w+_\\d+" \
             # --ends-fw-flag "FW" \
 
             # -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss10.fastq \
             # --nanopore_reads beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
-
-
-
-        # scratch space for testing stuff
-        #
-            # --threads 14 --fabfos_path ./ --force --assembler megahit \
-        # cd scratch
-        # docker run -it --rm \
-        #     --mount type=bind,source="./",target="/ws" \
-        #     --workdir="/ws" \
-        #     -u $(id -u):$(id -g) \
-        #     $DOCKER_IMAGE:$VER fabfos --threads 14 --fabfos_path ./ --force --overwrite \
-        #     --assembler spades_meta \
-        #     --interleaved \
-        #     -m miffed.csv --reads ./reads -i -b ecoli_k12_mg1655.fasta
-
-            # --assembler spades_meta \
-        # docker run -it --rm \
-        #     --mount type=bind,source="/home/tony/workspace/grad/FabFos/src",target="/app" \
-        #     --mount type=bind,source="./",target="/ws" \
-        #     --workdir="/ws" \
-        #     -u $(id -u):$(id -g) \
-        #     $DOCKER_IMAGE:$VER fabfos --threads 14 --fabfos_path ./ --force --overwrite \
-        #     --assembler megahit \
-        #     --interleaved \
-        #     --ends ./beaver_cecum_2ndhits/endseqs.fasta \
-        #     --ends-name-pattern "\\w+_\\d+" \
-        #     --ends-fw-flag "FW" \
-        #     -m endseq.csv --reads ./beaver_cecum_2ndhits/EKL/Raw_Data -i -b ecoli_k12_mg1655.fasta
     ;;
     *)
         echo "bad option"
