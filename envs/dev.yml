@@ -15,6 +15,7 @@ dependencies:
   - proovread
   - canu
   - biopython=1.81
+  - vsearch
   - pip
   - pip:
     - pyfastx==1.1

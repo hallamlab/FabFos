@@ -102,14 +102,13 @@ def EstimateFosmidPoolSize(
 
 
         uclust_cmd = [
-            f"{src}/usearch",
+            f"vsearch",
             "-cluster_fast", f"{BACKBONE}-5-020.fasta",
             "-uc", f"{BACKBONE}-5-020.uc",
             "-id", str(0.9),
             "-consout", f"{BACKBONE}-5-020_clusters.fasta",
             "-sizeout",
             "-centroids", f"{BACKBONE}-5-020_centroids.fasta",
-            "-minsize", str(2),
         ]
         if threads is not None:
             # print(f"\nusing {threads} threads for usearch")
@@ -122,7 +121,7 @@ def EstimateFosmidPoolSize(
             centroids = SeqIO.parse(str(f'{BACKBONE}-5-020_centroids.fasta'), "fasta")
             size_ones, estimate = 0, 0
             for c in centroids:
-                id, size, _ = c.id.split(";")
+                id, size = c.id.split(";")
                 id = int(id)
                 rev, original = recs[kept_indicies[id]]
                 header = f">{original.id};{'forward' if not rev else 'reverse_compliment'};{size}"

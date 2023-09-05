@@ -539,8 +539,8 @@ def get_options(sys_args: list):
 
     reqs.add_argument("-b", "--background", type=str, required=False,
                       help="Path to fosmid background fasta")
-    reqs.add_argument("-v", "--vector", type=str, required=False,
-                      help="Path to vector backbone fasta, required if --pool-size not given")
+    reqs.add_argument("--vector", type=str, required=False,
+                      help="Path to vector backbone fasta, used for estimating pool size, required if --pool-size not given")
     reqs.add_argument("-n", "--pool-size", type=int, required=False,
                       help="Estimate of number of fosmids in pool, required if --vector not given")
     
@@ -579,7 +579,7 @@ def get_options(sys_args: list):
                       help="overwrite the output directory if it already exists")
     opts.add_argument("--ends-fw-flag", required=False, default=None,
                       help='string that marks forward ends, ex. "_FW" would cause ABC_123_FW and ABC_123_RE to be assigned to forward and reverse respectively.')
-    misc.add_argument("--version", default=False, action="store_true",
+    misc.add_argument("-v", "--version", default=False, action="store_true",
                       help="Print the FabFos version and exit.")
     misc.add_argument("--verbose", required=False, default=False, action="store_true",
                       help="Increase the level of verbosity in runtime log.")
@@ -804,14 +804,14 @@ def validate_dependency_versions(dep_versions: dict) -> bool:
 
 
 def summarize_dependency_versions(dep_versions: dict) -> None:
-    versions_string = "FabFos version {}\n".format(VERSION) +\
-                      "Software versions used:\n"
-    ##
-    # Format the string with the versions of all software
-    ##
-    for exe in sorted(dep_versions):
-        n_spaces = 20 - len(exe)
-        versions_string += "\t" + exe + ' ' * n_spaces + dep_versions[exe] + "\n"
+    versions_string = "FabFos v{}".format(VERSION)
+                    #   "Software versions used:\n"
+    # ##
+    # # Format the string with the versions of all software
+    # ##
+    # for exe in sorted(dep_versions):
+    #     n_spaces = 20 - len(exe)
+    #     versions_string += "\t" + exe + ' ' * n_spaces + dep_versions[exe] + "\n"
 
     if logging.getLogger().hasHandlers():
         logging.info(versions_string)
@@ -921,7 +921,6 @@ def get_reference_names_from_sam(sam_file):
         line = sam.readline()
 
     sam.close()
-
     return reference_names
 
 
@@ -1220,7 +1219,7 @@ def assemble_fosmids(sample: Sample, assembler: str, assembly_mode: str, k_min: 
     #     shutil.move(f_scaffolds,
     #                 sample.output_dir + os.sep + sample.id + "_scaffolds.fasta")
     # shutil.rmtree(sample.output_dir + "assembly" + os.sep)
-    logging.info("done.\n")
+    logging.info("Assembly done.\n")
     return
 
 
@@ -2265,6 +2264,13 @@ def assemble_nanopore_reads(sample: Sample, canu_exe, skip_correction, threads=2
 def fabfos_main(sys_args):
     args = get_options(sys_args)
 
+    executables = find_executables(assembler=args.assembler, nanopore=args.nanopore_reads)
+    versions_dict = find_dependency_versions(executables)
+    validate_dependency_versions(versions_dict)
+    summarize_dependency_versions(dep_versions=versions_dict)
+    if args.version:
+        sys.exit(0)
+
     out_path = Path(args.output)
     if out_path.exists():
         if args.overwrite:
@@ -2274,18 +2280,11 @@ def fabfos_main(sys_args):
             sys.exit(1)
     
     fos_father = FabFos(args.output)
+
     # create temp workspace
     fos_father.furnish()
     # Setup the global logger and main log file
     prep_logging(args.output + os.sep + "fabfos.log", args.verbose)
-
-    executables = find_executables(assembler=args.assembler, nanopore=args.nanopore_reads)
-    versions_dict = find_dependency_versions(executables)
-    validate_dependency_versions(versions_dict)
-    if args.version:
-        summarize_dependency_versions(dep_versions=versions_dict)
-        sys.exit(0)
-    summarize_dependency_versions(dep_versions=versions_dict)
     review_arguments(args, fos_father)
 
     ends_stats = FosmidEnds()
@@ -2305,12 +2304,15 @@ def fabfos_main(sys_args):
         qced_reads = qc_pe if len(qc_pe) > 0 else [qc_se[0]]
         size_estimate = EstimateFosmidPoolSize([Path(r) for r in qced_reads], Path(args.vector), Path(args.output).joinpath("pool_size_estimate"), args.threads)
         if size_estimate is None:
+            logging.error(f"failed to estimate pool size, defaulting to given estimate\n")
             if args.pool_size is None:
-                logging.error(f"failed to estimate pool size")
+                logging.error(f"no given estimate\n")
                 sys.exit(1)
             else:
                 size_estimate = args.pool_size
-        logging.info(f"done.\n")
+        else:
+            logging.info(f"done.\n")
+        logging.info(f"Pool size estimate = {size_estimate}\n")
     else:
         size_estimate = args.pool_size
     sample.num_fosmids_estimate = size_estimate # used in determine_min_count() of assemble_fosmids()
@@ -2331,18 +2333,21 @@ def fabfos_main(sys_args):
 
     # For mapping fosmid ends:
     if args.ends:
+        logging.info(f"Mapping end sequences... ")
         map_ends(executables, args.ends, sample)
         ends_mapping = parse_end_alignments(sample, fosmid_assembly, ends_stats)
         clone_map, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
         clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
         write_fosmid_assignments(sample, clone_map)
         write_fosmid_end_failures(sample, ends_stats)
+        logging.info(f"done.\n")
     else:
         # some function above does this if ends are provided and also adds end mappings to the headers
         shutil.copy(sample.assembled_fosmids, Path(sample.output_dir).joinpath(f"{sample.id}_contigs.fasta"))
 
 
     # clean up, organize outputs
+    logging.info(f"Final cleanup... ")
     ws = Path(sample.output_dir)
     tmp_cov = ws.joinpath("estimated_coverage.txt")
     with open(tmp_cov) as f:
@@ -2374,3 +2379,6 @@ def fabfos_main(sys_args):
             out.write("\t".join(HEADER)+"\n")
             with open(end_map) as f:
                 for l in f: out.write(l)
+
+    logging.info(f"done.\n")
+    logging.info(f"Results are in: {sample.output_dir}\n")

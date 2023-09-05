@@ -83,17 +83,18 @@ case $1 in
     -rt) # single manual test
             # --size 20 \
 
+        PYTHONPATH=$HERE/src:$PATH
         cd scratch
-        python $HERE/src/FabFos.py \
+        python -m $NAME \
             --overwrite \
             --threads 12 \
             --output ./no_miffed_test \
             --assembler megahit \
             -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
             -b ./ecoli_k12_mg1655.fasta \
-            --pool-size 20
-            # --vector ./pcc1.fasta
+            --vector ./pcc1.fasta
 
+            # --pool-size 20
             # --ends ./beaver_cecum_2ndhits/endseqs.fasta \
             # --ends-name-pattern "\\w+_\\d+" \
             # --ends-fw-flag "FW" \
