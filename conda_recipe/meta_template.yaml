@@ -3,14 +3,12 @@ package:
   version: <VERSION>
 
 source:
-  path: "../src"
-  folder: "../conda_build"
+  url: <TAR>
   
 build:
   noarch: python
   number: 0
-  # script: {{ PYTHON }} -m pip install testpk/ -vv
-  script: python -m pip install --no-deps --ignore-installed .
+  script: {{ PYTHON }} -m pip install . -vv
   entry_points:
 <ENTRY>
 
@@ -26,6 +24,7 @@ test:
 requirements:
   host:
     - python=3.11
+    - pip
 
   run:
 <REQUIREMENTS>

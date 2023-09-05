@@ -3,52 +3,69 @@ HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 NAME=fabfos
 DOCKER_IMAGE=quay.io/hallamlab/$NAME
 VER=$(cat $HERE/src/$NAME/version.txt)
+# CONDA=conda
+CONDA=mamba # https://mamba.readthedocs.io/en/latest/mamba-installation.html#mamba-install
 echo image: $DOCKER_IMAGE:$VER
 echo ""
 
-# mamba is multithreaded conda, consider using
-# https://mamba.readthedocs.io/en/latest/mamba-installation.html#mamba-install
-# CONDA=conda
-CONDA=mamba
+# this file contains a list of commands useful for dev,
+# providing automation for some build tasks
+#
+# example workflow 1, pip:
+# dev.sh --idev # create a local conda dev env
+# # add pypi api token as file to ./secrets [https://pypi.org/help/#apitoken]
+# # make some changes to source
+# # bump up ./src/fabfos/version.txt
+# dev.sh -bp # build the pip package
+# dev.sh -up # test upload to testpypi
+# dev.sh -upload-pypi # release to pypi index for pip install
+#
+# example workflow 2, conda:
+# dev.sh --idev # create a local conda dev env
+# dev.sh -bp # build the pip package
+# dev.sh -bc # build conda package from pip package
+# dev.sh -uc # publish to conda index
+#
+# example workflow 3, containerization:
+# dev.sh --idev # create a local conda dev env
+# dev.sh -bd # build docker image
+# dev.sh -ud # publish to quay.io
+# dev.sh -bs # build singularity image from local docker image
 
 case $1 in
     ###################################################
     # environments
 
-    -id) # with dev tools for packaging
+    --idev) # with dev tools for packaging
         cd $HERE/envs
-        $CONDA env create --no-default-packages -f ./base.yml
+        $CONDA env create --no-default-packages -n $NAME -f ./base.yml
         $CONDA env update -n $NAME -f ./dev.yml
     ;;
-    -ib) # base only
+    --ibase) # base only
         cd $HERE/envs
-        $CONDA env create --no-default-packages -f ./base.yml
+        $CONDA env create --no-default-packages -n $NAME -f ./base.yml
     ;;
 
     ###################################################
     # build
 
     -bp) # pip
-        # build pip package for upload to pypi
+        # build pip package
         rm -r build
         rm -r dist
-        python -m build --wheel
+        python -m build
     ;;
-    -bi) # pip - test install
+    -bpi) # pip - test install
         python setup.py install
     ;;
-    -bx) # pip - remove package
+    -bpx) # pip - remove package
         pip uninstall -y $NAME
     ;;
     -bc) # conda
-        # $CONDA skeleton pypi --pypi-url https://test.pypi.io/pypi/ Fabfos
-        grayskull pypi --pypi-url https://test.pypi.io/pypi/ fabfos
-        # python ./conda_recipe/compile_meta.py
-        # $CONDA build -c conda-forge ./conda_recipe
+        python ./conda_recipe/compile_recipe.py
+        ./conda_recipe/call_build.sh
     ;;
     -bd) # docker
-        # change the url in python if not txyliu
-        # build the docker container locally *with the cog db* (see above)
         docker build -t $DOCKER_IMAGE:$VER .
     ;;
     -bs) # singularity image *from docker*
@@ -61,21 +78,18 @@ case $1 in
     -up) # pip (testpypi)
         PYPI=testpypi
         TOKEN=$(cat secrets/${PYPI}) # https://pypi.org/help/#apitoken
-        python -m twine upload --repository $PYPI dist/* -u __token__ -p $TOKEN
+        python -m twine upload --repository $PYPI dist/*.whl -u __token__ -p $TOKEN
     ;;
     -upload-pypi) # pip (pypi)
-        # upload to pypi
-        # use testpypi for dev
-        # PYPI=testpypi
-        PYPI=pypi
-        TOKEN=$(cat secrets/${PYPI}) # https://pypi.org/help/#apitoken
-        python -m twine upload --repository $PYPI dist/* -u __token__ -p $TOKEN
+        echo "not all dependencies are available on pypi, so this is not a good idea..."
+        # PYPI=pypi
+        # TOKEN=$(cat secrets/${PYPI}) # https://pypi.org/help/#apitoken
+        # python -m twine upload --repository $PYPI dist/*.whl -u __token__ -p $TOKEN
     ;;
-    # -uc) # conda (personal channel)
-    #     # login and push image to quay.io
-    #     # sudo docker login quay.io
-	#     docker push $DOCKER_IMAGE:$VER
-    # ;;
+    -uc) # conda (personal channel)
+        # run `anaconda login` first
+        find ./conda_build -name *.tar.bz2 | xargs -I % anaconda upload %
+    ;;
     -ud) # docker
         # login and push image to quay.io
         # sudo docker login quay.io
@@ -121,35 +135,6 @@ case $1 in
 
             # -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss10.fastq \
             # --nanopore_reads beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
-
-
-
-        # scratch space for testing stuff
-        #
-            # --threads 14 --fabfos_path ./ --force --assembler megahit \
-        # cd scratch
-        # docker run -it --rm \
-        #     --mount type=bind,source="./",target="/ws" \
-        #     --workdir="/ws" \
-        #     -u $(id -u):$(id -g) \
-        #     $DOCKER_IMAGE:$VER fabfos --threads 14 --fabfos_path ./ --force --overwrite \
-        #     --assembler spades_meta \
-        #     --interleaved \
-        #     -m miffed.csv --reads ./reads -i -b ecoli_k12_mg1655.fasta
-
-            # --assembler spades_meta \
-        # docker run -it --rm \
-        #     --mount type=bind,source="/home/tony/workspace/grad/FabFos/src",target="/app" \
-        #     --mount type=bind,source="./",target="/ws" \
-        #     --workdir="/ws" \
-        #     -u $(id -u):$(id -g) \
-        #     $DOCKER_IMAGE:$VER fabfos --threads 14 --fabfos_path ./ --force --overwrite \
-        #     --assembler megahit \
-        #     --interleaved \
-        #     --ends ./beaver_cecum_2ndhits/endseqs.fasta \
-        #     --ends-name-pattern "\\w+_\\d+" \
-        #     --ends-fw-flag "FW" \
-        #     -m endseq.csv --reads ./beaver_cecum_2ndhits/EKL/Raw_Data -i -b ecoli_k12_mg1655.fasta
     ;;
     *)
         echo "bad option"

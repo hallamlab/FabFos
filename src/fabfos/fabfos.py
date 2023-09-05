@@ -531,9 +531,11 @@ def bam2fastq(input_file: str, prefix: str, output_dir: str, samtools_exe: str, 
 ENDS_NAME_REGEX = None
 ENDS_FW_FLAG = None
 def get_options(sys_args: list):
-    parser = argparse.ArgumentParser(description="Pipeline for filtering, assembling and organizing "
-                                                 "fosmid sequence information.\n",
-                                     add_help=False)
+    parser = argparse.ArgumentParser(
+        prog="ffs",
+        description="Pipeline for filtering, assembling and organizing fosmid sequence information.\n",
+        add_help=False
+    )
     reqs = parser.add_argument_group(title="Required arguments")
     reads = parser.add_argument_group(title="Sequence read-specific arguments")
     nanopore = parser.add_argument_group(title="Nanopore-specific [development] options")
@@ -2253,6 +2255,9 @@ def fabfos_main(sys_args):
     if args.version:
         sys.exit(0)
 
+    fos_father = FabFos(args.output)
+    review_arguments(args, fos_father)
+    
     out_path = Path(args.output)
     if out_path.exists():
         if args.overwrite:
@@ -2260,14 +2265,11 @@ def fabfos_main(sys_args):
         else:
             logging.error(f"output folder [{out_path}] already exists\n")
             sys.exit(1)
-    
-    fos_father = FabFos(args.output)
 
     # create temp workspace
     fos_father.furnish()
     # Setup the global logger and main log file
     prep_logging(args.output + os.sep + "fabfos.log", args.verbose)
-    review_arguments(args, fos_father)
 
     ends_stats = FosmidEnds()
     if args.ends:

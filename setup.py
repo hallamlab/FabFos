@@ -48,7 +48,6 @@ if __name__ == "__main__":
         },
         python_requires=">=3.11",
         install_requires=[
-            "pyfastx >=0.8.4",
             "packaging >=21.0",
         ]
     )

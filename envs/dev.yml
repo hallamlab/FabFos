@@ -1,7 +1,10 @@
 channels:
   - conda-forge
+  - anaconda
 dependencies:
   - conda-build
+  - boa
+  - anaconda-client
   - pip
   - pip:
     - twine

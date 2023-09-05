@@ -1,8 +1,7 @@
-name: fabfos
 channels:
-  - conda-forge
-  - bioconda
   - imperial-college-research-computing
+  - bioconda
+  - conda-forge
 dependencies:
   - python=3.11
   - packaging=21.3

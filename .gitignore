@@ -10,7 +10,10 @@ trim_sequences.fasta.*
 
 /dist
 /build
-/conda_recipe/meta.yaml
+/conda_build
+/conda_recipe/*
+!/conda_recipe/compile_recipe.py
+!/conda_recipe/meta_template.yaml
 /data
 /scratch
 /docker/src
