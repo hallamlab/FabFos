@@ -1,0 +1,45 @@
+{% set name = "fabfos" %}
+{% set version = "1.10.2" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/Fabfos-{{ version }}.tar.gz
+  sha256: 22f0d72a3b5af1ba284fc91f4d678ce77963b089f8a289925c75c78081c7cd36
+
+build:
+  entry_points:
+    - ffs = fabfos.cli:main
+  noarch: python
+  script: {{ PYTHON }} -m pip install . -vv
+  number: 0
+
+requirements:
+  host:
+    - python >=3.11
+    - pip
+  run:
+    - python >=3.11
+    - pyfastx >=0.8.4
+    - packaging >=21.0
+
+test:
+  imports:
+    - fabfos
+  commands:
+    - pip check
+    - ffs --help
+  requires:
+    - pip
+
+about:
+  home: https://github.com/hallamlab/fabfos
+  summary: Analysis pipeline for pooled fosmids
+  license: ''
+  license_file: PLEASE_ADD_LICENSE_FILE
+
+extra:
+  recipe-maintainers:
+    - liupeng

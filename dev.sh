@@ -6,13 +6,23 @@ VER=$(cat $HERE/src/$NAME/version.txt)
 echo image: $DOCKER_IMAGE:$VER
 echo ""
 
+# mamba is multithreaded conda, consider using
+# https://mamba.readthedocs.io/en/latest/mamba-installation.html#mamba-install
+# CONDA=conda
+CONDA=mamba
+
 case $1 in
     ###################################################
-    # init dev environment
+    # environments
 
-    -ic) # conda
+    -id) # with dev tools for packaging
         cd $HERE/envs
-        mamba env create --no-default-packages -f ./dev.yml
+        $CONDA env create --no-default-packages -f ./base.yml
+        $CONDA env update -n $NAME -f ./dev.yml
+    ;;
+    -ib) # base only
+        cd $HERE/envs
+        $CONDA env create --no-default-packages -f ./base.yml
     ;;
 
     ###################################################
@@ -20,7 +30,8 @@ case $1 in
 
     -bp) # pip
         # build pip package for upload to pypi
-        rm -r build && rm -r dist
+        rm -r build
+        rm -r dist
         python -m build --wheel
     ;;
     -bi) # pip - test install
@@ -30,9 +41,10 @@ case $1 in
         pip uninstall -y $NAME
     ;;
     -bc) # conda
-        # change the url in python if not txyliu
-        # build the docker container locally *with the cog db* (see above)
-        docker build -t $DOCKER_IMAGE:$VER .
+        # $CONDA skeleton pypi --pypi-url https://test.pypi.io/pypi/ Fabfos
+        grayskull pypi --pypi-url https://test.pypi.io/pypi/ fabfos
+        # python ./conda_recipe/compile_meta.py
+        # $CONDA build -c conda-forge ./conda_recipe
     ;;
     -bd) # docker
         # change the url in python if not txyliu
@@ -46,21 +58,29 @@ case $1 in
     ###################################################
     # upload
 
-    # -up) # pip (pypi)
-    #     # login and push image to quay.io
-    #     # sudo docker login quay.io
-	#     docker push $DOCKER_IMAGE:$VER
-    # ;;
+    -up) # pip (testpypi)
+        PYPI=testpypi
+        TOKEN=$(cat secrets/${PYPI}) # https://pypi.org/help/#apitoken
+        python -m twine upload --repository $PYPI dist/* -u __token__ -p $TOKEN
+    ;;
+    -upload-pypi) # pip (pypi)
+        # upload to pypi
+        # use testpypi for dev
+        # PYPI=testpypi
+        PYPI=pypi
+        TOKEN=$(cat secrets/${PYPI}) # https://pypi.org/help/#apitoken
+        python -m twine upload --repository $PYPI dist/* -u __token__ -p $TOKEN
+    ;;
     # -uc) # conda (personal channel)
     #     # login and push image to quay.io
     #     # sudo docker login quay.io
 	#     docker push $DOCKER_IMAGE:$VER
     # ;;
-    # -ud) # docker
-    #     # login and push image to quay.io
-    #     # sudo docker login quay.io
-	#     docker push $DOCKER_IMAGE:$VER
-    # ;;
+    -ud) # docker
+        # login and push image to quay.io
+        # sudo docker login quay.io
+	    docker push $DOCKER_IMAGE:$VER
+    ;;
     
     ###################################################
     # run

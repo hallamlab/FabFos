@@ -13,6 +13,9 @@
 # You should have received a copy of the GNU General Public License
 # along with FabFos. If not, see <https://www.gnu.org/licenses/>.
 
+# copyright 2023 Tony Liu, Connor Morgan-Lang, Avery Noonan,
+# Zach Armstrong, and Steven J. Hallam
+
 import os, sys
 from .fabfos import fabfos_main
 

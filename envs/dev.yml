@@ -1,0 +1,8 @@
+channels:
+  - conda-forge
+dependencies:
+  - conda-build
+  - pip
+  - pip:
+    - twine
+    - build

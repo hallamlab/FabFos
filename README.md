@@ -1,6 +1,8 @@
 # FabFos: A python-driven fosmid processing pipeline
 
-Connor Morgan-Lang, Zach Armstrong and Steven J. Hallam
+Tony Liu, Connor Morgan-Lang, Avery Noonan, Zach Armstrong, and Steven J. Hallam
+
+## _A major update has just occurred, documentation will update soon_
 
 ## Overview:
 

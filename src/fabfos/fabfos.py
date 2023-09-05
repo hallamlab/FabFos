@@ -13,6 +13,9 @@
 # You should have received a copy of the GNU General Public License
 # along with FabFos. If not, see <https://www.gnu.org/licenses/>.
 
+# copyright 2023 Tony Liu, Connor Morgan-Lang, Avery Noonan,
+# Zach Armstrong, and Steven J. Hallam
+
 try:
     import argparse
     import sys
@@ -22,9 +25,9 @@ try:
     import subprocess
     import shutil
     import logging
+    from Bio import SeqIO
     from pathlib import Path
     from packaging import version
-    import pyfastx
     from .addons import EstimateFosmidPoolSize
     
 except (ImportWarning, ModuleNotFoundError):
@@ -923,7 +926,6 @@ def get_reference_names_from_sam(sam_file):
     sam.close()
     return reference_names
 
-
 def write_new_fasta(fasta_dict: dict, fasta_name: str, headers=None):
     """
     Function for writing sequences stored in dictionary to file in FASTA format; optional filtering with headers list
@@ -1093,7 +1095,7 @@ def determine_k_values(test_fastq: str, assembler: str):
     # Sample the first paired-end FASTQ file
 
     x = 0
-    for _, seq, _ in pyfastx.Fastq(file_name=test_fastq, build_index=False):
+    for _, seq in read_fastq(test_fastq):
         read_length = len(seq)
         read_lengths.append(read_length)
         if read_length > max_read_length:
@@ -1228,7 +1230,7 @@ def read_fastq_to_dict(fastq_file: str) -> dict:
     acc = 0
     matepair_re = re.compile(r".*/[12]$")
     logging.info("Reading FASTQ file '{}'... ")
-    for name, seq, _ in pyfastx.Fastq(file_name=fastq_file, build_index=False):
+    for name, seq in read_fastq(fastq_file):
         if not matepair_re.match(name):
             if acc % 2:
                 name += "/2"
@@ -1244,43 +1246,19 @@ def read_fastq_to_dict(fastq_file: str) -> dict:
 def deinterleave_fastq(fastq_file: str, output_dir) -> (str, str):
     # TODO: support gzipped files
     logging.info("De-interleaving forward and reverse reads in " + fastq_file + "... ")
+
     if not output_dir:
         output_dir = os.path.dirname(fastq_file)
     prefix = '.'.join(os.path.basename(fastq_file).split('.')[:-1])
     fwd_fq = output_dir + os.sep + prefix + "_R1.fastq"
     rev_fq = output_dir + os.sep + prefix + "_R2.fastq"
 
-    try:
-        f_handler = open(fwd_fq, 'w')
-        r_handler = open(rev_fq, 'w')
-    except IOError:
-        logging.error("Unable to open deinterleaved FASTQ files for writing in " + output_dir + "\n")
-        sys.exit(3)
+    # https://gist.github.com/nathanhaigh/3521724
+    os.system(f"""\
+        {HERE}/deinterleave_fastq.sh <{fastq_file} {fwd_fq} {rev_fq}
+    """)
 
-    f_string = ""
-    r_string = ""
-    acc = 0
-
-    for name, seq, qual in pyfastx.Fastq(file_name=fastq_file, build_index=False):
-        if acc % 2:
-            r_string += "\n".join(["@" + name, seq, '+', qual]) + "\n"
-        else:
-            f_string += "\n".join(["@" + name, seq, '+', qual]) + "\n"
-
-        acc += 1
-        if acc % 1E6 == 0:
-            f_handler.write(f_string)
-            f_string = ""
-            r_handler.write(r_string)
-            r_string = ""
-
-    # Close up shop
-    f_handler.write(f_string)
-    f_handler.close()
-    r_handler.write(r_string)
-    r_handler.close()
     logging.info("done.\n")
-
     return fwd_fq, rev_fq
 
 
@@ -1841,6 +1819,10 @@ def write_fosmid_assignments(sample, clone_map):
 
     return
 
+def read_fastq(file_path):
+    fq = SeqIO.parse(file_path, "fastq")
+    for entry in fq:
+        yield entry.id, entry.seq
 
 def read_fasta(fasta):
     """

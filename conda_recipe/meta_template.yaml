@@ -1,0 +1,37 @@
+package:
+  name: <NAME>
+  version: <VERSION>
+
+source:
+  path: "../src"
+  folder: "../conda_build"
+  
+build:
+  noarch: python
+  number: 0
+  # script: {{ PYTHON }} -m pip install testpk/ -vv
+  script: python -m pip install --no-deps --ignore-installed .
+  entry_points:
+<ENTRY>
+
+test:
+  imports:
+    - fabfos
+  commands:
+    - pip check
+    - ffs --help
+  requires:
+    - pip
+
+requirements:
+  host:
+    - python=3.11
+
+  run:
+<REQUIREMENTS>
+
+about:
+  home: https://github.com/hallamlab/fabfos
+  summary: Analysis pipeline for pooled fosmids
+  license: 'gpl-v3'
+  license_file: ../LICENSE
