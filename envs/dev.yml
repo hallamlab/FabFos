@@ -1,0 +1,20 @@
+name: fabfos
+channels:
+  - conda-forge
+  - bioconda
+  - imperial-college-research-computing
+dependencies:
+  - python=3.11
+  - packaging=21.3
+  - bwa=0.7
+  - samtools=1.15
+  - trimmomatic=0.39
+  - blast=2.14
+  - megahit=1.2
+  - spades=3.15
+  - proovread
+  - canu
+  - biopython=1.81
+  - pip
+  - pip:
+    - pyfastx==1.1
