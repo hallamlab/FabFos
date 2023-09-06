@@ -62,8 +62,9 @@ case $1 in
         pip uninstall -y $NAME
     ;;
     -bc) # conda
+        rm -r $HERE/conda_build
         python ./conda_recipe/compile_recipe.py
-        ./conda_recipe/call_build.sh
+        $HERE/conda_recipe/call_build.sh
     ;;
     -bd) # docker
         docker build -t $DOCKER_IMAGE:$VER .
@@ -94,6 +95,9 @@ case $1 in
         # login and push image to quay.io
         # sudo docker login quay.io
 	    docker push $DOCKER_IMAGE:$VER
+        echo "!!!"
+        echo "remember to update the \"latest\" tag"
+        echo "https://$DOCKER_IMAGE?tab=tags"
     ;;
     
     ###################################################
@@ -101,23 +105,30 @@ case $1 in
 
     -r)
         shift
-        PYTHONPATH=$HERE/src:$PATH
+        export PYTHONPATH=$HERE/src:$PYTHONPATH
         python -m $NAME $@
     ;;
     -rd) # docker
-            # test run docker image
-            # --mount type=bind,source="$HERE/scratch",target="/ws" \
-            # --mount type=bind,source="$HERE/scratch/res",target="/ref"\
             # -e XDG_CACHE_HOME="/ws"\
-            # --workdir="/ws" \
-            # -u $(id -u):$(id -g) \
         shift
-        docker run -it --rm $DOCKER_IMAGE:$VER /bin/bash
+        docker run -it --rm \
+            -u $(id -u):$(id -g) \
+            --mount type=bind,source="$HERE",target="/ws"\
+            --workdir="/ws" \
+            $DOCKER_IMAGE:$VER /bin/bash
+    ;;
+    -rs) # singularity
+            # -e XDG_CACHE_HOME="/ws"\
+        shift
+        singularity exec \
+            --bind ./:/ws \
+            --workdir /ws \
+            $HERE/$NAME.sif fabfos /bin/bash
     ;;
     -rt) # single manual test
             # --size 20 \
 
-        PYTHONPATH=$HERE/src:$PATH
+        export PYTHONPATH=$HERE/src:$PYTHONPATH
         cd scratch
         python -m $NAME \
             --overwrite \
@@ -126,12 +137,12 @@ case $1 in
             --assembler megahit \
             -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
             -b ./ecoli_k12_mg1655.fasta \
+            --ends ./beaver_cecum_2ndhits/endseqs.fasta \
+            --ends-name-regex "\\w+_\\d+" \
+            --ends-fw-flag "FW" \
             --vector ./pcc1.fasta
 
             # --pool-size 20
-            # --ends ./beaver_cecum_2ndhits/endseqs.fasta \
-            # --ends-name-pattern "\\w+_\\d+" \
-            # --ends-fw-flag "FW" \
 
             # -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss10.fastq \
             # --nanopore_reads beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \

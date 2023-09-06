@@ -5,10 +5,10 @@ FROM condaforge/mambaforge as build-env
 
 # scope var from global
 ARG CONDA_ENV
-COPY ./envs/conda.yml /opt/
+COPY ./envs/base.yml /opt/env.yml
 # Create conda environment:
 # name must match what is in conda.yml
-RUN mamba env create --no-default-packages -f /opt/conda.yml\
+RUN mamba env create --no-default-packages -n $CONDA_ENV -f /opt/env.yml\
     && mamba clean -afy
 
 # use a smaller runtime image
@@ -20,8 +20,10 @@ ARG CONDA_ENV
 COPY --from=build-env /opt/conda/envs/${CONDA_ENV} /opt/conda/envs/${CONDA_ENV}
 ENV PATH /opt/conda/envs/${CONDA_ENV}/bin:$PATH
 
-COPY ./src /app
+COPY ./src/fabfos /app/fabfos_src
+RUN echo "python -m fabfos_src \$@" >/app/fabfos && chmod +x /app/fabfos
 ENV PATH /app:$PATH
+ENV PYTHONPATH /app:$PYTHONPATH
 
 # Singularity uses tini, but raises warnings
 # we set it up here correctly for singularity

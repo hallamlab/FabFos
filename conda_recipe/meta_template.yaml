@@ -17,7 +17,7 @@ test:
     - fabfos
   commands:
     - pip check
-    - ffs --help
+    - fabfos --help
   requires:
     - pip
 
