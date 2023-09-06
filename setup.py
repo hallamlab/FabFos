@@ -5,7 +5,7 @@ import setuptools
 HERE = Path(os.path.realpath(__file__)).parent
 NAME = "fabfos".lower()
 ENTRY_POINTS =  [
-    'ffs = fabfos.cli:main',
+    'fabfos = fabfos.cli:main',
 ]
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
