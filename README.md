@@ -1,6 +1,6 @@
 # FabFos: A processing pipeline for pooled fosmids
 
-Tony Liu, Connor Morgan-Lang, Avery Noonan, Zach Armstrong, and Steven J. Hallam
+Tony Liu, Connor Morgan-Lang, Avery Noonan, Joe Ho, Zach Armstrong, and Steven J. Hallam
 
 ## For the impatient
 ```bash
