@@ -54,7 +54,7 @@ def AssemblyStats(ws: Path, reads: list[Path], assembly: Path, cpus: int, paired
         BAM=./temp.coverage.bam
         
         # align reads to assembly
-        minimap2 -a {pe_params} --secondary=no {ASM} {' '.join([str(f) for f in READ_FILES])} 2>>{LOG} | samtools sort --threads {cpus} -o $BAM --write-index -
+        minimap2 -a {pe_params} --secondary=no {ASM} {' '.join([str(f) for f in READ_FILES])} 2>>{LOG} | samtools sort --threads {cpus} -o $BAM --write-index - 2>>{LOG}
 
         # read coverage
         echo "{COV_HEADER}">{COV}

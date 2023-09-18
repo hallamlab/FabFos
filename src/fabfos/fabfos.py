@@ -28,7 +28,7 @@ try:
     from Bio import SeqIO
     from pathlib import Path
     from packaging import version
-    from .addons import EstimateFosmidPoolSize
+    from .addons import EstimateFosmidPoolSize, TrimBackbone
     from .external_qc import Fastqc, AssemblyStats
     
 except (ImportWarning, ModuleNotFoundError):
@@ -2290,12 +2290,14 @@ def fabfos_main(sys_args):
     sample = Sample(sample_id)
     ghetto_sync_args(args, fos_father, sample)
 
+    # read qc
     sample.gather_reads(args.reads, args.reverse, args.parity, executables, sample.output_dir, args.type)
     Fastqc(out_path, [Path(r) for r in [sample.forward_reads, sample.reverse_reads] if r is not None])
     qc_pe, qc_se = sample.qc_reads(args.background, args.parity, fos_father.adaptor_trim, executables, args.threads)
     qced_reads = qc_pe if len(qc_pe) > 0 else [qc_se[0]]
     
-    if args.pool_size is None:
+    # pool size estimate
+    if args.pool_size is None and args.vector:
         logging.info(f"Estimating fosmid pool size... ")
         size_estimate = EstimateFosmidPoolSize([Path(r) for r in qced_reads], Path(args.vector), Path(args.output).joinpath("temp_pool_size_estimate"), args.threads)
         if size_estimate is None:
@@ -2322,20 +2324,24 @@ def fabfos_main(sys_args):
     if not Path(sample.assembled_fosmids).exists():
         logging.error(f"assembly failed")
         sys.exit(1)
+
+    # trim vector
+    if args.vector:
+        sample.assembled_fosmids = TrimBackbone(out_path, Path(args.vector), Path(sample.assembled_fosmids))
+
     fosmid_assembly = read_fasta(sample.assembled_fosmids)
     assembly_stats = get_assembly_stats(fosmid_assembly, sample.assembler)
     assembly_stats["est_n_fosmids"] = size_estimate
 
     # For mapping fosmid ends:
     if args.ends:
-        logging.info(f"Mapping end sequences... ")
+        logging.info(f"Mapping end sequences:\n")
         map_ends(executables, args.ends, sample)
         ends_mapping = parse_end_alignments(sample, fosmid_assembly, ends_stats)
         clone_map, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
         clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
         final_contig_file = write_fosmid_assignments(sample, clone_map)
         write_fosmid_end_failures(sample, ends_stats)
-        logging.info(f"done.\n")
     else:
         # some function above does this if ends are provided and also adds end mappings to the headers
         final_contig_file = Path(sample.output_dir).joinpath(f"{sample.id}_contigs.fasta")
