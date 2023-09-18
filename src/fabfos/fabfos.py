@@ -29,6 +29,7 @@ try:
     from pathlib import Path
     from packaging import version
     from .addons import EstimateFosmidPoolSize
+    from .external_qc import Fastqc, AssemblyStats
     
 except (ImportWarning, ModuleNotFoundError):
     import traceback
@@ -1190,13 +1191,13 @@ def assemble_fosmids(sample: Sample, assembler: str, assembly_mode: str, k_min: 
     :return:
     """
     asm_param_stmt = "Assembling sequences using {}\n".format(assembler)
-    if assembly_mode != "NA":
-        asm_param_stmt += "Assembly mode is '{}'\n".format(assembly_mode)
-    asm_param_stmt += "Parameters:\n--k-min = {}\t--k-max = {}\t--k-step = {}".format(k_min, k_max, k_step)
-    if assembly_mode != "meta":
-        asm_param_stmt += "\t--min-count = {}\n".format(min_count)
-    else:
-        asm_param_stmt += "\n"
+    # if assembly_mode != "NA":
+    #     asm_param_stmt += "Assembly mode is '{}'\n".format(assembly_mode)
+    # asm_param_stmt += "Parameters:\n--k-min = {}\t--k-max = {}\t--k-step = {}".format(k_min, k_max, k_step)
+    # if assembly_mode != "meta":
+    #     asm_param_stmt += "\t--min-count = {}\n".format(min_count)
+    # else:
+    #     asm_param_stmt += "\n"
     logging.info(asm_param_stmt)
 
     if assembler == "spades":
@@ -1827,7 +1828,7 @@ def write_fosmid_assignments(sample, clone_map: list[FosmidClone]):
 
     for file_handle in _all, _none, _single, _complete:
         file_handle.close()
-    return
+    return _fpaths[0]
 
 def read_fastq(file_path):
     fq = SeqIO.parse(file_path, "fastq")
@@ -2290,11 +2291,12 @@ def fabfos_main(sys_args):
     ghetto_sync_args(args, fos_father, sample)
 
     sample.gather_reads(args.reads, args.reverse, args.parity, executables, sample.output_dir, args.type)
+    Fastqc(out_path, [Path(r) for r in [sample.forward_reads, sample.reverse_reads] if r is not None])
     qc_pe, qc_se = sample.qc_reads(args.background, args.parity, fos_father.adaptor_trim, executables, args.threads)
+    qced_reads = qc_pe if len(qc_pe) > 0 else [qc_se[0]]
     
     if args.pool_size is None:
         logging.info(f"Estimating fosmid pool size... ")
-        qced_reads = qc_pe if len(qc_pe) > 0 else [qc_se[0]]
         size_estimate = EstimateFosmidPoolSize([Path(r) for r in qced_reads], Path(args.vector), Path(args.output).joinpath("temp_pool_size_estimate"), args.threads)
         if size_estimate is None:
             logging.error(f"failed to estimate pool size, defaulting to given estimate\n")
@@ -2331,13 +2333,17 @@ def fabfos_main(sys_args):
         ends_mapping = parse_end_alignments(sample, fosmid_assembly, ends_stats)
         clone_map, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
         clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
-        write_fosmid_assignments(sample, clone_map)
+        final_contig_file = write_fosmid_assignments(sample, clone_map)
         write_fosmid_end_failures(sample, ends_stats)
         logging.info(f"done.\n")
     else:
         # some function above does this if ends are provided and also adds end mappings to the headers
-        shutil.copy(sample.assembled_fosmids, Path(sample.output_dir).joinpath(f"{sample.id}_contigs.fasta"))
+        final_contig_file = Path(sample.output_dir).joinpath(f"{sample.id}_contigs.fasta")
+        shutil.copy(sample.assembled_fosmids, final_contig_file)
 
+    is_pe = args.parity != "se"
+    reads = qc_pe if is_pe else qc_se
+    AssemblyStats(out_path, [Path(r) for r in reads], final_contig_file, int(args.threads), paired_end=is_pe)
 
     # clean up, organize outputs
     logging.info(f"Final cleanup... ")
@@ -2354,20 +2360,25 @@ def fabfos_main(sys_args):
     meta["n_reads_after_qc"] = sample.read_stats.num_filtered_reads
     os.unlink(tmp_cov)
 
-    # - asm stats
-    def _parse_k(k):
-        if k.endswith("kbp"): k = f"atleast_{k}"
-        return k.lower()
-    meta |= {f"asm_{_parse_k(k)}":v for k, v in assembly_stats.items()}
+    # # - asm stats
+    # def _parse_k(k):
+    #     if k.endswith("kbp"): k = f"atleast_{k}"
+    #     return k.lower()
+    # meta |= {f"asm_{_parse_k(k)}":v for k, v in assembly_stats.items()}
     
-    # - write meta to table
-    with open(ws.joinpath(f"{sample.id}_metadata.tsv"), "w") as f:
-        header, values = [], []
-        for k, v in meta.items():
-            header.append(str(k))
-            values.append(str(v))
-        for l in [header, values]:
-            f.write("\t".join(l)+"\n")
+    # # - write meta to table
+    # with open(ws.joinpath(f"{sample.id}_metadata.tsv"), "w") as f:
+    #     header, values = [], []
+    #     for k, v in meta.items():
+    #         header.append(str(k))
+    #         values.append(str(v))
+    #     for l in [header, values]:
+    #         f.write("\t".join(l)+"\n")
+    os.system(f"""\
+        mv {ws}/fastqc {ws}/{sample_id}_fastqc
+        mv {ws}/quast {ws}/{sample_id}_quast
+        mv {ws}/assembly_coverage.tsv {ws}/{sample_id}_read_coverage.tsv
+    """)
 
     # - write end mapping to table
     end_map = ws.joinpath("end_seqs/endsMapped.tbl")
