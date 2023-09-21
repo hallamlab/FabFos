@@ -133,14 +133,17 @@ case $1 in
         python -m $NAME \
             --overwrite \
             --threads 12 \
-            --output ./no_miffed_test \
+            --output ./manual_test \
             --assembler megahit \
-            -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
+            -i --reads ./EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
             -b ./ecoli_k12_mg1655.fasta \
-            --ends ./beaver_cecum_2ndhits/endseqs.fasta \
+            --ends ./endseqs_cec.fasta \
             --ends-name-regex "\\w+_\\d+" \
             --ends-fw-flag "FW" \
             --vector ./pcc1.fasta
+
+            # --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
+            # --parity se \
 
             # --pool-size 20
 

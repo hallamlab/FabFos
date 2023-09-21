@@ -18,9 +18,71 @@
 
 from Bio import SeqIO
 from pathlib import Path
+import logging
 
 import subprocess
 import os
+
+def TrimBackbone(ws: Path, backbone: Path, contigs: Path):
+    OUT = ws.joinpath("temp_trim_vector"); os.makedirs(OUT, exist_ok=True)
+    logging.info("Removing vector backbone from contigs... ")
+    contigs = contigs.absolute()
+    backbone = backbone.absolute()
+    db = "raw_contigs"
+    log = "log.txt"
+    mapping = "vector_mapping.tsv"
+
+    os.system(f"""\
+        cd {OUT}
+        makeblastdb -in {contigs} -dbtype nucl -out {db} 1>>{log} 2>&1
+        blastn -db {db} -outfmt "6 sseqid pident length sstart send" -query {backbone} -perc_identity 85 -out ./{mapping} 1>>{log} 2>&1
+    """)
+
+    hits = {}
+    with open(OUT.joinpath(mapping)) as f:
+        for l in f:
+            id, _, length, start, end = l.split("\t")
+            hits[id] = hits.get(id, [])+[(int(start), int(end))]
+
+    cleaned_contigs = OUT.joinpath(f"no_vector.fa")
+    with open(cleaned_contigs, "w") as f:
+        original = SeqIO.parse(contigs, "fasta")
+        for entry in original:
+            if entry.id in hits:
+                # mark detected vector sequeces with x 
+                _seq = list(entry.seq)
+                for s, e in hits[entry.id]:
+                    for i in range(s-1, e):
+                        _seq[i] = "x"
+                seqs = []
+                _curr = []
+                # remove vector and split contigs if need be
+                for ch in _seq:
+                    if ch == "x":
+                        if len(_curr)>0:
+                            seqs.append("".join(_curr))
+                            _curr.clear()
+                    else:
+                        _curr.append(ch)
+                seqs.append("".join(_curr))
+                seqs = [s for s in seqs if len(s)>0]
+            else:
+                seqs = [str(entry.seq)]
+
+            for i, seq in enumerate(seqs):
+                f.write(f">{entry.id}_{i:02} length={len(seq)}\n")
+                f.write(seq+"\n")
+
+    logging.info("done\n")
+    return str(cleaned_contigs)
+
+def FilterMinLength(contigs: Path, min_length: int):
+    logging.info(f"Filtering contigs to be at least {min_length}bp... ")
+    original = SeqIO.parse(contigs, "fasta")
+    filtered_contigs_path = contigs.parent.joinpath(f"contigs_{min_length}.fa")
+    SeqIO.write((e for e in original if len(e.seq)>=min_length), filtered_contigs_path, "fasta")
+    logging.info("done\n")
+    return filtered_contigs_path
 
 def EstimateFosmidPoolSize(
         reads: list[Path],
