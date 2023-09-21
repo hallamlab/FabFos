@@ -76,6 +76,14 @@ def TrimBackbone(ws: Path, backbone: Path, contigs: Path):
     logging.info("done\n")
     return str(cleaned_contigs)
 
+def FilterMinLength(contigs: Path, min_length: int):
+    logging.info(f"Filtering contigs to be at least {min_length}bp... ")
+    original = SeqIO.parse(contigs, "fasta")
+    filtered_contigs_path = contigs.parent.joinpath(f"contigs_{min_length}.fa")
+    SeqIO.write((e for e in original if len(e.seq)>=min_length), filtered_contigs_path, "fasta")
+    logging.info("done\n")
+    return filtered_contigs_path
+
 def EstimateFosmidPoolSize(
         reads: list[Path],
         backbone: Path,

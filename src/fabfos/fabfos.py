@@ -25,10 +25,11 @@ try:
     import subprocess
     import shutil
     import logging
+    # import time
     from Bio import SeqIO
     from pathlib import Path
     from packaging import version
-    from .addons import EstimateFosmidPoolSize, TrimBackbone
+    from .addons import EstimateFosmidPoolSize, TrimBackbone, FilterMinLength
     from .external_qc import Fastqc, AssemblyStats
     
 except (ImportWarning, ModuleNotFoundError):
@@ -315,9 +316,11 @@ class Sample:
         min_count, cov = determine_min_count(self.read_stats.num_reads_assembled, self.num_fosmids_estimate, k_max)
         with open(Path(self.output_dir).joinpath(f"estimated_coverage.txt"), "w") as f_cov:
             f_cov.write(f"{cov}\n")
-        assemble_fosmids(self, self.assembler, self.assembly_mode, k_min, k_max, min_count, executables, num_threads=num_threads)
+        _asm = assemble_fosmids(self, self.assembler, self.assembly_mode, k_min, k_max, min_count, executables, num_threads=num_threads)
         # clean_intermediates(self)
         self.assembled_fosmids = str(Path(self.output_dir).joinpath("temp_assembly").joinpath("final.contigs.fa"))
+        if Path(_asm).absolute() != Path(self.assembled_fosmids).absolute():
+            os.system(f"mv {_asm} {self.assembled_fosmids}")
         return
 
 
@@ -583,6 +586,9 @@ def get_options(sys_args: list):
                       help="overwrite the output directory if it already exists")
     opts.add_argument("--ends-fw-flag", required=False, default=None,
                       help='string that marks forward ends, ex. "_FW" would cause ABC_123_FW and ABC_123_RE to be assigned to forward and reverse respectively.')
+    opts.add_argument("-l", "--min-length", type=int, required=False, default=1000,
+                      help="Assembled contigs shorter than this will be discarded [DEFAULT = 1000]")
+    
     misc.add_argument("-v", "--version", default=False, action="store_true",
                       help="Print the FabFos version and exit.")
     misc.add_argument("--verbose", required=False, default=False, action="store_true",
@@ -1227,7 +1233,7 @@ def assemble_fosmids(sample: Sample, assembler: str, assembly_mode: str, k_min: 
     #                 sample.output_dir + os.sep + sample.id + "_scaffolds.fasta")
     # shutil.rmtree(sample.output_dir + "assembly" + os.sep)
     logging.info("Assembly done.\n")
-    return
+    return f_contigs
 
 
 def read_fastq_to_dict(fastq_file: str) -> dict:
@@ -1613,7 +1619,6 @@ def get_exterior_positions(hits, clone):
     end = max(positions)
     return start, end
 
-
 def assign_clones(ends_mapping, ends_stats: FosmidEnds, fosmid_assembly):
     """
     Assigns fosmid-end sequences to assembled contigs in fosmid_assembly
@@ -1774,7 +1779,7 @@ def prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map):
                             trailing_node = mate.contig
                         # Scaffold the fosmids
                         if suffix and prefix:
-                            new_fosmid = FosmidClone(leading_node + ',' + trailing_node, prefix + suffix)
+                            new_fosmid = FosmidClone(leading_node + ',' + trailing_node, prefix + "-" + suffix)
                             new_fosmid.clone = clone
                             new_fosmid.evidence = "twin-orphan multi-contig"
                             new_fosmid.ends = "Both"
@@ -1797,36 +1802,45 @@ def prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map):
     return clone_map
 
 
-def write_fosmid_assignments(sample, clone_map: list[FosmidClone]):
+def write_fosmid_assignments(sample, clone_map: list[FosmidClone], min_length: int):
     ws = Path(sample.output_dir)
-    _fpaths = [ws.joinpath(f"{sample.id}_{f}.fasta") for f in [
-        "fosmids_all_contigs", "fosmids_not_mapped", "fosmids_single_mapped", "fosmids_both_mapped",
+    _fpaths = [ws.joinpath(f"contigs_{f}.fasta") for f in [
+        "not_mapped", "single_mapped", "both_mapped", f"less_than_{min_length}",
     ]]
-    _all, _none, _single, _complete = [open(p, "w") for p in _fpaths]
+    _none, _single, _complete, _short = [open(p, "w") for p in _fpaths]
 
-    def write_header(file, id: int, clone, mapping=None):
+    def write_header(file, id: int, clone, l, mapping=None):
         m = f" {mapping}" if mapping is not None else ""
         c = f"_{clone}" if clone != "None" else ""
-        file.write(f">{id:04}{c}{m}"+"\n")
+        file.write(f">{id:04}{c} length={l}{m}"+"\n")
 
+    clone_map = sorted(clone_map, key=lambda c: c.seq_length, reverse=True)
     for i, fosmid_clone in enumerate(clone_map):
         id = i+1
         ends = {"F":"FW", "R":"RE"}.get(fosmid_clone.ends, fosmid_clone.ends)
+        contig_seq = fosmid_clone.sequence
 
-        write_header(_all, id, clone=str(fosmid_clone.clone), mapping=f"{fosmid_clone.evidence}|{ends}".replace(" ", "_").lower())
-        fasta = {
-            "None": _none,
-            "Both": _complete,
-            "FW": _single,
-            "RE": _single,
-        }[ends]
-        write_header(fasta, id, fosmid_clone.clone, mapping=ends if ends in {"FW", "RE"} else None)
+        if fosmid_clone.seq_length < min_length:
+            write_header(_short, id, clone=str(fosmid_clone.clone), l=len(contig_seq), mapping=f"{fosmid_clone.evidence}|{ends}".replace(" ", "_").lower())
+            _short.write(contig_seq)
+            _short.write("\n")
+        else:
+            # write_header(_all, id, clone=str(fosmid_clone.clone), l=len(contig_seq), mapping=f"{fosmid_clone.evidence}|{ends}".replace(" ", "_").lower())
+            fasta = {
+                "None": _none,
+                "Both": _complete,
+                "FW": _single,
+                "RE": _single,
+            }[ends]
+            write_header(fasta, id, clone=str(fosmid_clone.clone), l=len(contig_seq), mapping=ends if ends in {"FW", "RE"} else None)
 
-        for fa in [_all, fasta]:
-            fa.write(fosmid_clone.sequence)
-            fa.write("\n")
+            # for fa in [_all, fasta]:
+            for fa in [fasta]:
+                fa.write(contig_seq)
+                fa.write("\n")
 
-    for file_handle in _all, _none, _single, _complete:
+    # for file_handle in _all, _none, _single, _complete:
+    for file_handle in _none, _single, _complete:
         file_handle.close()
     return _fpaths[0]
 
@@ -2030,27 +2044,27 @@ def write_fosmid_end_failures(sample: Sample, ends_stats: FosmidEnds) -> None:
     return
 
 
-def write_unique_fosmid_ends_to_bulk(args):
-    logging.info("Writing new fosmid end sequences to the legacy fosmid end file... ")
-    new_fosmid_ends = read_fasta(args.ends)
-    bulk_ends_file = args.output + "/FabFos_legacy_ends.fasta"
-    bulk_ends = read_fasta(bulk_ends_file)
+# def write_unique_fosmid_ends_to_bulk(args):
+#     logging.info("Writing new fosmid end sequences to the legacy fosmid end file... ")
+#     new_fosmid_ends = read_fasta(args.ends)
+#     bulk_ends_file = args.output + "/FabFos_legacy_ends.fasta"
+#     bulk_ends = read_fasta(bulk_ends_file)
 
-    try:
-        legacy_ends = open(bulk_ends_file, 'a')
-    except IOError:
-        raise IOError("Cannot open " + bulk_ends_file + " for appending!")
+#     try:
+#         legacy_ends = open(bulk_ends_file, 'a')
+#     except IOError:
+#         raise IOError("Cannot open " + bulk_ends_file + " for appending!")
 
-    for new_end in new_fosmid_ends:
-        if new_end not in bulk_ends.keys():
-            if len(new_fosmid_ends[new_end]) > 100:
-                legacy_ends.write(new_end + "\n")
-                legacy_ends.write(new_fosmid_ends[new_end] + "\n")
+#     for new_end in new_fosmid_ends:
+#         if new_end not in bulk_ends.keys():
+#             if len(new_fosmid_ends[new_end]) > 100:
+#                 legacy_ends.write(new_end + "\n")
+#                 legacy_ends.write(new_fosmid_ends[new_end] + "\n")
 
-    legacy_ends.close()
-    logging.info("done.\n")
+#     legacy_ends.close()
+#     logging.info("done.\n")
 
-    return
+#     return
 
 
 def align_nanopore_to_background(args, executables, sample):
@@ -2205,7 +2219,7 @@ def determine_min_count(num_reads: int, num_fosmids: int, k_max: int):
     :return:
     """
     approx_coverage = (num_reads * k_max) / (int(num_fosmids) * 40000)
-    sys.stdout.write("Approximate fosmid coverage = " + str(approx_coverage) + "\n")
+    sys.stdout.write("Estimated fosmid coverage = " + str(approx_coverage) + "\n")
     sys.stdout.flush()
     min_count = 10
     dist_tail = approx_coverage / 100
@@ -2271,6 +2285,8 @@ def fabfos_main(sys_args):
     out_path = Path(args.output)
     if out_path.exists():
         if args.overwrite:
+            # logging.info(f"cleaning output folder [{out_path}]\n")
+            # time.sleep(3)
             os.system(f"rm -r {out_path}")
         else:
             logging.error(f"output folder [{out_path}] already exists\n")
@@ -2320,7 +2336,7 @@ def fabfos_main(sys_args):
         assemble_nanopore_reads(sample, executables["canu"], args.skip_correction, args.threads)
     else:
         sample.assemble_fosmids(executables, args.threads)
-    
+
     if not Path(sample.assembled_fosmids).exists():
         logging.error(f"assembly failed")
         sys.exit(1)
@@ -2340,10 +2356,11 @@ def fabfos_main(sys_args):
         ends_mapping = parse_end_alignments(sample, fosmid_assembly, ends_stats)
         clone_map, multi_fosmid_map = assign_clones(ends_mapping, ends_stats, fosmid_assembly)
         clone_map = prune_and_scaffold_fosmids(sample, clone_map, multi_fosmid_map)
-        final_contig_file = write_fosmid_assignments(sample, clone_map)
+        final_contig_file = write_fosmid_assignments(sample, clone_map, int(args.min_length))
         write_fosmid_end_failures(sample, ends_stats)
     else:
         # some function above does this if ends are provided and also adds end mappings to the headers
+        sample.assembled_fosmids = str(FilterMinLength(Path(sample.assembled_fosmids), int(args.min_length)))
         final_contig_file = Path(sample.output_dir).joinpath(f"{sample.id}_contigs.fasta")
         shutil.copy(sample.assembled_fosmids, final_contig_file)
 
