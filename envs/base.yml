@@ -1,0 +1,21 @@
+channels:
+  - imperial-college-research-computing
+  - bioconda
+  - conda-forge
+dependencies:
+  - python=3.10
+  - packaging=21.3
+  - bwa=0.7
+  - samtools=1.15
+  - trimmomatic=0.39
+  - blast=2.14
+  - megahit=1.2
+  - spades=3.15
+  - proovread=2.14
+  - canu=2.2
+  - biopython=1.81
+  - vsearch=2.23
+  - fastqc
+  - minimap2
+  - bedtools
+  - quast

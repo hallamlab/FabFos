@@ -1,0 +1,29 @@
+# This file is part of FabFos.
+# 
+# FabFos is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# FabFos is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with FabFos. If not, see <https://www.gnu.org/licenses/>.
+
+# copyright 2023 Tony Liu, Connor Morgan-Lang, Avery Noonan,
+# Zach Armstrong, and Steven J. Hallam
+
+
+import os, sys
+from .fabfos import fabfos_main
+
+# this is just an entry point
+def main():
+    try:
+        fabfos_main(sys.argv[1:])
+    except KeyboardInterrupt:
+        print("\nkilled")
+        sys.exit(1)
