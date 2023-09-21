@@ -16,9 +16,11 @@
 # copyright 2023 Tony Liu, Connor Morgan-Lang, Avery Noonan,
 # Zach Armstrong, and Steven J. Hallam
 
+
 import os, sys
 from .fabfos import fabfos_main
 
+# this is just an entry point
 def main():
     try:
         fabfos_main(sys.argv[1:])
