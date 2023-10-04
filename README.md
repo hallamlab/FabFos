@@ -4,7 +4,7 @@ Tony Liu, Connor Morgan-Lang, Joe Ho, Avery Noonan, Kateryna Ievdokymenko, Zach 
 
 ## For the impatient
 ```bash
-conda install -c tony-xy-liu \
+conda install -c txyliu \
     -c imperial-college-research-computing \
     -c bioconda -c conda-forge fabfos
 
@@ -54,7 +54,7 @@ Pick one of Conda, Singularity, Docker, or Manual.
 
 ```bash
 conda install \
-    -c tony-xy-liu \
+    -c txyliu \
     -c imperial-college-research-computing \
     -c bioconda \
     -c conda-forge \
