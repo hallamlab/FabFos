@@ -26,8 +26,8 @@ import multiprocessing
 import shutil
 import importlib
 
-from .models import ReadsManifest
-from .constants import ORIGINAL_READS, SKIP_FILTER
+from .models import AssemblerModes, BackgroundGenome, EndSequences, ReadsManifest
+from .constants import ORIGINAL_READS, SKIP_FILTER, ASM_MODES, ENDSEQS
 from .utils import NAME, VERSION, ENTRY_POINTS, MODULE_ROOT
 
 CLI_ENTRY = ENTRY_POINTS[0]
@@ -55,7 +55,7 @@ class CommandLineInterface:
         )
         ASSEMBLERS = "megahit, spades_meta, spades_isolate, spades_sc,".split(", ")
 
-        paths = parser.add_argument_group(title="paths")
+        paths = parser.add_argument_group(title="main")
         paths.add_argument("-1", "--forward", metavar="FASTQ", nargs='*', required=False, default=[],
             help="forward paired-end reads")
         paths.add_argument("-2", "--reverse", metavar="FASTQ", nargs='*', required=False, default=[],
@@ -64,11 +64,19 @@ class CommandLineInterface:
             help="single-end reads")
         paths.add_argument("-i", "--interleaved", metavar="FASTQ", nargs='*', required=False, default=[],
             help="interleaved reads")
-        paths.add_argument("-b", "--background", metavar="FASTA", required=False,
-            help="background")
         paths.add_argument("-o", "--output", metavar="PATH", required=True,
             help="path to output folder, will be created if non-existent")
         
+        fos = parser.add_argument_group(title="fosmid pool specific")
+        fos.add_argument("-b", "--background", metavar="FASTA", required=False,
+            help="host background to filter out")
+        fos.add_argument("--endf", metavar="FASTA", required=False,
+            help="sanger end sequences")
+        fos.add_argument("--endr", metavar="FASTA", required=False,
+            help="sanger end sequences from the other end, IDs must match those from \"endf\"")
+        fos.add_argument("--id_regex", metavar="STR", required=False,
+            help="regex for getting ID of end seq., default: r'%s', ex. \"\\w+_\\d+\" would get ABC_123 from ABC_123_FW" % EndSequences.DEFAULT_REGEX)
+
         # "options" group
         parser.add_argument("-a", "--assemblers", nargs='*', required=False, default=ASSEMBLERS[:2],
             help=f"assemblers to use, pick any combination of {ASSEMBLERS}")
@@ -83,7 +91,7 @@ class CommandLineInterface:
         args = parser.parse_args(raw_args)
 
         #########################
-        # verify inputs
+        # verify & parse inputs
         #########################
         input_error = False
         def _error(message: str):
@@ -98,17 +106,10 @@ class CommandLineInterface:
         elif args.overwrite: shutil.rmtree(output)
         if not logs.exists(): os.makedirs(logs)
 
-        _listify = lambda arg: [Path(p).absolute() for p in arg]
-        reads_manifest = ReadsManifest(
-            forward=_listify(args.forward),
-            reverse=_listify(args.reverse),
-            interleaved=_listify(args.interleaved),
-            single=_listify(args.single),
-        )
-        reads_manifest.Verify(_error)
-        reads_save = output.joinpath(ORIGINAL_READS)
-        if not reads_save.parent.exists(): os.makedirs(reads_save.parent)
-        reads_manifest.Save(reads_save)
+        for model_class in [
+            ReadsManifest, BackgroundGenome, AssemblerModes, EndSequences
+        ]:
+            model_class.Parse(args, _error).Save(output.joinpath(model_class.ARG_FILE))
 
         smk_args = ["--latency-wait 0"]
         for a in args.snakemake:
@@ -119,16 +120,9 @@ class CommandLineInterface:
                 pa = f"--{a}"
             smk_args.append(pa)
 
-        picked_assemblers = []
-        _seen = set()
-        for a in args.assemblers:
-            if a in _seen: continue
-            if a not in ASSEMBLERS:
-                _error(f"[{a}] is not one of {ASSEMBLERS}")
-                break
-            picked_assemblers.append(a)
-            _seen.add(a)
-
+        #########################
+        # run snakemake
+        #########################
         if input_error: return
         smk_log = logs.joinpath("snakemake")
         link_log = "" if smk_log.exists() else f'ln -s {output.joinpath(".snakemake/log")} {logs.joinpath("snakemake")}'
@@ -136,14 +130,7 @@ class CommandLineInterface:
             src=MODULE_ROOT,
             log=logs,
             threads=args.threads,
-            assemblers=','.join(picked_assemblers),
         )
-        if args.background is not None:
-            bg = Path(args.background).absolute()
-        else:
-            bg = output.joinpath(SKIP_FILTER)
-            os.system(f"touch {bg}")
-        params |= dict(background=bg)
 
         params_str = ' '.join(f"{k}={v}" for k, v in params.items())
         cmd = f"""\

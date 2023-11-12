@@ -132,7 +132,7 @@ case $1 in
         cd scratch
         # --overwrite \
         python -m $NAME run -t 12 \
-            -a megahit \
+            -a megahit spades_meta \
             -i ./inputs/ss10.fastq ./inputs/ss10.fastq.gz \
             -s ./inputs/ss01.fastq \
             -b ./ecoli_k12_mg1655.fasta \

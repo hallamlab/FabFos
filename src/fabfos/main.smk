@@ -1,17 +1,13 @@
 import os
 from pathlib import Path
-from fabfos.constants import READS_FOLDER, ORIGINAL_READS
+from fabfos.models import ReadsManifest, BackgroundGenome, AssemblerModes, EndSequences
+from fabfos.models import RawContigs
 
 # the actual commands to call each tool are found in src/fabfos/steps/*.py
 
 SRC = Path(config["src"])
 LOGS = Path(config["log"])
 THREADS = int(config["threads"])
-
-STD_READS = READS_FOLDER.joinpath("reads.json")
-TRIMMED_READS = Path("temp_trim/trimmed.json")
-FILTERED_READS = Path("temp_filter/filtered.json")
-ASSEMBLY = Path("temp_assembly/assembly.json")
 
 rule all:
     input: f"{ASSEMBLY}"
@@ -55,14 +51,22 @@ rule filter_background:
         """
 
 rule assembly:
-    input: f"{FILTERED_READS}",
+    input:
+        f"{FILTERED_READS}",
+        f"{ASM_MODES}"
     output: f"{ASSEMBLY}"
     params:
         src=SRC,
-        assemblers=config['assemblers']
     threads: THREADS
     shell:
         """\
         PYTHONPATH={params.src}:$PYTHONPATH
-        python -m fabfos api --step assembly --args {threads} {output} {params.assemblers} {input}
+        python -m fabfos api --step assembly --args {threads} {output} {input}
         """
+
+# rule end_map:
+#     input: f"{ASSEMBLY}"
+#     params:
+#         src=SRC,
+#         assemblers=config['assemblers']
+#     threads: THREADS
