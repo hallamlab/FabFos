@@ -14,6 +14,11 @@ class Context:
     log_file: Path
     args: list[str]
 
+    _i = -1
+    def NextArg(self):
+        self._i += 1
+        return self.args[self._i]
+
 def Init(args, level=logging.INFO):
     N = 2
     threads, output = args[:N]

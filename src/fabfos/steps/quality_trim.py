@@ -39,7 +39,7 @@ def Procedure(args):
             {inputs} {outputs} \
             ILLUMINACLIP:{adapter_folder.joinpath('TruSeq3-PE.fa')}:2:3:10 \
             LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 \
-            2>&1 | tee -a {C.log_file} \
+            2>&1 > {C.log_file} \
             && rm {inputs}
         """)
         return pf, pr, singles

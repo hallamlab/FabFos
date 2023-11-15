@@ -1,19 +1,20 @@
 import os, sys
 from pathlib import Path
 import shutil
-from ..models import ReadsManifest
-from ..constants import SKIP_FILTER
+from ..models import ReadsManifest, BackgroundGenome
 from .common import Init, AggregateReads, Suffix
 
 def Procedure(args):
     C = Init(args)
-    reads_save, background = [Path(p) for p in C.args]
+    reads_save, background_save = C.args
     man = ReadsManifest.Load(reads_save)
-    if Path(background).name == SKIP_FILTER:
-        C.log.info(f"no background, skipping")
+    background = BackgroundGenome.Load(background_save)
+    if background.ShouldSkip():
+        C.log.info(f"skipping filter")
         man.Save(C.output)
         return
-
+    C.log.info(background)
+    
     count = 0
     expected = len(man.forward)+len(man.single)
     def _filter(fwd: Path, rev: Path|None = None):
@@ -33,7 +34,7 @@ def Procedure(args):
         cmd = f"""\
             cd {C.out_dir}
             BAM=temp.bam
-            minimap2 -a {sr_params} -t {C.threads} --secondary=no {background} {inputs} 2>>{_log_file} \
+            minimap2 -a {sr_params} -t {C.threads} --secondary=no {background.fasta} {inputs} 2>>{_log_file} \
             | samtools sort --threads {C.threads} -o $BAM --write-index - 2>>{_log_file} \
             && samtools view -ub -f 4 -@ {C.threads} $BAM \
             | samtools fastq --verbosity 1 -N {out_params} 2>>{_log_file} \

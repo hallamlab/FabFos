@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from turtle import forward
 from typing import Callable, Any
 from Bio import SeqIO
 import json
@@ -8,11 +9,12 @@ import json
 from .utils import regex
 
 class Saveable:
-    def Save(self, path: Path):
+    def Save(self, path: str|Path):
+        path = Path(path)
         if not path.parent.exists(): os.makedirs(path.parent)
 
         def _can_save(k, v):
-            if k.upper() != k: return False
+            if k.upper() == k: return False
             if callable(v): return False
             if isinstance(k, str) and k[0] == "_": return False
             return True
@@ -43,7 +45,7 @@ class ReadsManifest(Saveable):
         return [self.forward, self.reverse, self.interleaved, self.single]
 
     @classmethod
-    def Parse(cls, args, on_error: Callable):
+    def Parse(cls, args, out_dir: Path, on_error: Callable):
         _listify = lambda arg: [Path(p).absolute() for p in arg]
         model = cls(
             forward=_listify(args.forward),
@@ -61,6 +63,8 @@ class ReadsManifest(Saveable):
             on_error(f"[{p}] does not exist")
         if len(model.forward) != len(model.reverse):
             on_error("number of forward and reverse reads don't match")
+        
+        model.Save(out_dir.joinpath(cls.ARG_FILE))
         return model
 
     @classmethod
@@ -71,19 +75,24 @@ class ReadsManifest(Saveable):
 
 @dataclass
 class BackgroundGenome(Saveable):
-    background: Path|str
+    fasta: Path|str
 
     ARG_FILE = ReadsManifest.FILTER.parent.joinpath("background.json")
     SKIP = "SKIP"
 
+    def ShouldSkip(self):
+        return self.fasta == self.SKIP
+
     @classmethod
-    def Parse(cls, args, on_error: Callable):
+    def Parse(cls, args, out_dir: Path, on_error: Callable):
         if args.background is not None:
             bg = Path(args.background).absolute()
             if not bg.exists(): on_error(f"[{bg}] does not exist")
         else:
             bg = cls.SKIP
-        return cls(bg)
+        model = cls(bg)
+        model.Save(out_dir.joinpath(cls.ARG_FILE))
+        return model
 
     @classmethod
     def Load(cls, path):
@@ -98,14 +107,8 @@ class AssemblerModes(Saveable):
 
     ARG_FILE = Path("temp_assembly/assemblers.json")
 
-    def __len__(self):
-        return len(self.modes)
-    
-    def __iter__(self):
-        return self.modes.__iter__()
-
     @classmethod
-    def Parse(cls, args, on_error: Callable):
+    def Parse(cls, args, out_dir: Path, on_error: Callable):
         picked_assemblers = []
         _seen = set()
         for a in args.assemblers:
@@ -115,77 +118,86 @@ class AssemblerModes(Saveable):
                 on_error(f"[{a}] is not one of {cls.CHOICES}")
             picked_assemblers.append(a)
             _seen.add(a)
-        return cls(picked_assemblers)
+        model = cls(picked_assemblers)
+        model.Save(out_dir.joinpath(cls.ARG_FILE))
+        return model
 
     @classmethod
     def Load(cls, path):
         with open(path) as j:
             raw = json.load(j)
-            return cls(raw)
+            return cls(**raw)
 
 @dataclass
 class EndSequences(Saveable):
     given: bool
     forward: Path|None
     reverse: Path|None
-    id_regex: str|None
 
-    ARG_FILE = Path("temp_endmap/endseqs.json")
+    ARG_FILE = Path("temp_contigs/endseqs.json")
     SKIP = "SKIP"
     DEFAULT_REGEX = r'\w+'
 
-    def _get_id(self, s):
-        return next(regex(self.id_regex, s))
-
     @classmethod
-    def Parse(cls, args, on_error: Callable):
-        _pathify = lambda p: Path(p) if p is not None else p
-        model = cls(
-            given = args.endf is not None,
-            forward = _pathify(args.endf),
-            reverse = _pathify(args.endr),
-            id_regex = args.id_regex if args.id_regex is not None else cls.DEFAULT_REGEX,
-        )
-        paths = [model.given, model.reverse]
-        if len([v for v in paths if v is None])==1:
+    def Parse(cls, args, out_dir: Path, on_error: Callable):
+        _pathify = lambda l: [Path(p).absolute() for p in l] if l is not None else None
+        forwards = _pathify(args.endf)
+        reverses = _pathify(args.endr)
+        id_regex = args.end_regex if args.end_regex is not None else cls.DEFAULT_REGEX
+
+        if len([v for v in [forwards, reverses] if v is None])==1:
             on_error(f"both --endf and --endr must be given or omitted together")
 
-        if not model.given: return model # skip id match check
+        if forwards is None or reverses is None: # skip id match check
+            return cls(False, None, None)
 
-        assert model.forward is not None and model.reverse is not None
-        for p in paths:
+        # ensure ids are in pairs and unique + aggregate to 2 files
+        for e, p in [(e, p) for e, l in [("endf", forwards), ("endr", reverses)] for p in l]:
             if p.exists(): continue
-            on_error(f"[{p}] doesn't exist")
-
-        def _get(p):
-            for e in SeqIO.parse(p, "fasta"):
-                yield model._get_id(e.id)
+            on_error(f"--{e} file doesn't exist [{p}]")
         
-        _no_pair = lambda dir, x: f"{dir} [{x}] has no matching pair"
-        _dup = lambda dir, x: f"{dir} [{x}] is duplicate"
+        _no_pair = lambda p, x: f"{p} [{x}] has no matching pair"
+        _dup = lambda p, x: f"{p} [{x}] is duplicate"
         
-        _seen = set()
-        fids = list(_get(model.forward))
-        rids = list(_get(model.reverse))
-        sids = set(rids)
-        for x in fids:
-            if x in _seen: on_error(_dup("endf", x))
-            if x not in sids: on_error(_no_pair("endf", x))
-            _seen.add(x)
+        allf_p, allr_p = [out_dir.joinpath(cls.ARG_FILE.parent).joinpath(f).absolute() for f in ["endf.fa", "endr.fa"]]
+        if not allf_p.parent.exists(): os.makedirs(allf_p.parent)
+        allf, allr = [open(p, "w") for p in [allf_p, allr_p]]
 
-        _seen.clear()
-        sids = set(fids)
-        for x in rids:
-            if x in _seen: on_error(_dup("endr", x))
-            if x not in sids: on_error(_no_pair("endr", x))
-            _seen.add(x)
+        def _get(lst):
+            for p in lst:
+                for e in SeqIO.parse(p, "fasta"):
+                    yield next(regex(id_regex, e.id)), (p, e)
+        fids = list(_get(forwards))
+        rids = list(_get(reverses))
+        for this, other, out in [
+            (fids, rids, allf),
+            (rids, fids, allr),
+        ]:  
+            _seen = set()
+            other = set(id for id, _ in other)
+            for id, (p, e) in this:
+                if id in _seen: on_error(_dup(p, id))
+                if id not in other: on_error(_no_pair(p, id))
+                _seen.add(id)
+                out.write(f">{id}"+"\n")
+                out.write(str(e.seq))
+                out.write("\n")
+            out.close()
+        
+        model = cls(True, allf_p, allr_p)
+        model.Save(out_dir.joinpath(cls.ARG_FILE))
         return model
     
     @classmethod
     def Load(cls, path):
         with open(path) as j:
-            raw: dict = {k:Path(v) if "id" not in k else v for k, v in json.load(j).items()}
-            return cls(**raw)
+            raw = json.load(j)
+            _pathify = lambda x: Path(x) if x != "None" else None
+            return cls(
+                given = raw.get("given", "False").title() == "True",
+                forward = _pathify(raw.get("forward", "None")),
+                reverse = _pathify(raw.get("reverse", "None")),
+            )
 
 #################################
 # internal (not parsed from args)
@@ -195,10 +207,51 @@ class EndSequences(Saveable):
 class RawContigs(Saveable):
     contigs: dict[str, Path]
 
-    SAVE = Path("temp_assembly/contigs.json")
+    MANIFEST = Path("temp_assembly/contigs.json")
+
+    @classmethod
+    def Load(cls, path):
+        with open(path) as j:
+            raw = json.load(j)
+            _contigs = raw.get("contigs")
+            if not isinstance(_contigs, dict): _contigs = {}
+            return cls({k: Path(v) for k, v in _contigs.items()})
+
+# @dataclass
+# class EndMappedContigs(Saveable):
+#     kept: Path
+#     discarded: Path
+
+#     MANIFEST = EndSequences.ARG_FILE.parent.joinpath("contigs.json")
+
+#     @classmethod
+#     def Load(cls, path):
+#         with open(path) as j:
+#             raw = {k: Path(v) for k, v in json.load(j).items()}
+#             return cls(**raw)
+
+@dataclass
+class ConsensusContigs(Saveable):
+    kept: Path
+    discarded: Path
+
+    MANIFEST = EndSequences.ARG_FILE.parent.joinpath("consensus_contigs.json")
 
     @classmethod
     def Load(cls, path):
         with open(path) as j:
             raw = {k: Path(v) for k, v in json.load(j).items()}
-            return cls(raw)
+            return cls(**raw)
+        
+@dataclass
+class LenFilteredContigs(Saveable):
+    kept: Path
+    discarded: Path
+
+    MANIFEST = EndSequences.ARG_FILE.parent.joinpath("len_filtered_contigs.json")
+
+    @classmethod
+    def Load(cls, path):
+        with open(path) as j:
+            raw = {k: Path(v) for k, v in json.load(j).items()}
+            return cls(**raw)

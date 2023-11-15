@@ -131,11 +131,19 @@ case $1 in
         export PYTHONPATH=$HERE/src:$PYTHONPATH
         cd scratch
         # --overwrite \
-        python -m $NAME run -t 12 \
-            -a megahit spades_meta \
-            -i ./inputs/ss10.fastq ./inputs/ss10.fastq.gz \
-            -s ./inputs/ss01.fastq \
+            # -a spades_meta \
+            # --endf ../data/beaver/endseq_CEC_FW.fa \
+            # --endr ../data/beaver/endseq_CEC_RE.fa \
+            # -a megahit \
+            # -i ./inputs/ss10.fastq ./inputs/ss10.fastq.gz \
+            # -s ./inputs/ss01.fastq \
+        python -m $NAME run -t 16 \
+            -a megahit spades_isolate \
+            -i ../data/beaver/Beaver_colon/2nd_hits/EKL/Raw_Data/EKL_Colon_ligninases_pool_secondary_hits.fastq ../data/beaver/Beaver_colon/2nd_hits/EOL/Raw_Data/EOL_Colon_ligninases_pool_secondary_hits.fastq \
             -b ./ecoli_k12_mg1655.fasta \
+            --endf ../data/beaver/endseq_COL_FW.fa \
+            --endr ../data/beaver/endseq_COL_RE.fa \
+            --end_regex "\w+_\d+" \
             -o ./test01
     ;;
     *)

@@ -17,6 +17,7 @@
 # Zach Armstrong, and Steven J. Hallam
 
 
+import json
 import os, sys
 from pathlib import Path
 import argparse
@@ -27,7 +28,6 @@ import shutil
 import importlib
 
 from .models import AssemblerModes, BackgroundGenome, EndSequences, ReadsManifest
-from .constants import ORIGINAL_READS, SKIP_FILTER, ASM_MODES, ENDSEQS
 from .utils import NAME, VERSION, ENTRY_POINTS, MODULE_ROOT
 
 CLI_ENTRY = ENTRY_POINTS[0]
@@ -53,7 +53,6 @@ class CommandLineInterface:
         parser = ArgumentParser(
             prog = f'{CLI_ENTRY} {self._get_fn_name()}',
         )
-        ASSEMBLERS = "megahit, spades_meta, spades_isolate, spades_sc,".split(", ")
 
         paths = parser.add_argument_group(title="main")
         paths.add_argument("-1", "--forward", metavar="FASTQ", nargs='*', required=False, default=[],
@@ -70,16 +69,16 @@ class CommandLineInterface:
         fos = parser.add_argument_group(title="fosmid pool specific")
         fos.add_argument("-b", "--background", metavar="FASTA", required=False,
             help="host background to filter out")
-        fos.add_argument("--endf", metavar="FASTA", required=False,
+        fos.add_argument("--endf", metavar="FASTA", nargs='*', required=False,
             help="sanger end sequences")
-        fos.add_argument("--endr", metavar="FASTA", required=False,
-            help="sanger end sequences from the other end, IDs must match those from \"endf\"")
-        fos.add_argument("--id_regex", metavar="STR", required=False,
-            help="regex for getting ID of end seq., default: r'%s', ex. \"\\w+_\\d+\" would get ABC_123 from ABC_123_FW" % EndSequences.DEFAULT_REGEX)
+        fos.add_argument("--endr", metavar="FASTA", nargs='*', required=False,
+            help="sanger end sequences from the other end, IDs must match those from --endf")
+        fos.add_argument("--end_regex", metavar="STR", required=False,
+            help="regex for getting ID of end seq., default: \"%s\", ex. \"\\w+_\\d+\" would get ABC_123 from ABC_123_FW" % EndSequences.DEFAULT_REGEX)
 
         # "options" group
-        parser.add_argument("-a", "--assemblers", nargs='*', required=False, default=ASSEMBLERS[:2],
-            help=f"assemblers to use, pick any combination of {ASSEMBLERS}")
+        parser.add_argument("-a", "--assemblers", nargs='*', required=False, default=AssemblerModes.CHOICES[:2],
+            help=f"assemblers to use, pick any combination of {AssemblerModes.CHOICES}")
         parser.add_argument("--overwrite", action="store_true", default=False, required=False,
             help="overwrite previous output, if given same output path")
         parser.add_argument("-t", "--threads", metavar="INT", type=int,
@@ -94,9 +93,13 @@ class CommandLineInterface:
         # verify & parse inputs
         #########################
         input_error = False
+        _printed = False
         def _error(message: str):
-            nonlocal input_error
-            parser.print_help()
+            nonlocal input_error, _printed
+            if not _printed:
+                parser.print_help()
+                print()
+                _printed = True
             print(f"Invalid input: {message}")
             input_error = True
 
@@ -105,11 +108,16 @@ class CommandLineInterface:
         if not output.exists(): os.makedirs(output)
         elif args.overwrite: shutil.rmtree(output)
         if not logs.exists(): os.makedirs(logs)
+        with open(output.joinpath("args.json"), "w") as j:
+            json.dump(args.__dict__|dict(
+                current_directory=os.getcwd(),
+            ), j, indent=4)
 
+        input_models = {}
         for model_class in [
             ReadsManifest, BackgroundGenome, AssemblerModes, EndSequences
         ]:
-            model_class.Parse(args, _error).Save(output.joinpath(model_class.ARG_FILE))
+            input_models[model_class] = model_class.Parse(args, output, _error)
 
         smk_args = ["--latency-wait 0"]
         for a in args.snakemake:
@@ -130,6 +138,7 @@ class CommandLineInterface:
             src=MODULE_ROOT,
             log=logs,
             threads=args.threads,
+            endseqs=input_models[EndSequences].given
         )
 
         params_str = ' '.join(f"{k}={v}" for k, v in params.items())
