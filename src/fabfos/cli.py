@@ -163,7 +163,10 @@ class CommandLineInterface:
         args = parser.parse_args(raw_args)
 
         mo = importlib.import_module(name=f".steps.{args.step}", package=NAME)
-        mo.Procedure(args.args)
+        try:
+            mo.Procedure(args.args)
+        except KeyboardInterrupt:
+            exit()
 
     def help(self, args=None):
         help = [

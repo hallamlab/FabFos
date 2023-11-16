@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from dataclasses import dataclass
 import logging
+from typing import Iterable
 
 from ..models import ReadsManifest
 
@@ -36,6 +37,16 @@ def Init(args, level=logging.INFO):
     log.info(f"\nSTART")
     threads = int(threads)
     return Context(threads, out_dir, output, log, log_file, args[N:])
+
+def FileSafeStr(s: str):
+    WL = "-_."
+    return "".join(ch if (ch.isalnum() or ch in WL) else "_" for ch in s)
+
+def Batchify(it: Iterable, size: int =1):
+    lst = list(it)
+    l = len(lst)
+    for ndx in range(0, l, size):
+        yield lst[ndx:min(ndx + size, l)]
 
 def Suffix(file: str, suf: str, cut=0):
     toks = file.split('.')
