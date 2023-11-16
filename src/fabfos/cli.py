@@ -144,7 +144,7 @@ class CommandLineInterface:
         params_str = ' '.join(f"{k}={v}" for k, v in params.items())
         cmd = f"""\
             {link_log}
-            snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output}\
+            snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} \
                 {' '.join(smk_args)} \
                 {"-n" if args.mock else ""} \
                 --config {params_str} \

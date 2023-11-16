@@ -1,32 +1,11 @@
 import json
 import os, sys
 from pathlib import Path
-from typing import Callable, Iterable
 from Bio import SeqIO
 from dataclasses import dataclass
 import pandas as pd
-from concurrent.futures import ProcessPoolExecutor as Exe
-from ..models import ConsensusContigs, RawContigs, EndSequences
-from .common import Init, FileSafeStr, Batchify
-
-def _consensus(args):
-    id, seqs, msa_temp, threads = args
-    seqs_path = msa_temp.joinpath(f"{FileSafeStr(id)}.fa")
-    msa_path = msa_temp.joinpath(f"{FileSafeStr(id)}.msa.clustal")
-    cons_path = msa_temp.joinpath(f"{FileSafeStr(id)}.cons.fa")
-    log_path = msa_temp.joinpath(f"{FileSafeStr(id)}.log")
-    seqs = sorted(seqs, key=lambda t: len(t[1]), reverse=True)
-    MAX_TO_COMPARE = 3
-    with open(seqs_path, "w") as f:
-        for i, (sid, s) in enumerate(seqs[:MAX_TO_COMPARE]):
-            f.write(f">{sid}"+"\n")
-            f.write(s); f.write("\n")
-    os.system(f"""\
-    mafft --thread {threads} --reorder --retree 2 --clustalout \
-        {seqs_path} > {msa_path} 2>{log_path} \
-    && cons -sequence {msa_path} -outseq {cons_path} >>{log_path} 2>&1
-    """)
-    return seqs_path
+from ..models import EndMappedContigs, RawContigs, EndSequences
+from .common import Init
 
 def Procedure(args):
     C = Init(args)
@@ -70,17 +49,17 @@ def Procedure(args):
         forward: pd.DataFrame
         reverse: pd.DataFrame
     _hits = {}
+    PIDENT_THRESH = 90
     for n, q in [
         ("forward", end_seqs.forward),
         ("reverse", end_seqs.reverse),
     ]:
         o = C.out_dir.joinpath(f"{n}.tsv")
         _cols = "qseqid sseqid nident qlen slen qstart qend sstart send".split(" ")
-            # -evalue 1000 \
         os.system(f"""\
         echo "# {n}" >>{blast_log}          
         blastn \
-            -perc_identity 90 \
+            -perc_identity {PIDENT_THRESH} \
             -num_threads {C.threads} \
             -query {q} \
             -db {blastdb} \
@@ -96,6 +75,7 @@ def Procedure(args):
         hits = {}
         for _, row in df.iterrows():
             qseqid, sseqid, nident, qlen, slen, qstart, qend, sstart, send = row
+            if nident/qlen*100 < PIDENT_THRESH: continue
             front, back = hits.get(qseqid, (set(), set()))
 
             is_fwd = (sstart+send)/2 < slen/2
@@ -105,29 +85,8 @@ def Procedure(args):
             hits[str(qseqid)] = front, back
         return hits
     
-    # hits = get_hits(raw_hits.forward, is_fwd=True)
-    # for k, (f, r) in get_hits(raw_hits.reverse, is_fwd=False).items():
-    #     prevf, prevr = hits.get(k, (set(), set()))
-    #     hits[k] = prevf|f, prevr|r
-    
     ######################################
-    # MSA and consensus contigs
-
-    # _cols = "qseqid sseqid nident qlen slen".split(" ")
-    # os.system(f"""\
-    # echo "# pairwise" >>{blast_log}          
-    # blastn \
-    #     -evalue 1000 \
-    #     -perc_identity 50 \
-    #     -num_threads {C.threads} \
-    #     -query {all_contigs_path} \
-    #     -db {blastdb} \
-    #     -outfmt "6 {' '.join(_cols)}" \
-    #     -out {C.out_dir.joinpath("pairwise.tsv")} >>{blast_log} 2>&1
-    # """)
-    
-    msa_temp = C.out_dir.joinpath("multiple_sequence_alignment")
-    os.makedirs(msa_temp, exist_ok=True)
+    # get contigs/scaffolds
 
     fhits = get_hits(hit_tables.forward)
     rhits = get_hits(hit_tables.reverse)
@@ -138,48 +97,69 @@ def Procedure(args):
     
     end_ids = set(fhits)|set(rhits)
 
-    LOG_BUFFER = "      "
-    THREADS_PER_JOB = 2
-    n_parallel_jobs = C.threads//THREADS_PER_JOB
+    stats = []
+    mapped_file = Path("./mapped_contigs.fa")
+    with open(mapped_file, "w") as f:
+        def _wmapped(id, seq):
+            f.write(f">{id}"+"\n")
+            f.write(seq); f.write("\n")
 
-    def get_all_consensus():
+        def _longest(contigs, flipped_contigs):
+            def _it():
+                for contig_id in contigs:
+                    yield contig_id, all_contigs[contig_id]
+                for contig_id in flipped_contigs:
+                    yield contig_id, all_contigs[contig_id][::-1] # reverses string, flips contig back
+            lid, longest, l = "", "", 0
+            for cid, seq in _it():
+                lseq = len(seq)
+                if lseq > l:
+                    l = lseq
+                    longest = seq
+                    lid = cid
+            return lid, longest
+        
+        def _get_asm(contig_id):
+            return  "_".join(contig_id.split("_")[1:])
+
         for i, id in enumerate(end_ids):
-            if i > 3: break
-            # print(f"{i+1} of {len(end_ids)}: {id} {LOG_BUFFER}", end="\r")
             fwd_front, fwd_back = fhits.get(id, (set(), set()))
             rev_front, rev_back = rhits.get(id, (set(), set()))
-            fwd_matches = fwd_front&rev_back
-            rev_matches = (rev_front&fwd_back) - fwd_matches # just to be safe
+            matches = fwd_front&rev_back
+            matches_contig_flipped = (rev_front&fwd_back) - matches # subtract matches just to be safe
+            has_fwd_hits = len(fwd_front)+len(fwd_back) > 0
+            has_rev_hits = len(rev_front)+len(rev_back) > 0
 
-            if len(fwd_matches)+len(rev_matches) > 0:
-                def _it():
-                    for contig_id in fwd_matches:
-                        yield contig_id, all_contigs[contig_id]
-                    for contig_id in rev_matches:
-                        yield contig_id, all_contigs[contig_id][::-1] # reverses string
-                yield id, _it()
+            if len(matches)+len(matches_contig_flipped) > 0:
+                cid, longest = _longest(matches, matches_contig_flipped)
+                quality, l, a = "full_match", len(longest), _get_asm(cid)
+                _wmapped(f"{id} {quality} {a} length={l}", longest)
+                
+            elif has_fwd_hits and has_rev_hits:
+                fid, fseq = _longest(fwd_front, fwd_back)
+                rid, rseq = _longest(rev_back, rev_front)
+                quality, l, a = "scaffolded", len(fseq)+len(rseq), f"{_get_asm(fid)},{_get_asm(rid)}"
+                _wmapped(f"{id} {quality} {a} length>{l}", fseq+"-"+rseq)
+
+            elif has_fwd_hits:
+                cid, longest = _longest(fwd_front, fwd_back)
+                quality, l, a = "forward_end_only", len(longest), _get_asm(cid)
+                _wmapped(f"{id} {quality} {a} length>{l}", longest)
+
+            elif has_rev_hits:
+                cid, longest = _longest(rev_back, rev_front)
+                quality, l, a = "reverse_end_only", len(longest), _get_asm(cid)
+                _wmapped(f"{id} {quality} {a} length>{l}", longest)
             else:
-                # partial_hits[id] = 
-                # print(f"partial {id}      ")
-                pass
+                quality, l, a = "no_hits", None, None
 
-    # if n_parallel_jobs>1:
-    #     with Exe(max_workers=n_parallel_jobs) as exe:
-    #         for res in exe.map(_consensus, iter((id, list(seqs), msa_temp, THREADS_PER_JOB) for id, seqs in get_all_consensus())):
-    #             pass
-    # else:
-    #     for id, seqs in get_all_consensus():
-    #         print(id)
-    #         _consensus((id, seqs, msa_temp, C.threads))
+            stats.append((id, quality, a, l))
 
-    hits = {}
-    partial_hits = {}
+        num_hits = len([i for i, q, l in stats if q != 'no_hits'])
+        num_full_hits = len([i for i, q, l in stats if q == 'full_match'])
+        C.log.info(f"found {num_hits} of {len(end_ids)}, {num_full_hits} were full matches")
+        report_file = Path("./endmapping_report.csv")
+        report = pd.DataFrame(stats, columns="id, mapping_quality, assembler, resolved_length".split(", "))
+        report.to_csv(report_file, index=False)
 
-
-
-    # for k, (a, b) in hits.items():
-
-
-
-    # return ConsensusContigs(*_hits.values())
-    # contigs.Save(C.output)
+        EndMappedContigs(mapped_file, report_file).Save(C.output)

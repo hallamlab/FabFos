@@ -1,4 +1,4 @@
-import os
+import os, sys
 from pathlib import Path
 from dataclasses import dataclass
 import logging
@@ -34,7 +34,10 @@ def Init(args, level=logging.INFO):
         level=level
     )
     log = logging.getLogger('step_logger')
-    log.info(f"\nSTART")
+    log.info(f"")
+    log.info(f"")
+    log.info(f"-- START --")
+    log.addHandler(logging.StreamHandler(sys.stderr))
     threads = int(threads)
     return Context(threads, out_dir, output, log, log_file, args[N:])
 

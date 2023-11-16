@@ -44,8 +44,11 @@ def Procedure(args):
 
     C.log.info(f"performing {len(assemblers)} assemblies using [{', '.join(assemblers)}]")
     raw_contigs = {}
+    _log_len = 0 
     for i, assembler_mode in enumerate(assemblers):
-        C.log.info(f">>> {i+1} of {len(assemblers)}: {assembler_mode}")
+        _info = f"{i+1} of {len(assemblers)}: {assembler_mode}"
+        _log_len = max(_log_len, len(_info))
+        C.log.info(_info+" "*(_log_len-len(_info)))
         if "spades" in assembler_mode:
             mode = assembler_mode.split("_")[-1]
             contigs = spades(mode)

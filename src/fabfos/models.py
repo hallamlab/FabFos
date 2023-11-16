@@ -231,11 +231,11 @@ class RawContigs(Saveable):
 #             return cls(**raw)
 
 @dataclass
-class ConsensusContigs(Saveable):
-    kept: Path
-    discarded: Path
+class EndMappedContigs(Saveable):
+    fasta: Path
+    report: Path
 
-    MANIFEST = EndSequences.ARG_FILE.parent.joinpath("consensus_contigs.json")
+    MANIFEST = EndSequences.ARG_FILE.parent.joinpath("end_mapped_contigs.json")
 
     @classmethod
     def Load(cls, path):
