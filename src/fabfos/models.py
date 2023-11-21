@@ -133,6 +133,7 @@ class EndSequences(Saveable):
     given: bool
     forward: Path|None
     reverse: Path|None
+    insert_ids: list[str]
 
     ARG_FILE = Path("temp_contigs/endseqs.json")
     SKIP = "SKIP"
@@ -149,7 +150,7 @@ class EndSequences(Saveable):
             on_error(f"both --endf and --endr must be given or omitted together")
 
         if forwards is None or reverses is None: # skip id match check
-            return cls(False, None, None)
+            return cls(False, None, None, [])
 
         # ensure ids are in pairs and unique + aggregate to 2 files
         for e, p in [(e, p) for e, l in [("endf", forwards), ("endr", reverses)] for p in l]:
@@ -169,6 +170,7 @@ class EndSequences(Saveable):
                     yield next(regex(id_regex, e.id)), (p, e)
         fids = list(_get(forwards))
         rids = list(_get(reverses))
+        all_ids = set()
         for this, other, out in [
             (fids, rids, allf),
             (rids, fids, allr),
@@ -176,6 +178,7 @@ class EndSequences(Saveable):
             _seen = set()
             other = set(id for id, _ in other)
             for id, (p, e) in this:
+                all_ids.add(id)
                 if id in _seen: on_error(_dup(p, id))
                 if id not in other: on_error(_no_pair(p, id))
                 _seen.add(id)
@@ -184,7 +187,7 @@ class EndSequences(Saveable):
                 out.write("\n")
             out.close()
         
-        model = cls(True, allf_p, allr_p)
+        model = cls(True, allf_p, allr_p, list(all_ids))
         model.Save(out_dir.joinpath(cls.ARG_FILE))
         return model
     
@@ -197,6 +200,7 @@ class EndSequences(Saveable):
                 given = raw.get("given", "False").title() == "True",
                 forward = _pathify(raw.get("forward", "None")),
                 reverse = _pathify(raw.get("reverse", "None")),
+                insert_ids = raw.get("insert_ids", []),
             )
 
 #################################
@@ -216,19 +220,6 @@ class RawContigs(Saveable):
             _contigs = raw.get("contigs")
             if not isinstance(_contigs, dict): _contigs = {}
             return cls({k: Path(v) for k, v in _contigs.items()})
-
-# @dataclass
-# class EndMappedContigs(Saveable):
-#     kept: Path
-#     discarded: Path
-
-#     MANIFEST = EndSequences.ARG_FILE.parent.joinpath("contigs.json")
-
-#     @classmethod
-#     def Load(cls, path):
-#         with open(path) as j:
-#             raw = {k: Path(v) for k, v in json.load(j).items()}
-#             return cls(**raw)
 
 @dataclass
 class EndMappedContigs(Saveable):

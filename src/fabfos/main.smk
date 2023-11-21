@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from fabfos.models import ReadsManifest, BackgroundGenome, AssemblerModes, EndSequences
-from fabfos.models import RawContigs, ConsensusContigs, LenFilteredContigs
+from fabfos.models import RawContigs, EndMappedContigs, LenFilteredContigs
 
 # the actual commands to call each tool are found in src/fabfos/steps/*.py
 
@@ -12,7 +12,7 @@ THREADS = int(config["threads"])
 GIVEN_ENDSEQS = config["endseqs"]
 
 rule all:
-    input: f"{ConsensusContigs.MANIFEST if GIVEN_ENDSEQS else LenFilteredContigs.MANIFEST}"
+    input: f"{EndMappedContigs.MANIFEST if GIVEN_ENDSEQS else LenFilteredContigs.MANIFEST}"
 
 rule standardize_reads:
     input: f"{ReadsManifest.ARG_FILE}"
@@ -67,8 +67,7 @@ rule assembly:
         """
 
 # ---------------------------------
-# conditional branching by
-# requesting either
+# conditional branching by requesting either
 # EndMappedContigs or LenFilteredContigs
 
 # if given end seqs
@@ -76,7 +75,7 @@ rule select_contigs:
     input:
         f"{RawContigs.MANIFEST}",
         f"{EndSequences.ARG_FILE}"
-    output: f"{ConsensusContigs.MANIFEST}"
+    output: f"{EndMappedContigs.MANIFEST}"
     params:
         src=SRC,
     threads: THREADS
@@ -85,18 +84,6 @@ rule select_contigs:
         PYTHONPATH={params.src}:$PYTHONPATH
         python -m fabfos api --step select_contigs --args {threads} {output} {input}
         """
-
-# rule consensus_contigs:
-#     input: f"{EndMappedContigs.MANIFEST}"
-#     output: f"{ConsensusContigs.MANIFEST}"
-#     params:
-#         src=SRC,
-#     threads: THREADS
-#     shell:
-#         """\
-#         PYTHONPATH={params.src}:$PYTHONPATH
-#         python -m fabfos api --step consensus_contigs --args {threads} {output} {input}
-#         """
 
 # else
 rule filter_contigs_by_length:
