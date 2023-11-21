@@ -125,7 +125,11 @@ case $1 in
             --workdir /ws \
             $HERE/$NAME.sif fabfos /bin/bash
     ;;
-    -rt) # single manual test
+
+    ###################################################
+    # test
+
+    -t) # single manual test
             # --size 20 \
 
         export PYTHONPATH=$HERE/src:$PYTHONPATH
@@ -134,18 +138,55 @@ case $1 in
             # -a spades_meta \
             # --endf ../data/beaver/endseq_CEC_FW.fa \
             # --endr ../data/beaver/endseq_CEC_RE.fa \
-            # -a megahit \
+            # -a megahit spades_isolate \
             # -s ./inputs/ss01.fastq \
             # -i ../data/beaver/Beaver_colon/2nd_hits/EKL/Raw_Data/EKL_Colon_ligninases_pool_secondary_hits.fastq ../data/beaver/Beaver_colon/2nd_hits/EOL/Raw_Data/EOL_Colon_ligninases_pool_secondary_hits.fastq \
         python -m $NAME run -t 12 \
-            -i ./inputs/ss10.fastq.gz \
-            -a megahit spades_isolate \
+            -a megahit \
+            --overwrite \
+            -i ./inputs/ss01.fastq.gz \
             -b ./ecoli_k12_mg1655.fasta \
             --endf ../data/beaver/endseq_COL_FW.fa \
             --endr ../data/beaver/endseq_COL_RE.fa \
             --end_regex "\w+_\d+" \
             -o ./test02
     ;;
+
+    -td) # test docker
+        shift
+        docker run -it --rm \
+            -u $(id -u):$(id -g) \
+            --mount type=bind,source="$HERE",target="/ws"\
+            --mount type=bind,source="$HERE/src/fabfos",target="/app/fabfos"\
+            --mount type=bind,source="/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos",target="/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos"\
+            --workdir="/ws" \
+            $DOCKER_IMAGE:$VER fabfos run -t 12 \
+                -a megahit \
+                --overwrite \
+                -i /ws/scratch/inputs/ss01.fastq.gz \
+                -b /ws/scratch/ecoli_k12_mg1655.fasta \
+                --endf /ws/data/beaver/endseq_COL_FW.fa \
+                --endr /ws/data/beaver/endseq_COL_RE.fa \
+                --end_regex "\\w+_\\d+" \
+                -o /ws/scratch/test_docker01
+    ;;
+
+    -ts) # test singularity
+        shift
+        singularity run -B $HERE:/ws,"/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos":"/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos" \
+        $HERE/fabfos.sif fabfos run -t 12 \
+            -a megahit \
+            --overwrite \
+            -i /ws/scratch/inputs/ss10.fastq.gz \
+            -b /ws/scratch/ecoli_k12_mg1655.fasta \
+            --endf /ws/data/beaver/endseq_COL_FW.fa \
+            --endr /ws/data/beaver/endseq_COL_RE.fa \
+            --end_regex "\\w+_\\d+" \
+            -o /ws/scratch/test_singularity01
+    ;;
+
+    ###################################################
+
     *)
         echo "bad option"
         echo $1

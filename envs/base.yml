@@ -15,5 +15,5 @@ dependencies:
   - fastqc=0.12
   - minimap2=2.26
   - bedtools=2.31
+  - samtools=1.18
   - quast=5.2
-  - mafft=7.520

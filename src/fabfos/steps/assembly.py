@@ -59,5 +59,7 @@ def Procedure(args):
             continue
         raw_contigs[assembler_mode] = contigs
 
-    assert len(raw_contigs)>0, "all assemblers failed"
-    RawContigs(raw_contigs).Save(C.output)
+    if len(raw_contigs)>0:
+        RawContigs(raw_contigs).Save(C.expected_output)
+    else:
+        C.log.error("all assemblers failed")

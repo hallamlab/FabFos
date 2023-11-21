@@ -2,7 +2,7 @@ import os, sys
 from pathlib import Path
 from ..models import ReadsManifest
 from ..utils import MODULE_ROOT
-from .common import Init, AggregateReads, Suffix
+from .common import Init, AggregateReads, ClearTemp, Suffix
 
 def Procedure(args):
     C = Init(args)
@@ -14,6 +14,9 @@ def Procedure(args):
         unzipped_name = r.name.replace(".gz", "")
         out_file = C.out_dir.joinpath("temp."+unzipped_name)
         if not r.name.endswith("gz"):
+            # caution: this seems useless but 
+            # filtering with trimmomatic step deletes input reads 
+            # when done to reduce disk usage by intermediate files
             os.system(f"ln -s {r} {out_file}")
         else:
             os.system(f"""\
@@ -53,5 +56,5 @@ def Procedure(args):
         single = [prep(p) for p in man.single]
 
     C.log.info(f"standardized {sum(len(x) for x in man.AllReads())} reads files")
-    AggregateReads(fwd, rev, single, C.out_dir).Save(C.output)
-    os.system(f"rm {C.out_dir}/temp*")
+    AggregateReads(fwd, rev, single, C.out_dir).Save(C.expected_output)
+    ClearTemp(C.out_dir)

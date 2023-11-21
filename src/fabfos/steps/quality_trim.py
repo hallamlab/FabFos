@@ -2,7 +2,7 @@ import os, sys
 from pathlib import Path
 import shutil
 from ..models import ReadsManifest
-from .common import Init, AggregateReads, Suffix
+from .common import ClearTemp, Init, AggregateReads, Suffix
 
 def Procedure(args):
     C = Init(args)
@@ -55,5 +55,6 @@ def Procedure(args):
         single += s
 
     C.log.info(f"trimmed {sum(len(x) for x in man.AllReads())} reads files")
-    AggregateReads(fwd, rev, single, C.out_dir).Save(C.output)
-    os.system(f"rm {C.out_dir}/temp*")
+    AggregateReads(fwd, rev, single, C.out_dir).Save(C.expected_output)
+    ClearTemp(C.out_dir)
+

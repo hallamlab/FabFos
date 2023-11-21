@@ -166,6 +166,7 @@ class EndSequences(Saveable):
 
         def _get(lst):
             for p in lst:
+                if not p.exists(): continue
                 for e in SeqIO.parse(p, "fasta"):
                     yield next(regex(id_regex, e.id)), (p, e)
         fids = list(_get(forwards))

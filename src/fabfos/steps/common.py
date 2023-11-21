@@ -9,8 +9,9 @@ from ..models import ReadsManifest
 @dataclass
 class Context:
     threads: int
+    expected_output: Path
     out_dir: Path
-    output: Path
+    root_workspace: Path
     log: logging.Logger
     log_file: Path
     args: list[str]
@@ -39,7 +40,15 @@ def Init(args, level=logging.INFO):
     log.info(f"-- START --")
     log.addHandler(logging.StreamHandler(sys.stderr))
     threads = int(threads)
-    return Context(threads, out_dir, output, log, log_file, args[N:])
+    return Context(
+        threads=threads,
+        expected_output=Path(output),
+        out_dir=out_dir,
+        root_workspace=out_dir.parent,
+        log=log,
+        log_file=log_file,
+        args=args[N:]
+    )
 
 def FileSafeStr(s: str):
     WL = "-_."
@@ -81,3 +90,7 @@ def AggregateReads(fwd, rev, single, out_dir):
             for r in files:
                 os.system(f"cat {r} >> {agg}")
     return ReadsManifest(**aggregates)
+
+def ClearTemp(folder: Path):
+    if any(f.startswith("temp") for f in os.listdir(folder)):
+        os.system(f"rm {folder}/temp*")

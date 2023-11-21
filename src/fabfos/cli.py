@@ -143,7 +143,7 @@ class CommandLineInterface:
         params_str = ' '.join(f"{k}={v}" for k, v in params.items())
         cmd = f"""\
             {link_log}
-            XDG_CACHE_HOME={output}
+            export XDG_CACHE_HOME={output}
             snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} {'--forceall' if args.overwrite else ''} \
                 {' '.join(smk_args)} \
                 {"-n" if args.mock else ""} \
