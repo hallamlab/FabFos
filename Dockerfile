@@ -20,9 +20,8 @@ ARG CONDA_ENV
 COPY --from=build-env /opt/conda/envs/${CONDA_ENV} /opt/conda/envs/${CONDA_ENV}
 ENV PATH /opt/conda/envs/${CONDA_ENV}/bin:$PATH
 
-COPY ./src/fabfos /app/fabfos_src
-RUN echo "python -m fabfos_src \$@" >/app/fabfos && chmod +x /app/fabfos
-ENV PATH /app:$PATH
+COPY ./src/fabfos /app/fabfos
+RUN echo "python -m fabfos \$@" >/usr/bin/fabfos && chmod +x /usr/bin/fabfos
 ENV PYTHONPATH /app:$PYTHONPATH
 
 # Singularity uses tini, but raises warnings

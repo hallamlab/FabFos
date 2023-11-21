@@ -11,8 +11,9 @@ THREADS = int(config["threads"])
 
 GIVEN_ENDSEQS = config["endseqs"]
 
+    # input: f"{EndMappedContigs.MANIFEST if GIVEN_ENDSEQS else LenFilteredContigs.MANIFEST}"
 rule all:
-    input: f"{EndMappedContigs.MANIFEST if GIVEN_ENDSEQS else LenFilteredContigs.MANIFEST}"
+    input: f"{RawContigs.MANIFEST}"
 
 rule standardize_reads:
     input: f"{ReadsManifest.ARG_FILE}"

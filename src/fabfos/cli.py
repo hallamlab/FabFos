@@ -106,7 +106,6 @@ class CommandLineInterface:
         output = Path(args.output).absolute()
         logs = output.joinpath("logs")
         if not output.exists(): os.makedirs(output)
-        elif args.overwrite: shutil.rmtree(output)
         if not logs.exists(): os.makedirs(logs)
         with open(output.joinpath("args.json"), "w") as j:
             json.dump(args.__dict__|dict(
@@ -144,7 +143,8 @@ class CommandLineInterface:
         params_str = ' '.join(f"{k}={v}" for k, v in params.items())
         cmd = f"""\
             {link_log}
-            snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} \
+            XDG_CACHE_HOME={output}
+            snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} {'--forceall' if args.overwrite else ''} \
                 {' '.join(smk_args)} \
                 {"-n" if args.mock else ""} \
                 --config {params_str} \
@@ -193,8 +193,8 @@ def main():
 
     COMMANDS.get(# calls command function with args
         sys.argv[1], 
-        cli.help # default
-    )(cli, sys.argv[2:])
+        CommandLineInterface.help # default
+    )(cli, sys.argv[2:]) # cli is instance of "self"
 
 if __name__ == "__main__":
     main()
