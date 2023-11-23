@@ -159,7 +159,9 @@ def Procedure(args):
         _df.columns = Hit.COLS
         for _, row in _df.iterrows():
             h = Hit(row, _ends, all_contigs)
-            if not h.percent_query_mapped < PIDENT_THRESH: continue
+            if h.percent_query_mapped < PIDENT_THRESH:
+                # print(h.qseqid, h.percent_query_mapped)
+                continue
             k = h.qseqid
             _hits[k] = _hits.get(k, [])+[h]
             num_hits += 1
@@ -188,9 +190,9 @@ def Procedure(args):
     class QUALITY(float, Enum):
         FULL_MATCH = 1
         FULL_SCAFFOLD = 0.99
-        GAPPED_SCAFFOLD = 0.98
-        FORWARD_END_ONLY = 0.7
-        REVERSE_END_ONLY = 0.7
+        GAPPED_SCAFFOLD = 0.7
+        FORWARD_END_ONLY = 0.5
+        REVERSE_END_ONLY = 0.5
         NO_HITS = 0
 
     C.log.info(f"mapping [{num_hits}] hits ")
@@ -320,7 +322,7 @@ def Procedure(args):
             fwd_insert, fwd_contig = fwd_id.Split()
             rev_insert, rev_contig = rev_id.Split()
             if fwd_insert != rev_insert: continue
-            if not h.length < MIN_SCAFFOLD_OVERLAP: continue
+            if h.length < MIN_SCAFFOLD_OVERLAP: continue
             scaffolding_hits[fwd_insert] = scaffolding_hits.get(fwd_insert, [])+[(h, fwd_contig, rev_contig)]
     except pd.errors.EmptyDataError:
         pass
@@ -335,7 +337,7 @@ def Procedure(args):
             meta = s.meta if s.meta is not None else {}
             _candidates.append(
                 Sequence(insert_id, s.seq, dict(
-                    assembler=f"{_get_assembler(meta.get('f'))},{_get_assembler(meta.get('r'))}",
+                    assembler=f"{_get_assembler(meta.get('f'))};{_get_assembler(meta.get('r'))}",
                     quality = QUALITY.FULL_SCAFFOLD,
                 ))
             )
@@ -344,7 +346,7 @@ def Procedure(args):
         lf, lr = (_longest(Sequence(cid, h.AlignSubjectToQuery()) for cid, h in hits.items()) for hits in [fhits, rhits])
         _candidates.append(
             Sequence(insert_id, lf.seq+"-"+lr.seq[::-1], dict(
-                assembler=f"{_get_assembler(lf.id)},{_get_assembler(lr.id)}",
+                assembler=f"{_get_assembler(lf.id)};{_get_assembler(lr.id)}",
                 quality = QUALITY.GAPPED_SCAFFOLD,
             ))
         )
@@ -358,12 +360,13 @@ def Procedure(args):
     C.log.info(f"mapped [{num_hits}] of [{len(end_seqs.insert_ids)}] paired ends")
     
     num_full_hits = 0
-    mapped_file_path = C.root_workspace.joinpath("contigs.fna")
+    mapped_file_path = C.root_workspace.joinpath("scaffolds.fna")
     report_file = C.root_workspace.joinpath("mapping_report.csv")
     full_report_file = C.out_dir.joinpath("full_mapping_report.csv")
     _rows, _full_rows = [], []
     with open(mapped_file_path, "w") as f:
-        for insert_id, _candidates in mapped_contigs.items():
+        _mapped = [(k, v) for k, v in mapped_contigs.items()]
+        for insert_id, _candidates in sorted(_mapped, key=lambda t: t[0]):
             if len(_candidates) == 0:
                 row = (insert_id, QUALITY.NO_HITS.name.lower(), False, 0, None)
                 _rows.append(row); _full_rows.append(row)
@@ -376,18 +379,18 @@ def Procedure(args):
             _scored_candidates: list[tuple[float, Sequence, tuple, QUALITY, str]] = []
             for _s in _candidates:
                 quality, assembler = _get_meta(_s)
-                fully_resolved = (quality == QUALITY.FULL_MATCH) or (quality == QUALITY.FULL_SCAFFOLD)
-                row = (insert_id, quality.name.lower(), fully_resolved, len(_s.seq), assembler)
+                paired = (quality == QUALITY.FULL_MATCH) or (quality == QUALITY.FULL_SCAFFOLD) or (quality == QUALITY.GAPPED_SCAFFOLD)
+                row = (insert_id, quality.name.lower(), paired, len(_s.seq), assembler)
                 _full_rows.append(row)
                 _scored_candidates.append((quality.value*len(_s.seq), _s, row, quality, assembler))
             _, best_seq, best_row, quality, assembler = sorted(_scored_candidates, key=lambda t: t[0], reverse=True)[0]
             _rows.append(best_row)
             if quality == QUALITY.FULL_MATCH: num_full_hits+=1
-            f.write(f">{insert_id} {quality} length={len(best_seq.seq)} {assembler}"+"\n")
+            f.write(f">{insert_id} {quality.name.lower()} length={len(best_seq.seq)} {assembler.replace(';', ',')}"+"\n")
             f.write(best_seq.seq); f.write("\n")
     C.log.info(f"[{num_full_hits}] were considered a [{QUALITY.FULL_MATCH.name.lower()}]")
 
-    _cols = "id, mapping_quality, fully_resolved, resolved_length, assembler".split(", ")
+    _cols = "id, mapping_quality, paired, resolved_length, assemblers".split(", ")
     report = pd.DataFrame(_rows, columns=_cols)
     report.to_csv(report_file, index=False)
     pd.DataFrame(_full_rows, columns=_cols).to_csv(full_report_file, index=False)

@@ -16,12 +16,6 @@ def Procedure(args):
     assemblers = AssemblerModes.Load(asm_mode_save).modes
     if _MOCK: C.log.warn("debug mock is active, no assemblers will actually run")
 
-    def _die(*args):
-        print("asdf")
-        os._exit(0)
-    signal.signal(signal.SIGINT, _die)
-    signal.signal(signal.SIGTERM, _die)
-
     def _stringify(lst):
         return ','.join(str(p) for p in lst)
     fwds, revs, singles = [_stringify(l) for l in [reads.forward, reads.reverse, reads.single]]
@@ -75,7 +69,7 @@ def Procedure(args):
             continue
         raw_contigs[assembler_mode] = contigs
 
-    if len(raw_contigs)>0:
+    if _MOCK or len(raw_contigs)>0:
         RawContigs(raw_contigs).Save(C.expected_output)
     else:
         C.log.error("all assemblers failed")
