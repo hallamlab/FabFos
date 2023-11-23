@@ -144,7 +144,8 @@ class CommandLineInterface:
         cmd = f"""\
             {link_log}
             export XDG_CACHE_HOME={output}
-            snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} {'--forceall' if args.overwrite else ''} \
+            snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} --rerun-incomplete \
+                {'--forceall' if args.overwrite else ''} \
                 {' '.join(smk_args)} \
                 {"-n" if args.mock else ""} \
                 --config {params_str} \

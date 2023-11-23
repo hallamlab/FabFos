@@ -4,6 +4,7 @@ from typing import Any, Iterable
 from pathlib import Path
 from typing import Callable
 from Bio import SeqIO
+from attr import dataclass
 import pandas as pd
 from ..models import EndMappedContigs, RawContigs, EndSequences
 from .common import Init
@@ -23,43 +24,61 @@ class Hit:
         self.qseqid = qseqid
         self.sseqid = sseqid
         self.length = length
-        self.percent_query_identity = nident/qlen*100
+        self.percent_query_mapped = nident/qlen*100
 
         # to zero index
         qlen, slen, qstart, qend, sstart, send = [x-1 for x in [qlen, slen, qstart, qend, sstart, send]]
         
+        # precalculate truncation
+        if qstart > qend or sstart > send: # one flipped
+            s, e = send+qstart-qlen, 0
+            s = max(s, e)
+        else:
+            s, e = sstart-qstart+qlen, slen
+            s = min(s, e)
+        self._subject_trunc_loc = s, e
+
+        # precalculate union
+        if qstart > qend or sstart > send: # one flipped
+            qa1, qb1, sa1, sb1 = 0, qend, sstart, 0
+            qa2, qb2, sa2, sb2 = qlen, qstart, send, slen
+        else:
+            qa1, qb1, sa1, sb1 = 0, qend, send, slen
+            qa2, qb2, sa2, sb2 = qlen, qstart, sstart, 0
+        l1 = abs((qa1-qb1)+(sa1-sb1))
+        l2 = abs((qa2-qb2)+(sa2-sb2))
+        self._union_loc = (qa1, qb1, sa1, sb1) if l1>l2 else (qa2, qb2, sa2, sb2)
+
         self.query = query_seqs[qseqid]
         self.subject = subject_seqs[sseqid]
-        # assert qstart < qend
-        # if sstart<send:
-        #     s, e = sstart-qstart, slen  # --->
-        # else: # contig flipped
-        #     s, e = 0, send+qstart       # <---
-        # self.loc = s, e # in contig coordinates
-        # self.is_left_to_right = not contig_flipped
 
-    def _union(self):
-        pass
-
-    def Union(self, other_hits: Hit|Iterable[Hit]|None=None):
-        if other_hits is None: other_hits = [] 
-        elif isinstance(other_hits, Hit): other_hits = [other_hits]
-        
-    # check if hits are in opposite directions and facing each other
-    def IsComplimentary(self, other: Hit):
-        if self.is_left_to_right == (not other.is_left_to_right): return False # same direction
-        s, e = self.Merge(other)
-        if e < s: return False # not facing, <--- ---> instead of ---> -- <---
-        return True
-    
-    def Merge(self, other: Hit|Iterable[Hit]):
-        ss, se = self.loc
-        if isinstance(other, Hit):
-            os, oe = other.loc
+    def _cut(self, seq: str, start: int, end: int):
+        if start > end:
+            return seq[start+1:end+1:-1]
         else:
-            os = max(o.loc[0] for o in other)
-            oe = min(o.loc[1] for o in other)
-        return max(ss, os), min(se, oe)
+            return seq[start:end]
+
+    def SequenceFromPairedHit(self, other: Hit):
+        # orienting self as forward end hit
+        fs, fe = self._subject_trunc_loc
+        rs, re = other._subject_trunc_loc
+        if (fs > fe) == (rs > re): # both hit are in the same direction
+            return ""
+        s, e = fs, rs # whoever is flipped, this should be the inner coords of the 4
+        return self.query.seq+self._cut(self.subject.seq, s, e)+other.query.seq[::-1]
+
+    def AlignSubjectToQuery(self):
+        s, e = self._subject_trunc_loc
+        if s == e:
+            return self.query.seq
+        else:
+            return self.query.seq+self._cut(self.subject.seq, s, e)
+
+    def Union(self):
+        qa, qb, sa, sb = self._union_loc
+        qseq = self._cut(self.query.seq, qa, qb)
+        sseq = self._cut(self.subject.seq, sa, sb)
+        return qseq+sseq
         
 def Procedure(args):
     C = Init(args)
@@ -87,13 +106,15 @@ def Procedure(args):
                 all_contigs[k] = Sequence(k, seq, dict(assembler=asm))
                 i += 1
 
-    all_ends: dict[str, tuple[Sequence, Sequence]] = {} # assumes all ends are paired
-    _rev_ends = {}
-    for e in SeqIO.parse(end_seqs.reverse, "fasta"):
-        _rev_ends[e.id] = str(e.seq)
-    for e in SeqIO.parse(end_seqs.forward, "fasta"):
-        k = e.id
-        all_ends[k] = Sequence(k, str(e.seq)), Sequence(k, _rev_ends[k])
+    fwd_ends: dict[str, Sequence] = {}
+    rev_ends: dict[str, Sequence] = {}
+    for f, d in [
+        (end_seqs.forward, fwd_ends),
+        (end_seqs.reverse, rev_ends),
+    ]:
+        for e in SeqIO.parse(f, "fasta"):
+            k = str(e.id)
+            d[k] = Sequence(k, str(e.seq))
 
     ######################################
     # blast ends against contigs
@@ -114,15 +135,15 @@ def Procedure(args):
     # blast fwd and rev ends against contigs
     fwd_hits: dict[str, list[Hit]] = {}
     rev_hits: dict[str, list[Hit]] = {}
-    for _name, _query_path, _hits in [
-        ("hits_forward", end_seqs.forward, fwd_hits),
-        ("hits_reverse", end_seqs.reverse, rev_hits),
+    for _name, _query_path, _hits, _ends in [
+        ("hits_forward", end_seqs.forward, fwd_hits, fwd_ends),
+        ("hits_reverse", end_seqs.reverse, rev_hits, rev_ends),
     ]:
         o = C.out_dir.joinpath(f"{_name}.tsv")
         os.system(f"""\
         echo "# {_name}" >>{blast_log}
         blastn \
-            -perc_identity {Hit.PIDENT_THRESH} \
+            -perc_identity {PIDENT_THRESH} \
             -num_threads {C.threads} \
             -query {_query_path} \
             -db {_blastdb} \
@@ -132,32 +153,37 @@ def Procedure(args):
         _df = pd.read_csv(o, sep="\t", header=None)
         _df.columns = Hit.COLS
         for _, row in _df.iterrows():
-            h = Hit(row)
-            if not h.valid: continue
-            _hits[h.insert_id] = _hits.get(h.insert_id, [])+[h]
+            h = Hit(row, _ends, all_contigs)
+            if not h.percent_query_mapped < PIDENT_THRESH: continue
+            k = h.qseqid
+            _hits[k] = _hits.get(k, [])+[h]
     
     ######################################
     # parse blast hits
     # defer scaffolding until later
 
     # helpers for next phase
-    def _longest(contig_ids: Iterable[Sequence]):
-        first = next(iter(contig_ids))
-        longest, l = first, len(first.seq)
-        for con in contig_ids:
-            if len(con.seq) > l: longest, l = con, len(con.seq)
+    def _longest(sequences: Iterable[Sequence]):
+        first = next(iter(sequences))
+        def _get(x: Sequence):
+            return x.seq
+        longest, l = first, len(_get(first))
+        for con in sequences:
+            if len(_get(con)) > l: longest, l = con, len(_get(con))
         return longest
     
-    def _get_assembler(cid: str):
+    def _get_assembler(cid: str|None):
+        UNK = "unk_assembler"
+        if cid is None: return UNK
         meta = all_contigs[cid].meta
-        UNK = "unk assembler"
         return meta.get("assembler", UNK) if meta is not None else UNK
 
-    mapped_contigs = []
+    mapped_contigs: list[Sequence] = []
+    no_hits = []
     _to_scaffold: list[tuple[str, dict[str, Hit], dict[str, Hit]]] = []
     for i, insert_id in enumerate(end_seqs.insert_ids):
-        _dictify: Callable[[Any], dict[str, Hit]] = lambda hit_list: {h.contig_id:h for h in hit_list}
-        fhits, rhits = _dictify(fwd_hits[insert_id]), _dictify(rev_hits[insert_id])
+        _dictify: Callable[[dict[str, list[Hit]]], dict[str, Hit]] = lambda hit_dict: {h.sseqid:h for h in hit_dict.get(insert_id, [])}
+        fhits, rhits = _dictify(fwd_hits), _dictify(rev_hits)
 
         # full contig match
         paired_hits = fhits.keys()&rhits.keys()
@@ -165,16 +191,8 @@ def Procedure(args):
             def _get_contigs():
                 for cid in paired_hits:
                     fwd, rev = fhits[cid], rhits[cid]
-                    insert_id = fwd.insert_id
-                    if not fwd.IsComplimentary(rev): continue
-                    s, e = fwd.Merge(rev)
-                    f, r = all_ends[insert_id]
-                    s, e = s+len(f.seq), e-len(r.seq)
-                    # merge ends and contig, chopping off where necessary
-                    if s < e:
-                        seq = f.seq+all_contigs[cid].seq[s:e]+r.seq[::-1]
-                    else:
-                        seq= f.seq+r.seq[::-1][e-s:]
+                    seq = fwd.SequenceFromPairedHit(rev)
+                    if len(seq)<MIN_LEN: continue
                     yield Sequence(insert_id, seq, dict(
                         assembler=_get_assembler(cid),
                         quality = "full_match",
@@ -187,57 +205,78 @@ def Procedure(args):
 
         # fwd hits only
         elif len(fhits)>0:
-            def _get_fcontigs():
-                for cid, hit in fhits.items():
-                    s, e = hit.loc
-                    end, _ = all_ends[hit.insert_id]
-                    s += len(end.seq)
-                    seq = end.seq+all_contigs[cid].seq[s:e]
-                    yield Sequence(hit.insert_id, seq, dict(
-                        assembler=_get_assembler(cid),
-                        quality = "forward_end_only",
-                    ))
-            mapped_contigs.append(_longest(_get_fcontigs()))
+            mapped_contigs.append(_longest(
+                Sequence(insert_id, hit.AlignSubjectToQuery(), dict(
+                    assembler=_get_assembler(cid),
+                    quality = "forward_end_only",
+                )) for cid, hit in fhits.items() # this is a generator
+            ))
 
         # rev hits only
         elif len(rhits)>0:
-            def _get_rcontigs():
-                for cid, hit in rhits.items():
-                    s, e = hit.loc
-                    _, end = all_ends[hit.insert_id]
-                    e -= len(end.seq)
-                    seq = all_contigs[cid].seq[s:e]+end.seq[::-1]
-                    yield Sequence(hit.insert_id, seq, dict(
-                        assembler=_get_assembler(cid),
-                        quality = "reverse_end_only",
-                    ))
-            mapped_contigs.append(_longest(_get_rcontigs()))
+            mapped_contigs.append(_longest(
+                Sequence(insert_id, hit.AlignSubjectToQuery(), dict(
+                    assembler=_get_assembler(cid),
+                    quality = "reverse_end_only",
+                )) for cid, hit in rhits.items() # this is a generator
+            ))
+
+        else:
+            no_hits.append(insert_id)
 
     ######################################
-    # blast fwd end hit contigs against
-    # rev end hit contigs and scaffold
+    # blast contigs that mapped to fwd ends
+    # against those that mapped to rev ends
 
-    SEP, MIN_SCAFFOLD_OVERLAP = "__", 200
+    MIN_SCAFFOLD_OVERLAP = 150
+
+    @dataclass
+    class ScaffoldID:
+        insert_id: str
+        contig_id: str
+
+        SEP = "__"
+
+        @classmethod
+        def Parse(cls, id: str):
+            toks = id.split(cls.SEP)
+            if len(toks) != 2:
+                C.log.error(f"failed to parse scaffolding id {id}")
+                return
+            return ScaffoldID(*toks)
+
+        def Aggregate(self):
+            return f"{self.insert_id}{self.SEP}{self.contig_id}"
+        
+        def Split(self):
+            return self.insert_id, self.contig_id
+
+    # orient contigs to the end seq and aggregate to files
+    fwd_ends_for_scaffold = open(C.out_dir.joinpath("scaffolding_fwds.fa"), "w")
+    rev_ends_for_scaffold = open(C.out_dir.joinpath("scaffolding_revs.fa"), "w")
+    fwd_scaffold_ends: dict[str, Sequence] = {}
+    rev_scaffold_ends: dict[str, Sequence] = {}
+    for insert_id, fhits, rhits in _to_scaffold:
+        def _w(seq, k, file):
+            file.write(f">{k}"+"\n")
+            file.write(seq);file.write("\n")
+        fwd_list = [(True, hit, fwd_ends_for_scaffold, fwd_scaffold_ends) for hit in fhits.values()]
+        rev_list = [(False, hit, rev_ends_for_scaffold, rev_scaffold_ends) for hit in rhits.values()]
+        for is_fwd, hit, file, d in  fwd_list+rev_list:
+            cid = hit.sseqid
+            con = all_contigs[cid]
+            k = ScaffoldID(insert_id, cid).Aggregate()
+            meta = dict(is_fwd=is_fwd)
+            if con.meta is not None: meta |= con.meta
+            seq_obj = Sequence(k, hit.AlignSubjectToQuery(), meta)
+            _w(seq_obj.seq, k, file)
+            d[k] = seq_obj
+    fwd_ends_for_scaffold.close()
+    rev_ends_for_scaffold.close()
 
     # make reverse end blastdb for scaffolding
-    fwd_ends_for_scaffold = open(C.out_dir.joinpath("fwd_ends_for_scaffold.fa"), "w")
-    rev_ends_for_scaffold = open(C.out_dir.joinpath("rev_ends_for_scaffold.fa"), "w")
-    for insert_id, fhits, rhits in _to_scaffold:
-        def _w(seq, cid, file):
-            file.write(f">{insert_id}{SEP}{cid}"+"\n")
-            file.write(seq);file.write("\n")
-        fend, rend = all_ends[insert_id]
-        fwd_list = [(fend, all_contigs[hit.contig_id], True, hit, fwd_ends_for_scaffold) for hit in fhits.values()]
-        rev_list = [(rend, all_contigs[hit.contig_id], False, hit, rev_ends_for_scaffold) for hit in rhits.values()]
-        for end, con, is_fwd, hit, file in  fwd_list+rev_list:
-            s, e = hit.loc
-            if is_fwd:
-                seq = 
-            _w(seq, should_flip, file)
-    fwd_ends_for_scaffold.close(); rev_ends_for_scaffold.close()
-
-    _blastdb = db_folder.joinpath("rev_end_for_scaffold")
-    _scaffold_blast_results = C.out_dir.joinpath(f"scaffold_blast_results.tsv")
+    _blastdb = db_folder.joinpath("scaffolding_revs")
+    _scaffold_blast_results = C.out_dir.joinpath(f"scaffolding_blast_results.tsv")
     _cols = "qseqid, sseqid, length, qlen, slen, qstart, qend, sstart, send".split(", ")
     os.system(f"""\
     echo "# scaffold makeblastdb" >>{blast_log}
@@ -247,155 +286,72 @@ def Procedure(args):
         -out {_blastdb} >>{blast_log} 2>&1
     echo "# scaffold" >>{blast_log}
     blastn \
-        -perc_identity {Hit.PIDENT_THRESH} \
+        -perc_identity {PIDENT_THRESH} \
         -num_threads {C.threads} \
         -query {fwd_ends_for_scaffold.name} \
         -db {_blastdb} \
         -outfmt "6 {' '.join(_cols)}" \
         -out {_scaffold_blast_results} >>{blast_log} 2>&1
     """)
-    _df = pd.read_csv(_scaffold_blast_results, sep="\t", header=None)
-    _df.columns = _cols
-
-    # get viable scaffolds if contigs overlap
-    scaffolding_hits: dict[str, list[Sequence]] = {}
-    for _, row in _df.iterrows():
-        qseqid, sseqid, length, qlen, slen, qstart, qend, sstart, send = row
-        if length < MIN_SCAFFOLD_OVERLAP: continue
-        fwd_insert, fwd_contig, fflipped = qseqid.split(SEP)
-        rev_insert, rev_contig, rflipped = sseqid.split(SEP)
-        if fwd_insert != rev_insert: continue
-        insert_id = fwd_insert
-        fflipped, rflipped = fflipped=="True", rflipped=="True"
-        fwd_l2r = (qstart<qend) != fflipped
-        rev_l2r = (sstart<send) != rflipped
-        if fwd_l2r != rev_l2r: continue # directionality based on ends should match
-
-        def _get_seq(id, s, e, is_left):
-            seq = all_contigs[id].seq
-            if e<s:
-
-            
-
-        fwd_seq = all_contigs[fwd_contig].seq
-        rev_seq = all_contigs[rev_contig].seq
-
+    scaffolding_hits: dict[str, list[tuple[Hit, str, str]]] = {}
+    try:
+        _df = pd.read_csv(_scaffold_blast_results, sep="\t", header=None)
+        _df.columns = _cols
+        for _, row in _df.iterrows():
+            h = Hit(row, fwd_scaffold_ends, rev_scaffold_ends)
+            fwd_id, rev_id = [ScaffoldID.Parse(k) for k in [h.qseqid, h.sseqid]]
+            if fwd_id is None or rev_id is None: continue
+            fwd_insert, fwd_contig = fwd_id.Split()
+            rev_insert, rev_contig = rev_id.Split()
+            if fwd_insert != rev_insert: continue
+            if not h.length < MIN_SCAFFOLD_OVERLAP: continue
+            scaffolding_hits[fwd_insert] = scaffolding_hits.get(fwd_insert, [])+[(h, fwd_contig, rev_contig)]
+    except pd.errors.EmptyDataError:
+        pass
         
+    # get longest scaffolds by joining overlaps if found
+    # or concatenation with "-" otherwise
+    for insert_id, fhits, rhits in _to_scaffold:
+        if insert_id in scaffolding_hits:
+            s = _longest(Sequence("temp", hit.Union(), dict(f=f, r=r)) for hit, f, r in scaffolding_hits[insert_id])
+            meta = s.meta if s.meta is not None else {}
+            mapped_contigs.append(
+                Sequence(insert_id, s.seq, dict(
+                    assembler=f"{_get_assembler(meta.get('f'))},{_get_assembler(meta.get('r'))}",
+                    quality = "full_scaffold",
+                ))
+            )
+        else:
+            lf, lr = (_longest(Sequence(cid, h.AlignSubjectToQuery()) for cid, h in hits.items()) for hits in [fhits, rhits])
+            mapped_contigs.append(
+                Sequence(insert_id, lf.seq+"-"+lr.seq[::-1], dict(
+                    assembler=f"{_get_assembler(lf.id)},{_get_assembler(lr.id)}",
+                    quality = "gapped_scaffold",
+                ))
+            )
 
-    # ######################################
-    # # get contigs/scaffolds
+    ######################################
+    # write resolved contigs and report stats
 
-    # def _iterate_contigs(contigs, reverse_contigs):
-    #     for contig_id in contigs:
-    #         yield contig_id, all_contigs[contig_id]
-    #     for contig_id in reverse_contigs:
-    #         yield contig_id, all_contigs[contig_id][::-1] # reverses string, flips contig back
-    # def _longest(contigs, reverse_contigs):
-    #     lid, longest, l = "", "", 0
-    #     for cid, seq in _iterate_contigs(contigs, reverse_contigs):
-    #         if len(seq) > l: lid, longest, l = cid, seq, len(seq)
-    #     return lid, longest
+    num_hits = len(mapped_contigs)
+    _get_quality = lambda s: "" if s.meta is None else s.meta.get("quality")
+    num_full_hits = len([s for s in mapped_contigs if _get_quality(s) == "full_match"])
+    C.log.info(f"found {num_hits} of {len(end_seqs.insert_ids)}, {num_full_hits} were full matches")
     
-    # def _get_asm(contig_id):
-    #     return  "_".join(contig_id.split("_")[1:])
+    mapped_file_path = Path("./contigs.fna")
+    report_file = Path("./mapping_report.csv")
+    _rows = []
+    with open(mapped_file_path, "w") as f:
+        for s in mapped_contigs:
+            meta = s.meta if s.meta is not None else {}
+            quality, assembler  = meta.get("quality"), meta.get("assembler")
+            fully_resolved = quality == "full_scaffold" or quality == "full_match"
+            _rows.append((s.id, quality, fully_resolved, len(s.seq), assembler))
+            f.write(f">{s.id} {quality} length={len(s.seq)} {assembler}"+"\n")
+            f.write(s.seq); f.write("\n")
+    for insert_id in no_hits:
+        _rows.append((insert_id, "no_hits", False, 0, None))
+    report = pd.DataFrame(_rows, columns="id, mapping_quality, fully_resolved, resolved_length, assembler".split(", "))
+    report.to_csv(report_file, index=False)
 
-    # mapped_file = open("./mapped_contigs.fa", "w")
-    # def _wmapped(id, seq):
-    #     mapped_file.write(f">{id}"+"\n")
-    #     mapped_file.write(seq); mapped_file.write("\n")
-
-    # fwd_scaf_file = open(C.out_dir.joinpath("scaffolding_fwd_ends.fa"), "w")
-    # rev_scaf_file = open(C.out_dir.joinpath("scaffolding_rev_ends.fa"), "w")
-    # scaffolds_to_check = []
-    # def _wscaffold_check(id, fwd_front, fwd_back, rev_back, rev_front):
-    #     def _w(cid, seq, f):
-    #         f.write(f">{cid}"+"\n")
-    #         f.write(seq); f.write("\n")
-    #     for cid, seq in _iterate_contigs(fwd_front, fwd_back): _w(cid, seq, fwd_scaf_file)
-    #     for cid, seq in _iterate_contigs(rev_back, rev_front): _w(cid, seq, rev_scaf_file)
-
-    #     scaffolds_to_check.append((id, fwd_front, fwd_back, rev_back, rev_front))
-
-    # stats = []
-    # # parse mappings
-    # for i, id in enumerate(end_ids):
-    #     fwd_front, fwd_back = fhits.get(id, (set(), set()))
-    #     rev_front, rev_back = rhits.get(id, (set(), set()))
-    #     matches = fwd_front&rev_back
-    #     matches_contig_flipped = (rev_front&fwd_back) - matches # subtract matches just to be safe
-    #     has_fwd_hits = len(fwd_front)+len(fwd_back) > 0
-    #     has_rev_hits = len(rev_front)+len(rev_back) > 0
-
-    #     if len(matches)+len(matches_contig_flipped) > 0:
-    #         cid, longest = _longest(matches, matches_contig_flipped)
-    #         quality, l, a = "full_match", len(longest), _get_asm(cid)
-    #         _wmapped(f"{id} {quality} {a} length={l}", longest)
-            
-    #     elif has_fwd_hits and has_rev_hits:
-    #         # defer to later
-    #         _wscaffold_check(id, fwd_front, fwd_back, rev_back, rev_front)
-    #         continue
-
-    #     elif has_fwd_hits:
-    #         cid, longest = _longest(fwd_front, fwd_back)
-    #         quality, l, a = "forward_end_only", len(longest), _get_asm(cid)
-    #         _wmapped(f"{id} {quality} {a} length>{l}", longest)
-
-    #     elif has_rev_hits:
-    #         cid, longest = _longest(rev_back, rev_front)
-    #         quality, l, a = "reverse_end_only", len(longest), _get_asm(cid)
-    #         _wmapped(f"{id} {quality} {a} length>{l}", longest)
-    #     else:
-    #         quality, l, a = "no_hits", None, None
-
-    #     stats.append((id, quality, a, l))
-
-    # # find overlaps for scaffold or join with gap
-    # _db = db_folder.joinpath("rev_end_hits")
-    # _sca_hit_path = C.out_dir.joinpath("scaffolding_hits.tsv")
-    # _cols = "qseqid sseqid nident qlen slen qstart qend sstart send".split(" ")
-    # os.system(f"""\
-    # echo "# scaffolding" >>{blast_log}
-    # makeblastdb \
-    #     -dbtype nucl \
-    #     -in {rev_scaf_file.name} \
-    #     -out {_db} >>{blast_log} 2>&1
-    # blastn \
-    #     -perc_identity 70 \
-    #     -num_threads {C.threads} \
-    #     -query {fwd_scaf_file.name} \
-    #     -db {_db} \
-    #     -outfmt "6 {' '.join(_cols)}" \
-    #     -out {_sca_hit_path} >>{blast_log} 2>&1
-    # """)
-    # _df = pd.read_csv(_sca_hit_path, sep="\t", header=None)
-    # _df.columns = _cols
-    # _probable_rows = []
-    # for i, row in _df.iterrows():
-    #     qseqid, sseqid, nident, qlen, slen, qstart, qend, sstart, send = row
-    #     # we expect the hit to be near the back of the query (fwd)
-    #     # and near the front of the subject (rev)
-    #     fwd_back = (qstart+qend)/2 > qlen/2
-    #     rev_front = (sstart+send)/2 < slen/2
-    #     if not fwd_back or not rev_front: continue
-    #     # and that both hits are in the same direction
-    #     fwd_flipped = qstart>qend
-    #     rev_flipped = sstart>send
-    #     if (not fwd_flipped and not rev_flipped) or (fwd_flipped and rev_flipped): continue
-        
-    #     _probable_rows.append(i)
-    # _df = _df.iloc[_probable_rows]
-    # _df.to_csv(_sca_hit_path, sep="\t", index=False)
-        
-    # for id, fwd_front, fwd_back, rev_back, rev_front in scaffolds_to_check:
-    #     fwds = fwd_front|fwd_back
-    #     revs = rev_front|rev_back
-
-    # num_hits = len([i for i, q, a, l in stats if q != 'no_hits'])
-    # num_full_hits = len([i for i, q, a, l in stats if q == 'full_match'])
-    # C.log.info(f"found {num_hits} of {len(end_ids)}, {num_full_hits} were full matches")
-    # report_file = Path("./endmapping_report.csv")
-    # report = pd.DataFrame(stats, columns="id, mapping_quality, assembler, resolved_length".split(", "))
-    # report.to_csv(report_file, index=False)
-
-    # EndMappedContigs(mapped_file, report_file).Save(C.output)
+    EndMappedContigs(mapped_file_path, report_file).Save(C.expected_output)

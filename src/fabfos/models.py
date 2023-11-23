@@ -133,7 +133,7 @@ class EndSequences(Saveable):
     given: bool
     forward: Path|None
     reverse: Path|None
-    insert_ids: list[str]
+    insert_ids: list[str] # as in fosmid inserts
 
     ARG_FILE = Path("temp_contigs/endseqs.json")
     SKIP = "SKIP"

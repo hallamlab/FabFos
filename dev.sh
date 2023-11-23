@@ -138,18 +138,19 @@ case $1 in
             # -a spades_meta \
             # --endf ../data/beaver/endseq_CEC_FW.fa \
             # --endr ../data/beaver/endseq_CEC_RE.fa \
-            # -a megahit spades_isolate \
             # -s ./inputs/ss01.fastq \
             # -i ../data/beaver/Beaver_colon/2nd_hits/EKL/Raw_Data/EKL_Colon_ligninases_pool_secondary_hits.fastq ../data/beaver/Beaver_colon/2nd_hits/EOL/Raw_Data/EOL_Colon_ligninases_pool_secondary_hits.fastq \
+            # -i ../data/beaver/Beaver_colon/2nd_hits/EKL/Raw_Data/EKL_Colon_ligninases_pool_secondary_hits.fastq \
+            # -a megahit \
+            # --overwrite \
         python -m $NAME run -t 12 \
-            -a megahit \
-            --overwrite \
+            -a megahit spades_isolate \
             -i ./inputs/ss01.fastq.gz \
             -b ./ecoli_k12_mg1655.fasta \
             --endf ../data/beaver/endseq_COL_FW.fa \
             --endr ../data/beaver/endseq_COL_RE.fa \
             --end_regex "\w+_\d+" \
-            -o ./test02
+            -o ./test01
     ;;
 
     -td) # test docker
