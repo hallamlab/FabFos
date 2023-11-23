@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Callable
 from Bio import SeqIO
 import pandas as pd
-from ..models import EndMappedContigs, RawContigs, EndSequences
+from ..models import Scaffolds, RawContigs, EndSequences
 from .common import Init
 
 class Sequence:
@@ -395,4 +395,4 @@ def Procedure(args):
     report.to_csv(report_file, index=False)
     pd.DataFrame(_full_rows, columns=_cols).to_csv(full_report_file, index=False)
 
-    EndMappedContigs(mapped_file_path, report_file).Save(C.expected_output)
+    Scaffolds(mapped_file_path, report_file).Save(C.expected_output)

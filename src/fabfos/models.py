@@ -222,7 +222,7 @@ class RawContigs(Saveable):
             return cls({k: Path(v) for k, v in _contigs.items()})
 
 @dataclass
-class EndMappedContigs(Saveable):
+class Scaffolds(Saveable):
     fasta: Path
     report: Path
 

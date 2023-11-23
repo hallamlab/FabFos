@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from fabfos.models import ReadsManifest, BackgroundGenome, AssemblerModes, EndSequences
-from fabfos.models import RawContigs, EndMappedContigs, LenFilteredContigs
+from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs
 
 # the actual commands to call each tool are found in src/fabfos/steps/*.py
 
@@ -13,7 +13,7 @@ GIVEN_ENDSEQS = config["endseqs"]
 
     # input: f"{RawContigs.MANIFEST}"
 rule all:
-    input: f"{EndMappedContigs.MANIFEST if GIVEN_ENDSEQS else LenFilteredContigs.MANIFEST}"
+    input: f"{Scaffolds.MANIFEST if GIVEN_ENDSEQS else LenFilteredContigs.MANIFEST}"
 
 rule standardize_reads:
     input: f"{ReadsManifest.ARG_FILE}"
@@ -69,21 +69,21 @@ rule assembly:
 
 # ---------------------------------
 # conditional branching by requesting either
-# EndMappedContigs or LenFilteredContigs
+# Scaffolds or LenFilteredContigs
 
 # if given end seqs
-rule select_contigs:
+rule scaffold:
     input:
         f"{RawContigs.MANIFEST}",
         f"{EndSequences.ARG_FILE}"
-    output: f"{EndMappedContigs.MANIFEST}"
+    output: f"{Scaffolds.MANIFEST}"
     params:
         src=SRC,
     threads: THREADS
     shell:
         """\
         PYTHONPATH={params.src}:$PYTHONPATH
-        python -m fabfos api --step select_contigs --args {threads} {output} {input}
+        python -m fabfos api --step scaffold --args {threads} {output} {input}
         """
 
 # else
