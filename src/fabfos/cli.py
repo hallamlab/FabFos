@@ -27,7 +27,7 @@ import multiprocessing
 import shutil
 import importlib
 
-from .models import AssemblerModes, BackgroundGenome, EndSequences, ReadsManifest
+from .models import Assembly, BackgroundGenome, EndSequences, ReadsManifest
 from .utils import NAME, VERSION, ENTRY_POINTS, MODULE_ROOT
 
 CLI_ENTRY = ENTRY_POINTS[0]
@@ -77,8 +77,8 @@ class CommandLineInterface:
             help="regex for getting ID of end seq., default: \"%s\", ex. \"\\w+_\\d+\" would get ABC_123 from ABC_123_FW" % EndSequences.DEFAULT_REGEX)
 
         # "options" group
-        parser.add_argument("-a", "--assemblers", nargs='*', required=False, default=AssemblerModes.CHOICES[:2],
-            help=f"assemblers to use, pick any combination of {AssemblerModes.CHOICES}")
+        parser.add_argument("-a", "--assemblies", nargs='*', required=False, default=Assembly.CHOICES[:2],
+            help=f"pre-assembled contigs or assembly modes to use, pick any combination of {Assembly.CHOICES}")
         parser.add_argument("--overwrite", action="store_true", default=False, required=False,
             help="overwrite previous output, if given same output path")
         parser.add_argument("-t", "--threads", metavar="INT", type=int,
@@ -107,14 +107,14 @@ class CommandLineInterface:
         logs = output.joinpath("logs")
         if not output.exists(): os.makedirs(output)
         if not logs.exists(): os.makedirs(logs)
-        with open(output.joinpath("args.json"), "w") as j:
+        with open(output.joinpath("params.json"), "w") as j:
             json.dump(args.__dict__|dict(
                 current_directory=os.getcwd(),
             ), j, indent=4)
 
         input_models = {}
         for model_class in [
-            ReadsManifest, BackgroundGenome, AssemblerModes, EndSequences
+            ReadsManifest, BackgroundGenome, Assembly, EndSequences
         ]:
             input_models[model_class] = model_class.Parse(args, output, _error)
 
@@ -132,7 +132,7 @@ class CommandLineInterface:
         #########################
         if input_error: return
         smk_log = logs.joinpath("snakemake")
-        link_log = "" if smk_log.exists() else f'ln -s {output.joinpath(".snakemake/log")} {logs.joinpath("snakemake")}'
+        link_log = "" if smk_log.exists() else f'ln -s ../.snakemake/log {logs.joinpath("snakemake")}'
         params = dict(
             src=MODULE_ROOT,
             log=logs,

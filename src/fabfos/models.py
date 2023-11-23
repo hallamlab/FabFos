@@ -100,24 +100,52 @@ class BackgroundGenome(Saveable):
             return cls(**raw)
         
 @dataclass
-class AssemblerModes(Saveable):
+class Assembly(Saveable):
     modes: list[str]
+    given: dict[str, Path]
     CHOICES = "megahit_sensitive, megahit_meta, spades_meta, spades_isolate, spades_sc,".lower().split(", ")
 
-    ARG_FILE = Path("temp_assembly/assemblers.json")
+    ARG_FILE = Path("temp_assembly/assemblies.json")
 
     @classmethod
     def Parse(cls, args, out_dir: Path, on_error: Callable):
         picked_assemblers = []
         _seen = set()
-        for a in args.assemblers:
-            a = str(a).lower()
+        _given = {}
+        for a in args.assemblies:
             if a in _seen: continue
             if a not in cls.CHOICES:
-                on_error(f"[{a}] is not one of {cls.CHOICES}")
-            picked_assemblers.append(a)
+                asm_path = Path(a)
+                if not asm_path.exists():
+                    on_error(f"[{a}] doesn't exist and is not an assembler mode")
+                else:
+                    k = asm_path.name
+                    _given[k] = _given.get(k, [])+[asm_path]
+            else:
+                a = str(a).lower()
+                if a not in _seen: picked_assemblers.append(a)
             _seen.add(a)
-        model = cls(picked_assemblers)
+
+        contig_folder = out_dir.joinpath("contigs")
+        os.makedirs(contig_folder, exist_ok=True)
+        given_contigs = {}
+        def _remove_extension(fname: str):
+            name_toks = fname.split(".")
+            return ".".join(name_toks[:-1]) if len(name_toks)>1 else name_toks[0]
+        def _make_local(apath: Path, name: str):
+            local_path = contig_folder.joinpath(f"{name}.fna")
+            if local_path.exists(): os.unlink(local_path)
+            os.link(apath, local_path)
+            given_contigs[name] = apath
+        for asm_lst in _given.values():
+            if len(asm_lst) == 1:
+                a = asm_lst[0]
+                _make_local(a, _remove_extension(a.name))
+            else:
+                for i, apath in enumerate(asm_lst):
+                    _make_local(apath, f"{_remove_extension(apath.name)}_{i+1:04}.fna")
+        
+        model = cls(picked_assemblers, given_contigs)
         model.Save(out_dir.joinpath(cls.ARG_FILE))
         return model
 

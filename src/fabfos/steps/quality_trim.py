@@ -5,7 +5,7 @@ from ..models import ReadsManifest
 from .common import ClearTemp, Init, AggregateReads, Suffix
 
 def Procedure(args):
-    C = Init(args)
+    C = Init(args, __file__.split("/")[-1].split(".")[0])
     reads_save = Path(C.args[0])
     man = ReadsManifest.Load(reads_save)
 

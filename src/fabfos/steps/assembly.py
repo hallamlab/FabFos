@@ -2,18 +2,20 @@ import os, sys
 from pathlib import Path
 import shutil
 import signal
-from ..models import ReadsManifest, RawContigs, AssemblerModes
-from .common import Init, Suffix
+from ..models import ReadsManifest, RawContigs, Assembly
+from .common import ClearTemp, Init, Suffix
 
 _MOCK = False
 # _MOCK = True
 
 def Procedure(args):
-    C = Init(args)
+    C = Init(args, __file__.split("/")[-1].split(".")[0])
     reads_save, asm_mode_save = C.args
     reads_save = Path(reads_save)
     reads = ReadsManifest.Load(reads_save)
-    assemblers = AssemblerModes.Load(asm_mode_save).modes
+    asm_meta = Assembly.Load(asm_mode_save)
+    assemblers = asm_meta.modes
+    given_contigs = asm_meta.given
     if _MOCK: C.log.warn("debug mock is active, no assemblers will actually run")
 
     def _stringify(lst):
@@ -21,18 +23,31 @@ def Procedure(args):
     fwds, revs, singles = [_stringify(l) for l in [reads.forward, reads.reverse, reads.single]]
     
     # spades and megahit make their own logs, so console out goes to /dev/null
-    C.log.info(f"performing {len(assemblers)} assemblies using [{', '.join(assemblers)}]")
+    if len(assemblers)>0: C.log.info(f"performing {len(assemblers)} assemblies using [{', '.join(assemblers)}]")
+    if len(given_contigs)>0: C.log.info(f"registering {len(given_contigs)} given assemblies")
     raw_contigs = {}
-    _log_len = 0 
-    for i, assembler_mode in enumerate(assemblers):
-        _info = f"{i+1} of {len(assemblers)}: {assembler_mode}"
-        _log_len = max(_log_len, len(_info))
-        C.log.info(_info+" "*(_log_len-len(_info)))
+    contigs_dir = C.root_workspace.joinpath("contigs")
+    os.makedirs(contigs_dir, exist_ok=True)
+
+    _expected_len = len(assemblers) + len(given_contigs)
+    for i, assembler_mode in enumerate(list(assemblers)+list(given_contigs.keys())):
         if _MOCK: continue
 
         mode = assembler_mode.split("_")[-1]
-        out = C.out_dir.joinpath(assembler_mode)
-        if out.exists(): shutil.rmtree(out)
+        asm_out = C.out_dir.joinpath("temp."+assembler_mode)
+        expected_out = contigs_dir.joinpath(f"{assembler_mode}.fna")
+        if expected_out.exists():
+            C.log.info(f"{i+1} of {_expected_len}: existing file [{assembler_mode}] registered")
+            raw_contigs[assembler_mode] = expected_out
+            continue
+        else:
+            C.log.info(f"{i+1} of {_expected_len}: [{assembler_mode}]")
+            if asm_out.exists(): shutil.rmtree(asm_out)
+
+        if assembler_mode not in Assembly.CHOICES:
+            C.log.error(f"[{assembler_mode}] contigs not present and not a known assembler mode, skipping")
+            continue
+
         if "spades" in assembler_mode:
             if mode == "meta":
                 klist = f"-k {' '.join(str(x) for x in range(33, 124, 20))}"
@@ -43,10 +58,10 @@ def Procedure(args):
             C.shell(f"""\
                 spades.py --threads {C.threads} --{mode} \
                     {klist} \
-                    -1 {fwds} -2 {revs} -s {singles} -o {out} \
-                    >/dev/null 2>&1
+                    -1 {fwds} -2 {revs} -s {singles} -o {asm_out} \
+                    >/dev/null 2>&1 \
+                && cp {asm_out}/contigs.fasta {expected_out}
             """)
-            contigs = out.joinpath("contigs.fasta")
         else: # megahit
             if mode == "sensitive":
                 preset = ""
@@ -59,17 +74,18 @@ def Procedure(args):
             C.shell(f"""\
                 megahit --num-cpu-threads {C.threads} \
                     {mercy} {preset} {kmin} \
-                    -1 {fwds} -2 {revs} -r {singles} -o {out} \
-                    >/dev/null 2>&1
+                    -1 {fwds} -2 {revs} -r {singles} -o {asm_out} \
+                    >/dev/null 2>&1 \
+                && cp {asm_out}/final.contigs.fa {expected_out}
             """)
-            contigs = out.joinpath("final.contigs.fa")
             
-        if not contigs.exists():
+        if not expected_out.exists():
             C.log.warn(f"assembler [{assembler_mode}] failed")
             continue
-        raw_contigs[assembler_mode] = contigs
+        raw_contigs[assembler_mode] = expected_out
 
     if _MOCK or len(raw_contigs)>0:
         RawContigs(raw_contigs).Save(C.expected_output)
+        ClearTemp(C.out_dir)
     else:
         C.log.error("all assemblers failed")

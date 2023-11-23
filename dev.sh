@@ -145,14 +145,26 @@ case $1 in
             # -i ../data/beaver/Beaver_colon/2nd_hits/EKL/Raw_Data/EKL_Colon_ligninases_pool_secondary_hits.fastq \
             # -a megahit \
             # --overwrite \
+            # -a megahit_sensitive megahit_meta spades_isolate spades_meta \
+        # /home/tony/workspace/grad/tools/fabfos/scratch/test01_assemblies/spades_isolate/contigs.fasta
+        # /home/tony/workspace/grad/tools/fabfos/scratch/test01_assemblies/spades_isolate/contigs.fasta
+        # /home/tony/workspace/grad/tools/FabFos/scratch/test01_assemblies/spades_isolate/contigs.fasta
         python -m $NAME run -t 12 \
-            -a megahit_sensitive megahit_meta spades_isolate spades_meta \
+            -a \
+            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/megahit_sensitive/final.contigs.fa \
+            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/megahit_meta/final.contigs.fa \
+            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/spades_isolate/contigs.fasta \
+            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/spades_meta/contigs.fasta \
+            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/megahit_sensitive/final.contigs.fa \
+            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/megahit_meta/final.contigs.fa \
+            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_isolate/contigs.fasta \
+            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
             -i ./inputs/ss01.fastq.gz \
             -b ./ecoli_k12_mg1655.fasta \
             --endf ../data/beaver/endseq_CEC_FW.fa \
             --endr ../data/beaver/endseq_CEC_RE.fa \
             --end_regex "\w+_\d+" \
-            -o ./test02
+            -o ./test01
     ;;
 
     -td) # test docker

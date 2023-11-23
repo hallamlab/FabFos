@@ -8,7 +8,7 @@ from typing import Callable
 from Bio import SeqIO
 import pandas as pd
 from ..models import Scaffolds, RawContigs, EndSequences
-from .common import Init
+from .common import ClearTemp, Init
 
 class Sequence:
     def __init__(self, id: str, seq: str, meta: dict|None=None) -> None:
@@ -82,7 +82,7 @@ class Hit:
         return qseq+sseq
         
 def Procedure(args):
-    C = Init(args)
+    C = Init(args, __file__.split("/")[-1].split(".")[0])
     raw_contigs = RawContigs.Load(C.NextArg())
     end_seqs = EndSequences.Load(C.NextArg())
     assert end_seqs.forward is not None and end_seqs.reverse is not None
@@ -124,10 +124,10 @@ def Procedure(args):
     C.log.info(f"blasting [{len(end_seqs.insert_ids)}] ends against [{len(all_contigs)}] contigs")
 
     # make blastdb of contigs
-    db_folder = C.out_dir.joinpath("blast_dbs")
+    db_folder = C.out_dir.joinpath("temp.blast_dbs")
     os.makedirs(db_folder, exist_ok=True)
     _blastdb = db_folder.joinpath("all_contigs")
-    blast_log = C.out_dir.joinpath("log.blast.txt")
+    blast_log = C.out_dir.joinpath("blast_log.txt")
     C.shell(f"""\
     echo "# makeblastdb" >>{blast_log}
     makeblastdb \
@@ -271,8 +271,8 @@ def Procedure(args):
             return self.insert_id, self.contig_id
 
     # orient contigs to the end seq and aggregate to files
-    fwd_ends_for_scaffold = open(C.out_dir.joinpath("scaffolding_fwds.fa"), "w")
-    rev_ends_for_scaffold = open(C.out_dir.joinpath("scaffolding_revs.fa"), "w")
+    fwd_ends_for_scaffold = open(C.out_dir.joinpath("temp.scaffolding_fwds.fa"), "w")
+    rev_ends_for_scaffold = open(C.out_dir.joinpath("temp.scaffolding_revs.fa"), "w")
     fwd_scaffold_ends: dict[str, Sequence] = {}
     rev_scaffold_ends: dict[str, Sequence] = {}
     for insert_id, fhits, rhits in _to_scaffold:
@@ -396,3 +396,4 @@ def Procedure(args):
     pd.DataFrame(_full_rows, columns=_cols).to_csv(full_report_file, index=False)
 
     Scaffolds(mapped_file_path, report_file).Save(C.expected_output)
+    ClearTemp(C.out_dir)

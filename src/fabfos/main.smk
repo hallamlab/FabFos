@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from fabfos.models import ReadsManifest, BackgroundGenome, AssemblerModes, EndSequences
+from fabfos.models import ReadsManifest, BackgroundGenome, Assembly, EndSequences
 from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs
 
 # the actual commands to call each tool are found in src/fabfos/steps/*.py
@@ -56,7 +56,7 @@ rule filter_background:
 rule assembly:
     input:
         f"{ReadsManifest.FILTER}",
-        f"{AssemblerModes.ARG_FILE}"
+        f"{Assembly.ARG_FILE}"
     output: f"{RawContigs.MANIFEST}"
     params:
         src=SRC,

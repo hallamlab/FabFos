@@ -2,6 +2,7 @@ import os, sys
 from pathlib import Path
 from dataclasses import dataclass
 import logging
+import json
 from typing import Callable, Iterable
 
 from ..models import ReadsManifest
@@ -16,6 +17,7 @@ class Context:
     log: logging.Logger
     log_file: Path
     args: list[str]
+    params: dict
     shell: Callable[[str], ShellResult]
 
     _i = -1
@@ -23,12 +25,15 @@ class Context:
         self._i += 1
         return self.args[self._i]
 
-def Init(args, level=logging.INFO):
+def Init(args, name: str, level=logging.INFO):
     N = 2
     threads, output = args[:N]
     out_dir = Path(output).parent
     if not out_dir.exists(): os.makedirs(out_dir)
-    log_file = out_dir.joinpath("log.txt")
+    ws = Path(".").absolute()
+    with open(ws.joinpath("params.json")) as j:
+        params = json.load(j)
+    log_file = ws.joinpath(f"logs/{name}.log")
     logging.basicConfig(
         filename=str(log_file),
         filemode='a',
@@ -46,10 +51,11 @@ def Init(args, level=logging.INFO):
         threads=threads,
         expected_output=Path(output),
         out_dir=out_dir,
-        root_workspace=out_dir.parent,
+        root_workspace=ws,
         log=log,
         log_file=log_file,
         args=args[N:],
+        params=params,
         shell=lambda cmd: Shell(cmd, on_out=log.info, on_err=log.error)
     )
 
@@ -96,4 +102,4 @@ def AggregateReads(fwd, rev, single, out_dir):
 
 def ClearTemp(folder: Path):
     if any(f.startswith("temp") for f in os.listdir(folder)):
-        os.system(f"rm {folder}/temp*")
+        os.system(f"rm -r {folder}/temp*")
