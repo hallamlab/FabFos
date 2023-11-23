@@ -1,6 +1,4 @@
-import os, sys
 from pathlib import Path
-import shutil
 from ..models import ReadsManifest, BackgroundGenome
 from .common import ClearTemp, Init, AggregateReads, Suffix
 
@@ -48,7 +46,7 @@ def Procedure(args):
         cmd = [l for l in cmd if l != ""]
         C.log.info("\n"+f">>> batch {count} of {expected}")
         C.log.info("\n".join(l.replace("\n", "") for l in cmd))
-        os.system(" ".join(cmd))
+        C.shell(" ".join(cmd))
         return [p if p is None else C.out_dir.joinpath(p) for p in [f, r, s]]
 
     fwd, rev, single = [], [], []
@@ -63,6 +61,5 @@ def Procedure(args):
         single.append(fs)
 
     C.log.info(f"filtered {sum(len(x) for x in man.AllReads())} reads files")
-    C.log.info(f"{(fwd, rev, single)}")
     AggregateReads(fwd, rev, single, C.out_dir).Save(C.expected_output)
     ClearTemp(C.out_dir)

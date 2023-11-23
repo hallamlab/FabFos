@@ -2,9 +2,10 @@ import os, sys
 from pathlib import Path
 from dataclasses import dataclass
 import logging
-from typing import Iterable
+from typing import Callable, Iterable
 
 from ..models import ReadsManifest
+from ..process_management import Shell, ShellResult
 
 @dataclass
 class Context:
@@ -15,6 +16,7 @@ class Context:
     log: logging.Logger
     log_file: Path
     args: list[str]
+    shell: Callable[[str], ShellResult]
 
     _i = -1
     def NextArg(self):
@@ -47,7 +49,8 @@ def Init(args, level=logging.INFO):
         root_workspace=out_dir.parent,
         log=log,
         log_file=log_file,
-        args=args[N:]
+        args=args[N:],
+        shell=lambda cmd: Shell(cmd, on_out=log.info, on_err=log.error)
     )
 
 def FileSafeStr(s: str):

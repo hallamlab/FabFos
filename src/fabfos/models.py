@@ -1,7 +1,6 @@
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from turtle import forward
 from typing import Callable, Any
 from Bio import SeqIO
 import json
@@ -103,7 +102,7 @@ class BackgroundGenome(Saveable):
 @dataclass
 class AssemblerModes(Saveable):
     modes: list[str]
-    CHOICES = "megahit, spades_meta, spades_isolate, spades_sc,".lower().split(", ")
+    CHOICES = "megahit_sensitive, megahit_meta, spades_meta, spades_isolate, spades_sc,".lower().split(", ")
 
     ARG_FILE = Path("temp_assembly/assemblers.json")
 

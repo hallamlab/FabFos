@@ -34,7 +34,7 @@ if __name__ == "__main__":
         package_data={
             "":[ # "" is all packages
                 "version.txt",
-                "deinterleave_fastq.sh",
+                "steps/deinterleave_fastq.sh",
             ],
             # examples
             # "package-name": ["*.txt"],

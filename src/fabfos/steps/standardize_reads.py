@@ -1,4 +1,3 @@
-import os, sys
 from pathlib import Path
 from ..models import ReadsManifest
 from ..utils import MODULE_ROOT
@@ -17,9 +16,9 @@ def Procedure(args):
             # caution: this seems useless but 
             # filtering with trimmomatic step deletes input reads 
             # when done to reduce disk usage by intermediate files
-            os.system(f"ln -s {r} {out_file}")
+            C.shell(f"ln -s {r} {out_file}")
         else:
-            os.system(f"""\
+            C.shell(f"""\
                 pigz -p {C.threads} -dkc {r} >{out_file}
             """)
         return out_file
@@ -28,11 +27,11 @@ def Procedure(args):
         local_file = C.out_dir.joinpath("temp."+r.name.replace(".gz", ""))
         out_f, out_r = [C.out_dir.joinpath(Suffix(local_file.name, f"_{i}")) for i in [1, 2]]
         if not r.name.endswith("gz"):
-            os.system(f"""\
+            C.shell(f"""\
                 {MODULE_ROOT.joinpath("steps/deinterleave_fastq.sh")} < {r} {out_f} {out_r}
             """)
         else:
-            os.system(f"""\
+            C.shell(f"""\
                 pigz -p {C.threads} -dkc {r} \
                 | {MODULE_ROOT.joinpath("steps/deinterleave_fastq.sh")} {out_f} {out_r}
             """)

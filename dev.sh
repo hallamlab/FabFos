@@ -144,13 +144,13 @@ case $1 in
             # -a megahit \
             # --overwrite \
         python -m $NAME run -t 12 \
-            -a megahit spades_isolate \
+            -a megahit_sensitive megahit_meta spades_isolate spades_meta \
             -i ./inputs/ss01.fastq.gz \
             -b ./ecoli_k12_mg1655.fasta \
             --endf ../data/beaver/endseq_COL_FW.fa \
             --endr ../data/beaver/endseq_COL_RE.fa \
             --end_regex "\w+_\d+" \
-            -o ./test01
+            -o ./test02
     ;;
 
     -td) # test docker

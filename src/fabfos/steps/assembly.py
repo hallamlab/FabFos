@@ -1,6 +1,7 @@
 import os, sys
 from pathlib import Path
 import shutil
+import signal
 from ..models import ReadsManifest, RawContigs, AssemblerModes
 from .common import Init, Suffix
 
@@ -15,33 +16,17 @@ def Procedure(args):
     assemblers = AssemblerModes.Load(asm_mode_save).modes
     if _MOCK: C.log.warn("debug mock is active, no assemblers will actually run")
 
+    def _die(*args):
+        print("asdf")
+        os._exit(0)
+    signal.signal(signal.SIGINT, _die)
+    signal.signal(signal.SIGTERM, _die)
+
     def _stringify(lst):
         return ','.join(str(p) for p in lst)
     fwds, revs, singles = [_stringify(l) for l in [reads.forward, reads.reverse, reads.single]]
-    # these make their own logs, so console out goes to /dev/null
-    def megahit():
-        out = C.out_dir.joinpath("megahit")
-        if out.exists(): shutil.rmtree(out)
-        if not _MOCK:
-            os.system(f"""\
-                megahit --num-cpu-threads {C.threads} --no-mercy \
-                    -1 {fwds} -2 {revs} -r {singles} -o {out} \
-                    >/dev/null 2>&1
-            """)
-        return out.joinpath("final.contigs.fa")
-
-    def spades(mode):
-        name = f"spades_{mode}"
-        out = C.out_dir.joinpath(name)
-        if out.exists(): shutil.rmtree(out)
-        if not _MOCK:
-            os.system(f"""\
-                spades.py --threads {C.threads} --{mode} \
-                    -1 {fwds} -2 {revs} -s {singles} -o {out} \
-                    >/dev/null 2>&1
-            """)
-        return out.joinpath("contigs.fasta")
-
+    
+    # spades and megahit make their own logs, so console out goes to /dev/null
     C.log.info(f"performing {len(assemblers)} assemblies using [{', '.join(assemblers)}]")
     raw_contigs = {}
     _log_len = 0 
@@ -49,12 +34,43 @@ def Procedure(args):
         _info = f"{i+1} of {len(assemblers)}: {assembler_mode}"
         _log_len = max(_log_len, len(_info))
         C.log.info(_info+" "*(_log_len-len(_info)))
+        if _MOCK: continue
+
+        mode = assembler_mode.split("_")[-1]
+        out = C.out_dir.joinpath(assembler_mode)
+        if out.exists(): shutil.rmtree(out)
         if "spades" in assembler_mode:
-            mode = assembler_mode.split("_")[-1]
-            contigs = spades(mode)
-        else:
-            contigs = megahit()
-        if not _MOCK and not contigs.exists():
+            if mode == "meta":
+                klist = f"-k {' '.join(str(x) for x in range(33, 124, 20))}"
+            elif mode == "isolate":
+                klist = f"-k {' '.join(str(x) for x in range(67, 128, 10))}"
+            else:
+                klist = ""
+            C.shell(f"""\
+                spades.py --threads {C.threads} --{mode} \
+                    {klist} \
+                    -1 {fwds} -2 {revs} -s {singles} -o {out} \
+                    >/dev/null 2>&1
+            """)
+            contigs = out.joinpath("contigs.fasta")
+        else: # megahit
+            if mode == "sensitive":
+                preset = ""
+                kmin = "--k-min 71"
+                mercy = "--no-mercy"
+            else:
+                preset = "--presets meta-large"
+                mercy = "" # yes mercy
+                kmin = ""
+            C.shell(f"""\
+                megahit --num-cpu-threads {C.threads} \
+                    {mercy} {preset} {kmin} \
+                    -1 {fwds} -2 {revs} -r {singles} -o {out} \
+                    >/dev/null 2>&1
+            """)
+            contigs = out.joinpath("final.contigs.fa")
+            
+        if not contigs.exists():
             C.log.warn(f"assembler [{assembler_mode}] failed")
             continue
         raw_contigs[assembler_mode] = contigs

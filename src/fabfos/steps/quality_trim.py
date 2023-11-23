@@ -34,12 +34,11 @@ def Procedure(args):
             outputs = ' '.join(str(p) for p in outputs)
         nonlocal count; count += 1
         C.log.info("\n\n"+f">>> run {count} of {expected_runs}")
-        os.system(f"""\
+        C.shell(f"""\
             trimmomatic {'SE' if rev is None else 'PE'} -threads {C.threads} \
             {inputs} {outputs} \
             ILLUMINACLIP:{adapter_folder.joinpath('TruSeq3-PE.fa')}:2:3:10 \
             LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 \
-            2>&1 > {C.log_file} \
             && rm {inputs}
         """)
         return pf, pr, singles
