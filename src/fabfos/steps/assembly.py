@@ -30,6 +30,7 @@ def Procedure(args):
     os.makedirs(contigs_dir, exist_ok=True)
 
     _expected_len = len(assemblers) + len(given_contigs)
+    # assembled_contigs = []
     for i, assembler_mode in enumerate(list(assemblers)+list(given_contigs.keys())):
         if _MOCK: continue
 
@@ -60,7 +61,8 @@ def Procedure(args):
                     {klist} \
                     -1 {fwds} -2 {revs} -s {singles} -o {asm_out} \
                     >/dev/null 2>&1 \
-                && cp {asm_out}/contigs.fasta {expected_out}
+                && cp {asm_out}/contigs.fasta {expected_out} \
+                && cp {asm_out}/spades.log {C.root_workspace}/logs/assembly.{assembler_mode}.log
             """)
         else: # megahit
             if mode == "sensitive":
@@ -76,13 +78,15 @@ def Procedure(args):
                     {mercy} {preset} {kmin} \
                     -1 {fwds} -2 {revs} -r {singles} -o {asm_out} \
                     >/dev/null 2>&1 \
-                && cp {asm_out}/final.contigs.fa {expected_out}
+                && cp {asm_out}/final.contigs.fa {expected_out} \
+                && cp {asm_out}/log {C.root_workspace}/logs/assembly.{assembler_mode}.log
             """)
             
         if not expected_out.exists():
             C.log.warn(f"assembler [{assembler_mode}] failed")
             continue
         raw_contigs[assembler_mode] = expected_out
+        # assembled_contigs.append(assembler_mode)
 
     if _MOCK or len(raw_contigs)>0:
         RawContigs(raw_contigs).Save(C.expected_output)

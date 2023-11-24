@@ -276,3 +276,15 @@ class LenFilteredContigs(Saveable):
         with open(path) as j:
             raw = {k: Path(v) for k, v in json.load(j).items()}
             return cls(**raw)
+
+@dataclass
+class QCStatsForAssemblies(Saveable):
+    processed_contigs: dict[str, Path]
+
+    STATS_FILE = Path("qc_assemblies/stats.json")
+
+    @classmethod
+    def Load(cls, path):
+        with open(path) as j:
+            raw = {str(k):Path(v) for k, v in json.load(j).items()}
+            return cls(raw)

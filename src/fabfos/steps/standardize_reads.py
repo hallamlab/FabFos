@@ -1,15 +1,15 @@
 from pathlib import Path
 from ..models import ReadsManifest
 from ..utils import MODULE_ROOT
-from .common import Init, AggregateReads, ClearTemp, Suffix
+from .common import Init, AggregateReads, ClearTemp, RemoveExt, Suffix
 
 def Procedure(args):
     C = Init(args, __file__)
     man = ReadsManifest.Load(C.NextArg())
 
     # unzip and make local link
-    def prep(r: Path):
-        unzipped_name = r.name.replace(".gz", "")
+    def prep(r: Path, local_name: str):
+        unzipped_name = local_name.replace(".gz", "")
         out_file = C.out_dir.joinpath("temp."+unzipped_name)
         if not r.name.endswith("gz"):
             # caution: this seems useless but 
@@ -35,12 +35,14 @@ def Procedure(args):
                 | {MODULE_ROOT.joinpath("steps/deinterleave_fastq.sh")} {out_f} {out_r}
             """)
         return out_f, out_r
-    
+
     fwd, rev, single = [], [], []
     if len(man.forward)>0:
         C.log.info(f"unzipping {len(man.forward)} paired end reads if zipped")
-        fwd = [prep(p) for p in man.forward]
-        rev = [prep(p) for p in man.reverse]
+        for f, r in zip(man.forward, man.reverse):
+            name = RemoveExt(f.name)
+            fwd.append(prep(f, f"{name}_1.fq"))
+            rev.append(prep(r, f"{name}_2.fq"))
 
     if len(man.interleaved)>0:
         C.log.info(f"deinterleaving {len(man.interleaved)} interleaved reads")
@@ -51,8 +53,8 @@ def Procedure(args):
 
     if len(man.single)>0:
         C.log.info(f"unzipping {len(man.single)} single end reads if zipped")
-        single = [prep(p) for p in man.single]
+        single = [prep(p, p.name) for p in man.single]
 
-    C.log.info(f"standardized {sum(len(x) for x in man.AllReads())} reads files")
+    C.log.info(f"standardized {sum(len(x) for x in man.AllReads())} read files")
     AggregateReads(fwd, rev, single, C.out_dir).Save(C.expected_output)
     ClearTemp(C.out_dir)

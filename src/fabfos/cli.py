@@ -72,8 +72,6 @@ class CommandLineInterface:
             help="skip read trimming with trimmomatic")
         fos.add_argument("-b", "--background", metavar="FASTA", required=False,
             help="host background to filter out")
-        fos.add_argument("--min_length", metavar="INT", required=False, default=1000,
-            help="min contig length to accept, default=1000")
         fos.add_argument("--endf", metavar="FASTA", nargs='*', required=False,
             help="sanger end sequences")
         fos.add_argument("--endr", metavar="FASTA", nargs='*', required=False,
@@ -84,6 +82,8 @@ class CommandLineInterface:
         # "options" group
         parser.add_argument("-a", "--assemblies", nargs='*', required=False, default=[],
             help=f"pre-assembled contigs or assembly modes to use, pick any combination of {Assembly.CHOICES}, default:{DEFAULT_ASSEMBLY_MODES}")
+        parser.add_argument("--min_length", metavar="INT", required=False, default=1000,
+            help="min contig length to accept, default=1000")
         parser.add_argument("--overwrite", action="store_true", default=False, required=False,
             help="overwrite previous output, if given same output path")
         parser.add_argument("-t", "--threads", metavar="INT", type=int,
@@ -155,9 +155,11 @@ class CommandLineInterface:
         )
 
         params_str = ' '.join(f"{k}={v}" for k, v in params.items())
+        cache = output.joinpath("temp_cache")
         cmd = f"""\
             {link_log}
-            export XDG_CACHE_HOME={output}
+            mkdir -p {cache}
+            export XDG_CACHE_HOME={cache}
             snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} --rerun-incomplete \
                 {'--forceall' if args.overwrite else ''} \
                 {' '.join(smk_args)} \

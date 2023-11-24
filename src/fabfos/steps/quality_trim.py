@@ -32,12 +32,12 @@ def Procedure(args):
             pf, pr, singles = outputs[0], outputs[2], [outputs[1], outputs[3]]
             outputs = ' '.join(str(p) for p in outputs)
         nonlocal count; count += 1
-        C.log.info("\n\n"+f">>> run {count} of {expected_runs}")
+        C.log.info(f">>> run {count} of {expected_runs}")
         C.shell(f"""\
             trimmomatic {'SE' if rev is None else 'PE'} -threads {C.threads} \
             {inputs} {outputs} \
             ILLUMINACLIP:{adapter_folder.joinpath('TruSeq3-PE.fa')}:2:3:10 \
-            LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 \
+            LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36 2>>{C.log_file} \
             && rm {inputs}
         """)
         return pf, pr, singles
@@ -52,7 +52,7 @@ def Procedure(args):
         _, _, s = trim(r)
         single += s
 
-    C.log.info(f"trimmed {sum(len(x) for x in man.AllReads())} reads files")
+    C.log.info(f"trimmed {sum(len(x) for x in man.AllReads())} read files")
     AggregateReads(fwd, rev, single, C.out_dir).Save(C.expected_output)
     ClearTemp(C.out_dir)
 

@@ -160,7 +160,6 @@ case $1 in
             # --endf ../data/beaver/endseq_CEC_FW.fa \
             # --endr ../data/beaver/endseq_CEC_RE.fa \
         python -m $NAME run -t 12 \
-            --overwrite \
             -i ./inputs/ss01.fastq.gz \
             -a \
             /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_isolate/contigs.fasta \

@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 from fabfos.models import ReadsManifest, BackgroundGenome, Assembly, EndSequences
 from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs
+from fabfos.models import QCStatsForAssemblies
 
 # the actual commands to call each tool are found in src/fabfos/steps/*.py
 
@@ -17,6 +18,7 @@ if params_path.exists():
 else:
     params = {}
 
+assembly_params = Assembly.Load(Assembly.ARG_FILE)
 reads = ReadsManifest.Load(ReadsManifest.ARG_FILE)
 endseqs = EndSequences.Load(EndSequences.ARG_FILE)
 no_trim = params.get("no_trim", False)
@@ -24,8 +26,13 @@ no_trim = params.get("no_trim", False)
 # -------------------------------------
 # snakemake
 
+targets = [
+    f"{Scaffolds.MANIFEST if endseqs.given else LenFilteredContigs.MANIFEST}"
+]
+if len(assembly_params.modes)>0:
+    targets.append(f"{QCStatsForAssemblies.STATS_FILE}")
 rule target:
-    input: f"{Scaffolds.MANIFEST if endseqs.given else LenFilteredContigs.MANIFEST}"
+    input: expand("{t}", t=targets)
 
 rule standardize_reads:
     input: f"{ReadsManifest.ARG_FILE}"
@@ -114,4 +121,25 @@ rule filter_contigs_by_length:
         """\
         PYTHONPATH={params.src}:$PYTHONPATH
         python -m fabfos api --step filter_contigs_by_length --args {threads} {output} {input}
+        """
+
+qc_assemblies_input = [reads_input, RawContigs.MANIFEST, Assembly.ARG_FILE]
+if endseqs.given:
+    qc_assemblies_input+=[Scaffolds.MANIFEST]
+    contig_type = "scaffolds"
+else:
+    qc_assemblies_input+=[LenFilteredContigs.MANIFEST]
+    contig_type = "contigs"
+
+rule qc_assemblies:
+    input: expand("{f}", f=qc_assemblies_input)
+    output: f"{QCStatsForAssemblies.STATS_FILE}"
+    params:
+        src=SRC,
+        contig_type=contig_type
+    threads: THREADS
+    shell:
+        """\
+        PYTHONPATH={params.src}:$PYTHONPATH
+        python -m fabfos api --step qc_assemblies --args {threads} {output} {input} {params.contig_type}
         """

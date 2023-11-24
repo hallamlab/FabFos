@@ -49,6 +49,7 @@ def Init(args, name: str, level=logging.INFO):
     log.info(f"-- START --")
     log.addHandler(logging.StreamHandler(sys.stderr))
     threads = int(threads)
+    if not out_dir.exists(): os.makedirs(out_dir)
     return Context(
         threads=threads,
         expected_output=Path(output),
@@ -71,6 +72,11 @@ def Batchify(it: Iterable, size: int =1):
     for ndx in range(0, l, size):
         yield lst[ndx:min(ndx + size, l)]
 
+def RemoveExt(f: str):
+    toks = f.split(".")
+    if len(toks)<2: return ".".join(toks), None
+    return ".".join(toks[:-1]), toks[-1]
+
 def Suffix(file: str, suf: str, cut=0):
     toks = file.split('.')
     name = '.'.join(toks[:-1-cut])
@@ -87,9 +93,9 @@ def AggregateReads(fwd, rev, single, out_dir):
         return newp
         
     for files, name, out in [
-        (fwd, "forward", "fwd.fq"),
-        (rev, "reverse", "rev.fq"),
-        (single, "single", "se.fq"),
+        (fwd, "forward", "paired_1.fq"),
+        (rev, "reverse", "paired_2.fq"),
+        (single, "single", "singles.fq"),
     ]:
         if len(files) < 2:
             if len(files) == 1: 
