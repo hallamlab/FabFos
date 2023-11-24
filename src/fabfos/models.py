@@ -35,10 +35,10 @@ class ReadsManifest(Saveable):
     interleaved: list[Path]
     single: list[Path]
 
-    ARG_FILE =  Path("temp_reads/original_reads.json")
-    STD =       Path("temp_reads/std_reads.json")
-    TRIM =      Path("temp_trim/trimmed.json")
-    FILTER =    Path("temp_filter/filtered.json")
+    ARG_FILE =  Path("internals/temp_reads/original_reads.json")
+    STD =       Path("internals/temp_reads/std_reads.json")
+    TRIM =      Path("internals/temp_trim/trimmed.json")
+    FILTER =    Path("internals/temp_filter/filtered.json")
 
     def AllReads(self):
         return [self.forward, self.reverse, self.interleaved, self.single]
@@ -104,7 +104,8 @@ class Assembly(Saveable):
     given: dict[str, Path]
     CHOICES = "megahit_sensitive, megahit_meta, spades_meta, spades_isolate, spades_sc,".lower().split(", ")
 
-    ARG_FILE = Path("temp_assembly/assemblies.json")
+    ARG_FILE = Path("internals/temp_assembly/assemblies.json")
+    CONTIG_DIR = Path("intermediate_contigs")
 
     @classmethod
     def Parse(cls, args, out_dir: Path, on_error: Callable):
@@ -125,7 +126,7 @@ class Assembly(Saveable):
                 if a not in _seen: picked_assemblers.append(a)
             _seen.add(a)
 
-        contig_folder = out_dir.joinpath("contigs")
+        contig_folder = out_dir.joinpath(cls.CONTIG_DIR)
         os.makedirs(contig_folder, exist_ok=True)
         given_contigs = {}
         def _remove_extension(fname: str):
@@ -161,7 +162,7 @@ class EndSequences(Saveable):
     reverse: Path|None
     insert_ids: list[str] # as in fosmid inserts
 
-    ARG_FILE = Path("temp_contigs/endseqs.json")
+    ARG_FILE = Path("internals/temp_contigs/endseqs.json")
     SKIP = "SKIP"
     DEFAULT_REGEX = r'\w+'
 
@@ -241,7 +242,7 @@ class EndSequences(Saveable):
 class RawContigs(Saveable):
     contigs: dict[str, Path]
 
-    MANIFEST = Path("temp_assembly/contigs.json")
+    MANIFEST = Path("internals/temp_assembly/contigs.json")
 
     @classmethod
     def Load(cls, path):

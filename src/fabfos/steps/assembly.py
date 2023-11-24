@@ -1,7 +1,6 @@
 import os, sys
 from pathlib import Path
 import shutil
-import signal
 from ..models import ReadsManifest, RawContigs, Assembly
 from .common import ClearTemp, Init, Suffix
 
@@ -26,7 +25,7 @@ def Procedure(args):
     if len(assemblers)>0: C.log.info(f"performing {len(assemblers)} assemblies using [{', '.join(assemblers)}]")
     if len(given_contigs)>0: C.log.info(f"registering {len(given_contigs)} given assemblies")
     raw_contigs = {}
-    contigs_dir = C.root_workspace.joinpath("contigs")
+    contigs_dir = asm_meta.CONTIG_DIR
     os.makedirs(contigs_dir, exist_ok=True)
 
     _expected_len = len(assemblers) + len(given_contigs)
@@ -56,7 +55,7 @@ def Procedure(args):
                 klist = f"-k {' '.join(str(x) for x in range(67, 128, 10))}"
             else:
                 klist = ""
-            C.shell(f"""\
+            r = C.shell(f"""\
                 spades.py --threads {C.threads} --{mode} \
                     {klist} \
                     -1 {fwds} -2 {revs} -s {singles} -o {asm_out} \
@@ -73,7 +72,7 @@ def Procedure(args):
                 preset = "--presets meta-large"
                 mercy = "" # yes mercy
                 kmin = ""
-            C.shell(f"""\
+            r = C.shell(f"""\
                 megahit --num-cpu-threads {C.threads} \
                     {mercy} {preset} {kmin} \
                     -1 {fwds} -2 {revs} -r {singles} -o {asm_out} \
@@ -81,6 +80,7 @@ def Procedure(args):
                 && cp {asm_out}/final.contigs.fa {expected_out} \
                 && cp {asm_out}/log {C.root_workspace}/logs/assembly.{assembler_mode}.log
             """)
+            if r.killed: return
             
         if not expected_out.exists():
             C.log.warn(f"assembler [{assembler_mode}] failed")

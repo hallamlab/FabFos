@@ -16,7 +16,6 @@
 # copyright 2023 Tony Liu, Connor Morgan-Lang, Avery Noonan,
 # Zach Armstrong, and Steven J. Hallam
 
-
 import json
 import os, sys
 from pathlib import Path
@@ -24,20 +23,12 @@ import argparse
 import inspect
 from dataclasses import dataclass
 import multiprocessing
-import shutil
 import importlib
 
 from .models import Assembly, BackgroundGenome, EndSequences, ReadsManifest
-from .utils import NAME, VERSION, ENTRY_POINTS, MODULE_ROOT
+from .utils import NAME, USER, VERSION, ENTRY_POINTS, MODULE_ROOT
 
 CLI_ENTRY = ENTRY_POINTS[0]
-
-def _line():
-    try:
-        width = os.get_terminal_size().columns
-    except:
-        width = 32
-    return "="*width
     
 class ArgumentParser(argparse.ArgumentParser):
     def error(self, message):
@@ -113,9 +104,13 @@ class CommandLineInterface:
         if not output.exists(): os.makedirs(output)
         if not logs.exists(): os.makedirs(logs)
         with open(output.joinpath("params.json"), "w") as j:
-            json.dump(args.__dict__|dict(
+            d = args.__dict__|dict(
                 current_directory=os.getcwd(),
-            ), j, indent=4)
+            )
+            for k in list(d):
+                if isinstance(d[k], list) and len(d[k]) == 0: del d[k]
+                elif d[k] is None: del d[k]
+            json.dump(d, j, indent=4)
 
         input_models = {}
         for model_class in [
@@ -155,7 +150,7 @@ class CommandLineInterface:
         )
 
         params_str = ' '.join(f"{k}={v}" for k, v in params.items())
-        cache = output.joinpath("temp_cache")
+        cache = output.joinpath("internals/temp_cache")
         cmd = f"""\
             {link_log}
             mkdir -p {cache}
@@ -188,7 +183,7 @@ class CommandLineInterface:
     def help(self, args=None):
         help = [
             f"{NAME} v{VERSION}",
-            f"https://github.com/USER/{NAME}",
+            f"https://github.com/{USER}/{NAME}",
             f"",
             f"Syntax: {CLI_ENTRY} COMMAND [OPTIONS]",
             f"",
