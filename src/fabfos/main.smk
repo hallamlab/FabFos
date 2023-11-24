@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 from fabfos.models import ReadsManifest, BackgroundGenome, Assembly, EndSequences
 from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs
-from fabfos.models import QCStatsForAssemblies
+from fabfos.models import QCStatsForAssemblies, QCStatsForReads
 
 # the actual commands to call each tool are found in src/fabfos/steps/*.py
 
@@ -20,6 +20,7 @@ else:
 
 assembly_params = Assembly.Load(Assembly.ARG_FILE)
 reads = ReadsManifest.Load(ReadsManifest.ARG_FILE)
+given_reads = len([r for g in reads.AllReads() for r in g]) > 0
 endseqs = EndSequences.Load(EndSequences.ARG_FILE)
 no_trim = params.get("no_trim", False)
 
@@ -30,7 +31,10 @@ targets = [
     f"{Scaffolds.MANIFEST if endseqs.given else LenFilteredContigs.MANIFEST}"
 ]
 if len(assembly_params.modes)>0:
-    targets.append(f"{QCStatsForAssemblies.STATS_FILE}")
+    targets.append(f"{QCStatsForAssemblies.MANIFEST}")
+if given_reads:
+    targets.append(f"{QCStatsForReads.MANIFEST}")
+
 rule target:
     input: expand("{t}", t=targets)
 
@@ -72,7 +76,7 @@ rule filter_background:
         python -m fabfos api --step background_filter --args {threads} {output} {input}
         """
 
-if len([r for g in reads.AllReads() for r in g]) > 0:
+if given_reads:
     if params.get("background") is None:
         if no_trim:
             reads_input = ReadsManifest.ARG_FILE
@@ -133,7 +137,7 @@ else:
 
 rule qc_assemblies:
     input: expand("{f}", f=qc_assemblies_input)
-    output: f"{QCStatsForAssemblies.STATS_FILE}"
+    output: f"{QCStatsForAssemblies.MANIFEST}"
     params:
         src=SRC,
         contig_type=contig_type
@@ -142,4 +146,16 @@ rule qc_assemblies:
         """\
         PYTHONPATH={params.src}:$PYTHONPATH
         python -m fabfos api --step qc_assemblies --args {threads} {output} {input} {params.contig_type}
+        """
+
+rule qc_reads:
+    input: reads_input
+    output: f"{QCStatsForReads.MANIFEST}"
+    params:
+        src=SRC
+    threads: THREADS
+    shell:
+        """\
+        PYTHONPATH={params.src}:$PYTHONPATH
+        python -m fabfos api --step qc_reads --args {threads} {output} {input}
         """

@@ -18,17 +18,6 @@ def Procedure(args):
         processed_contigs = LenFilteredContigs.Load(_processed_contigs_save).kept
         pc_name = "processed_contigs"
     assemblies = [(k,contigs.contigs[k].absolute()) for k in assembly_params.modes]
-
-    all_contigs_path = C.out_dir.joinpath("temp.all_contigs.fa")
-    with open(all_contigs_path, "w") as f:
-        i = 0
-        for asm, con in assemblies:
-            for e in SeqIO.parse(con, "fasta"):
-                seq = str(e.seq)
-                k = f"{i:06}_{asm}"
-                f.write(f">{k} length={len(seq)}"+"\n")
-                f.write(seq); f.write("\n")
-                i += 1
     assemblies.append((pc_name, processed_contigs.absolute()))
 
     C.log.info(f"getting QC stats for {len(assemblies)} contig files")

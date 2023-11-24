@@ -279,12 +279,24 @@ class LenFilteredContigs(Saveable):
 
 @dataclass
 class QCStatsForAssemblies(Saveable):
-    processed_contigs: dict[str, Path]
+    qcd_contigs: dict[str, Path]
 
-    STATS_FILE = Path("qc_assemblies/stats.json")
+    MANIFEST = Path("qc_assemblies/manifest.json")
 
     @classmethod
     def Load(cls, path):
         with open(path) as j:
             raw = {str(k):Path(v) for k, v in json.load(j).items()}
+            return cls(raw)
+
+@dataclass
+class QCStatsForReads(Saveable):
+    qcd_reads: list[Path]
+
+    MANIFEST = Path("qc_reads/manifest.json")
+
+    @classmethod
+    def Load(cls, path):
+        with open(path) as j:
+            raw = [Path(v) for v in json.load(j)]
             return cls(raw)
