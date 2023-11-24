@@ -5,9 +5,8 @@ from ..models import ReadsManifest
 from .common import ClearTemp, Init, AggregateReads, Suffix
 
 def Procedure(args):
-    C = Init(args, __file__.split("/")[-1].split(".")[0])
-    reads_save = Path(C.args[0])
-    man = ReadsManifest.Load(reads_save)
+    C = Init(args, __file__)
+    man = ReadsManifest.Load(C.NextArg())
 
     adapter_folder = shutil.which("trimmomatic")
     assert adapter_folder is not None

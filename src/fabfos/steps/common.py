@@ -26,6 +26,8 @@ class Context:
         return self.args[self._i]
 
 def Init(args, name: str, level=logging.INFO):
+    if "/" in name: name = name.split("/")[-1]
+    name = name.replace(".py", "")
     N = 2
     threads, output = args[:N]
     out_dir = Path(output).parent

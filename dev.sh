@@ -149,20 +149,23 @@ case $1 in
         # /home/tony/workspace/grad/tools/fabfos/scratch/test01_assemblies/spades_isolate/contigs.fasta
         # /home/tony/workspace/grad/tools/fabfos/scratch/test01_assemblies/spades_isolate/contigs.fasta
         # /home/tony/workspace/grad/tools/FabFos/scratch/test01_assemblies/spades_isolate/contigs.fasta
+            # -b ./ecoli_k12_mg1655.fasta \
+            # -a \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/megahit_sensitive/final.contigs.fa \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/megahit_meta/final.contigs.fa \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/spades_isolate/contigs.fasta \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/spades_meta/contigs.fasta \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/megahit_sensitive/final.contigs.fa \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/megahit_meta/final.contigs.fa \
+            # --endf ../data/beaver/endseq_CEC_FW.fa \
+            # --endr ../data/beaver/endseq_CEC_RE.fa \
         python -m $NAME run -t 12 \
+            --overwrite \
+            -i ./inputs/ss01.fastq.gz \
             -a \
-            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/megahit_sensitive/final.contigs.fa \
-            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/megahit_meta/final.contigs.fa \
-            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/spades_isolate/contigs.fasta \
-            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/spades_meta/contigs.fasta \
-            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/megahit_sensitive/final.contigs.fa \
-            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/megahit_meta/final.contigs.fa \
             /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_isolate/contigs.fasta \
             /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
-            -i ./inputs/ss01.fastq.gz \
-            -b ./ecoli_k12_mg1655.fasta \
-            --endf ../data/beaver/endseq_CEC_FW.fa \
-            --endr ../data/beaver/endseq_CEC_RE.fa \
+            /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
             --end_regex "\w+_\d+" \
             -o ./test01
     ;;

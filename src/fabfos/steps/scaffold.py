@@ -82,7 +82,7 @@ class Hit:
         return qseq+sseq
         
 def Procedure(args):
-    C = Init(args, __file__.split("/")[-1].split(".")[0])
+    C = Init(args, __file__)
     raw_contigs = RawContigs.Load(C.NextArg())
     end_seqs = EndSequences.Load(C.NextArg())
     assert end_seqs.forward is not None and end_seqs.reverse is not None
@@ -90,8 +90,7 @@ def Procedure(args):
     ######################################
     # load end seqs and contigs as @Sequence
 
-    # MIN_LEN = 1000
-    MIN_LEN = 0
+    MIN_LEN = C.params.get("min_length", 1000)
     PIDENT_THRESH = 90
 
     i = 1
@@ -155,17 +154,20 @@ def Procedure(args):
             -outfmt "6 {' '.join(Hit.COLS)}" \
             -out {o} >>{blast_log} 2>&1
         """)
-        _df = pd.read_csv(o, sep="\t", header=None)
-        _df.columns = Hit.COLS
-        for _, row in _df.iterrows():
-            h = Hit(row, _ends, all_contigs)
-            if h.percent_query_mapped < PIDENT_THRESH:
-                # print(h.qseqid, h.percent_query_mapped)
-                continue
-            k = h.qseqid
-            _hits[k] = _hits.get(k, [])+[h]
-            num_hits += 1
-    
+        try:
+            _df = pd.read_csv(o, sep="\t", header=None)
+            _df.columns = Hit.COLS
+            for _, row in _df.iterrows():
+                h = Hit(row, _ends, all_contigs)
+                if h.percent_query_mapped < PIDENT_THRESH:
+                    # print(h.qseqid, h.percent_query_mapped)
+                    continue
+                k = h.qseqid
+                _hits[k] = _hits.get(k, [])+[h]
+                num_hits += 1
+        except pd.errors.EmptyDataError:
+            pass
+        
     ######################################
     # parse blast hits
     # defer scaffolding until later

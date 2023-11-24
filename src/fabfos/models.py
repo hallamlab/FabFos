@@ -55,13 +55,12 @@ class ReadsManifest(Saveable):
 
         # verify
         all_reads = model.AllReads()
-        if sum(len(x) for x in all_reads) == 0:
-            on_error("no reads given")
-        for p in [p for g in all_reads for p in g]:
-            if p.exists(): continue
-            on_error(f"[{p}] does not exist")
-        if len(model.forward) != len(model.reverse):
-            on_error("number of forward and reverse reads don't match")
+        if sum(len(x) for x in all_reads) > 0:
+            for p in [p for g in all_reads for p in g]:
+                if p.exists(): continue
+                on_error(f"[{p}] does not exist")
+            if len(model.forward) != len(model.reverse):
+                on_error("number of forward and reverse reads don't match")
         
         model.Save(out_dir.joinpath(cls.ARG_FILE))
         return model
@@ -143,7 +142,7 @@ class Assembly(Saveable):
                 _make_local(a, _remove_extension(a.name))
             else:
                 for i, apath in enumerate(asm_lst):
-                    _make_local(apath, f"{_remove_extension(apath.name)}_{i+1:04}.fna")
+                    _make_local(apath, f"{_remove_extension(apath.name)}_{i+1:04}")
         
         model = cls(picked_assemblers, given_contigs)
         model.Save(out_dir.joinpath(cls.ARG_FILE))
@@ -172,12 +171,15 @@ class EndSequences(Saveable):
         forwards = _pathify(args.endf)
         reverses = _pathify(args.endr)
         id_regex = args.end_regex if args.end_regex is not None else cls.DEFAULT_REGEX
+        save_path = out_dir.joinpath(cls.ARG_FILE)
 
         if len([v for v in [forwards, reverses] if v is None])==1:
             on_error(f"both --endf and --endr must be given or omitted together")
 
         if forwards is None or reverses is None: # skip id match check
-            return cls(False, None, None, [])
+            model = cls(False, None, None, [])
+            model.Save(save_path)
+            return model
 
         # ensure ids are in pairs and unique + aggregate to 2 files
         for e, p in [(e, p) for e, l in [("endf", forwards), ("endr", reverses)] for p in l]:
@@ -216,7 +218,7 @@ class EndSequences(Saveable):
             out.close()
         
         model = cls(True, allf_p, allr_p, list(all_ids))
-        model.Save(out_dir.joinpath(cls.ARG_FILE))
+        model.Save(save_path)
         return model
     
     @classmethod

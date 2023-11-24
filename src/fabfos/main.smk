@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import json
 from fabfos.models import ReadsManifest, BackgroundGenome, Assembly, EndSequences
 from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs
 
@@ -9,11 +10,22 @@ SRC = Path(config["src"])
 LOGS = Path(config["log"])
 THREADS = int(config["threads"])
 
-GIVEN_ENDSEQS = config["endseqs"]
+params_path = Path("params.json")
+if params_path.exists():
+    with open(params_path) as j:
+        params = json.load(j)
+else:
+    params = {}
 
-    # input: f"{RawContigs.MANIFEST}"
-rule all:
-    input: f"{Scaffolds.MANIFEST if GIVEN_ENDSEQS else LenFilteredContigs.MANIFEST}"
+reads = ReadsManifest.Load(ReadsManifest.ARG_FILE)
+endseqs = EndSequences.Load(EndSequences.ARG_FILE)
+no_trim = params.get("no_trim", False)
+
+# -------------------------------------
+# snakemake
+
+rule target:
+    input: f"{Scaffolds.MANIFEST if endseqs.given else LenFilteredContigs.MANIFEST}"
 
 rule standardize_reads:
     input: f"{ReadsManifest.ARG_FILE}"
@@ -41,7 +53,7 @@ rule quality_trim:
 
 rule filter_background:
     input:
-        f"{ReadsManifest.TRIM}",
+        f"{ReadsManifest.STD if no_trim else ReadsManifest.TRIM}",
         f"{BackgroundGenome.ARG_FILE}"
     output: f"{ReadsManifest.FILTER}"
     params:
@@ -53,9 +65,20 @@ rule filter_background:
         python -m fabfos api --step background_filter --args {threads} {output} {input}
         """
 
-rule assembly:
+if len([r for g in reads.AllReads() for r in g]) > 0:
+    if params.get("background") is None:
+        if no_trim:
+            reads_input = ReadsManifest.ARG_FILE
+        else:
+            reads_input = ReadsManifest.TRIM
+    else:
+        reads_input = ReadsManifest.FILTER
+else:
+    reads_input = ReadsManifest.ARG_FILE
+
+rule acquire_contigs:
     input:
-        f"{ReadsManifest.FILTER}",
+        f"{reads_input}",
         f"{Assembly.ARG_FILE}"
     output: f"{RawContigs.MANIFEST}"
     params:
@@ -67,11 +90,6 @@ rule assembly:
         python -m fabfos api --step assembly --args {threads} {output} {input}
         """
 
-# ---------------------------------
-# conditional branching by requesting either
-# Scaffolds or LenFilteredContigs
-
-# if given end seqs
 rule scaffold:
     input:
         f"{RawContigs.MANIFEST}",
@@ -86,7 +104,6 @@ rule scaffold:
         python -m fabfos api --step scaffold --args {threads} {output} {input}
         """
 
-# else
 rule filter_contigs_by_length:
     input: f"{RawContigs.MANIFEST}"
     output: f"{LenFilteredContigs.MANIFEST}"
@@ -98,5 +115,3 @@ rule filter_contigs_by_length:
         PYTHONPATH={params.src}:$PYTHONPATH
         python -m fabfos api --step filter_contigs_by_length --args {threads} {output} {input}
         """
-# end if
-# ---------------------------------

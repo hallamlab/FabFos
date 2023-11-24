@@ -4,9 +4,8 @@ from ..utils import MODULE_ROOT
 from .common import Init, AggregateReads, ClearTemp, Suffix
 
 def Procedure(args):
-    C = Init(args, __file__.split("/")[-1].split(".")[0])
-    reads_save = Path(C.args[0])
-    man = ReadsManifest.Load(reads_save)
+    C = Init(args, __file__)
+    man = ReadsManifest.Load(C.NextArg())
 
     # unzip and make local link
     def prep(r: Path):

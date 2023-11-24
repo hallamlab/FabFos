@@ -3,7 +3,7 @@ from ..models import ReadsManifest, BackgroundGenome
 from .common import ClearTemp, Init, AggregateReads, Suffix
 
 def Procedure(args):
-    C = Init(args, __file__.split("/")[-1].split(".")[0])
+    C = Init(args, __file__)
     reads_save, background_save = C.args
     man = ReadsManifest.Load(reads_save)
     background = BackgroundGenome.Load(background_save)

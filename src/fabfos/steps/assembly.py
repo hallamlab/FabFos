@@ -9,7 +9,7 @@ _MOCK = False
 # _MOCK = True
 
 def Procedure(args):
-    C = Init(args, __file__.split("/")[-1].split(".")[0])
+    C = Init(args, __file__)
     reads_save, asm_mode_save = C.args
     reads_save = Path(reads_save)
     reads = ReadsManifest.Load(reads_save)

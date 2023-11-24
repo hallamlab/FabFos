@@ -54,6 +54,7 @@ class CommandLineInterface:
             prog = f'{CLI_ENTRY} {self._get_fn_name()}',
         )
 
+        DEFAULT_ASSEMBLY_MODES = Assembly.CHOICES[:2]
         paths = parser.add_argument_group(title="main")
         paths.add_argument("-1", "--forward", metavar="FASTQ", nargs='*', required=False, default=[],
             help="forward paired-end reads")
@@ -67,8 +68,12 @@ class CommandLineInterface:
             help="path to output folder, will be created if non-existent")
         
         fos = parser.add_argument_group(title="fosmid pool specific")
+        fos.add_argument("--no_trim", action="store_true", default=False, required=False,
+            help="skip read trimming with trimmomatic")
         fos.add_argument("-b", "--background", metavar="FASTA", required=False,
             help="host background to filter out")
+        fos.add_argument("--min_length", metavar="INT", required=False, default=1000,
+            help="min contig length to accept, default=1000")
         fos.add_argument("--endf", metavar="FASTA", nargs='*', required=False,
             help="sanger end sequences")
         fos.add_argument("--endr", metavar="FASTA", nargs='*', required=False,
@@ -77,8 +82,8 @@ class CommandLineInterface:
             help="regex for getting ID of end seq., default: \"%s\", ex. \"\\w+_\\d+\" would get ABC_123 from ABC_123_FW" % EndSequences.DEFAULT_REGEX)
 
         # "options" group
-        parser.add_argument("-a", "--assemblies", nargs='*', required=False, default=Assembly.CHOICES[:2],
-            help=f"pre-assembled contigs or assembly modes to use, pick any combination of {Assembly.CHOICES}")
+        parser.add_argument("-a", "--assemblies", nargs='*', required=False, default=[],
+            help=f"pre-assembled contigs or assembly modes to use, pick any combination of {Assembly.CHOICES}, default:{DEFAULT_ASSEMBLY_MODES}")
         parser.add_argument("--overwrite", action="store_true", default=False, required=False,
             help="overwrite previous output, if given same output path")
         parser.add_argument("-t", "--threads", metavar="INT", type=int,
@@ -117,6 +122,16 @@ class CommandLineInterface:
             ReadsManifest, BackgroundGenome, Assembly, EndSequences
         ]:
             input_models[model_class] = model_class.Parse(args, output, _error)
+        has_reads = len([r for g in input_models[ReadsManifest].AllReads() for r in g])>0
+        selected_modes = len(input_models[Assembly].modes)>0
+        given_assemblies = len(input_models[Assembly].given)>0
+        if not has_reads and selected_modes:
+            _error(f"selected assembly modes without giving reads")
+        if not has_reads and not given_assemblies:
+            _error(f"must provide reads, previously assembled contigs, or both")
+        if has_reads and not selected_modes:
+            input_models[Assembly].modes = DEFAULT_ASSEMBLY_MODES
+            input_models[Assembly].Save(output.joinpath(Assembly.ARG_FILE))
 
         smk_args = ["--latency-wait 0"]
         for a in args.snakemake:
@@ -137,7 +152,6 @@ class CommandLineInterface:
             src=MODULE_ROOT,
             log=logs,
             threads=args.threads,
-            endseqs=input_models[EndSequences].given
         )
 
         params_str = ' '.join(f"{k}={v}" for k, v in params.items())
