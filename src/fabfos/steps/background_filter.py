@@ -14,7 +14,7 @@ def Procedure(args):
     C.log.info(f"filtering with {background.fasta}")
     
     count = 0
-    expected = len(man.forward)+len(man.single)
+    expected = len(man.forward)+len(man.singles)
     def _filter(fwd: Path, rev: Path|None = None):
         def _is_local(p: Path):
             return p.is_relative_to(C.root_workspace) or not p.is_absolute()
@@ -74,7 +74,7 @@ def Procedure(args):
         rev.append(fr)
         single.append(fs)
 
-    for s in man.single:
+    for s in man.singles:
         starting_reads += _count_reads(s)+_count_reads(s)
         _, _, fs = _filter(s.absolute())
         single.append(fs)
@@ -83,6 +83,6 @@ def Procedure(args):
     C.log.info(f"[{starting_reads}] starting reads")
     filtered = AggregateReads(fwd, rev, single, C.out_dir)
     filtered.Save(C.expected_output)
-    processed_reads = sum(_count_reads(p) for g in [filtered.forward, filtered.reverse, filtered.single] for p in g)
+    processed_reads = sum(_count_reads(p) for g in [filtered.forward, filtered.reverse, filtered.singles] for p in g)
     C.log.info(f"{processed_reads/starting_reads*100:0.2f}% [{processed_reads}] kept")
     ClearTemp(C.out_dir)

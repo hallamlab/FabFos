@@ -29,11 +29,11 @@ def Procedure(args):
         mm2_inputs = []
         for f, r in zip(reads.forward, reads.reverse):
             mm2_inputs += [f, r]
-        for s in reads.single:
+        for s in reads.singles:
             mm2_inputs.append(s)
         _temp_bam = f"temp.bam"
         quast_out = f"quast_{asm}"
-        C.shell(f"""\
+        r = C.shell(f"""\
             cd {C.out_dir}
             minimap2 -a -t {C.threads} --secondary=no {asm_file} {' '.join(str(p.absolute()) for p in mm2_inputs)} 2>>{log_file} \
             | samtools sort --threads {C.threads} -o {_temp_bam} --write-index - 2>>{log_file}
@@ -45,6 +45,7 @@ def Procedure(args):
             tar -cf - {quast_out} | pigz --best -p {C.threads} >{asm}.quast.tar.gz \
             && rm -r {quast_out}
         """)
+        if r.killed: exit(1)
         stats_manifest[asm] = asm_file
 
     QCStatsForAssemblies(stats_manifest).Save(C.expected_output)

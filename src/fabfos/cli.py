@@ -25,7 +25,7 @@ from dataclasses import dataclass
 import multiprocessing
 import importlib
 
-from .models import Assembly, BackgroundGenome, EndSequences, ReadsManifest
+from .models import Assembly, BackgroundGenome, EndSequences, ReadsManifest, VectorBackbone
 from .utils import NAME, USER, VERSION, ENTRY_POINTS, MODULE_ROOT
 
 CLI_ENTRY = ENTRY_POINTS[0]
@@ -45,6 +45,7 @@ class CommandLineInterface:
             prog = f'{CLI_ENTRY} {self._get_fn_name()}',
         )
 
+        # the arguments here are tightly coupled to models.py, sorry
         DEFAULT_ASSEMBLY_MODES = Assembly.CHOICES[:2]
         paths = parser.add_argument_group(title="main")
         paths.add_argument("-1", "--forward", metavar="FASTQ", nargs='*', required=False, default=[],
@@ -69,6 +70,8 @@ class CommandLineInterface:
             help="sanger end sequences from the other end, IDs must match those from --endf")
         fos.add_argument("--end_regex", metavar="STR", required=False,
             help="regex for getting ID of end seq., default: \"%s\", ex. \"\\w+_\\d+\" would get ABC_123 from ABC_123_FW" % EndSequences.DEFAULT_REGEX)
+        fos.add_argument("--vector", metavar="FASTA", required=False,
+            help="the vector backbone sequence for pool size estimation")
 
         # "options" group
         parser.add_argument("-a", "--assemblies", nargs='*', required=False, default=[],
@@ -114,7 +117,7 @@ class CommandLineInterface:
 
         input_models = {}
         for model_class in [
-            ReadsManifest, BackgroundGenome, Assembly, EndSequences
+            ReadsManifest, BackgroundGenome, Assembly, EndSequences, VectorBackbone,
         ]:
             input_models[model_class] = model_class.Parse(args, output, _error)
         has_reads = len([r for g in input_models[ReadsManifest].AllReads() for r in g])>0

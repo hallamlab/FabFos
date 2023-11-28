@@ -51,9 +51,9 @@ def Procedure(args):
             fwd.append(f)
             rev.append(r)
 
-    if len(man.single)>0:
-        C.log.info(f"unzipping {len(man.single)} single end reads if zipped")
-        single = [prep(p, p.name) for p in man.single]
+    if len(man.singles)>0:
+        C.log.info(f"unzipping {len(man.singles)} single end reads if zipped")
+        single = [prep(p, p.name) for p in man.singles]
 
     C.log.info(f"standardized {sum(len(x) for x in man.AllReads())} read files")
     AggregateReads(fwd, rev, single, C.out_dir).Save(C.expected_output)

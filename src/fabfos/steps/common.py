@@ -83,8 +83,8 @@ def Suffix(file: str, suf: str, cut=0):
     ext = toks[-1]
     return f"{name}{suf}.{ext}"
 
-def AggregateReads(fwd, rev, single, out_dir):
-    aggregates: dict[str, list[Path]] = dict(forward=[], reverse=[], interleaved=[], single=[])
+def AggregateReads(fwd, rev, singles, out_dir):
+    aggregates: dict[str, list[Path]] = dict(forward=[], reverse=[], interleaved=[], singles=[])
     def _untemp(p: Path):
         if out_dir not in p.parents: return p
         name = p.name.removeprefix("temp.")
@@ -95,7 +95,7 @@ def AggregateReads(fwd, rev, single, out_dir):
     for files, name, out in [
         (fwd, "forward", "paired_1.fq"),
         (rev, "reverse", "paired_2.fq"),
-        (single, "single", "singles.fq"),
+        (singles, "singles", "singles.fq"),
     ]:
         if len(files) < 2:
             if len(files) == 1: 

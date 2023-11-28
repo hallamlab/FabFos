@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
 import json
-from fabfos.models import ReadsManifest, BackgroundGenome, Assembly, EndSequences
-from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs
+from fabfos.models import ReadsManifest, BackgroundGenome, Assembly, EndSequences, VectorBackbone
+from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs, PoolSizeEstimate
 from fabfos.models import QCStatsForAssemblies, QCStatsForReads
 
 # the actual commands to call each tool are found in src/fabfos/steps/*.py
@@ -22,6 +22,7 @@ assembly_params = Assembly.Load(Assembly.ARG_FILE)
 reads = ReadsManifest.Load(ReadsManifest.ARG_FILE)
 given_reads = len([r for g in reads.AllReads() for r in g]) > 0
 endseqs = EndSequences.Load(EndSequences.ARG_FILE)
+vector_backbone = VectorBackbone.Load(VectorBackbone.ARG_FILE)
 no_trim = params.get("no_trim", False)
 
 # -------------------------------------
@@ -34,6 +35,8 @@ if len(assembly_params.modes)>0:
     targets.append(f"{QCStatsForAssemblies.MANIFEST}")
 if given_reads:
     targets.append(f"{QCStatsForReads.MANIFEST}")
+if given_reads and vector_backbone.given:
+    targets.append(f"{PoolSizeEstimate.MANIFEST}")
 
 rule target:
     input: expand("{t}", t=targets)
@@ -158,4 +161,18 @@ rule qc_reads:
         """\
         PYTHONPATH={params.src}:$PYTHONPATH
         python -m fabfos api --step qc_reads --args {threads} {output} {input}
+        """
+
+rule estimate_pool_size:
+    input:
+        f"{reads_input}",
+        f"{VectorBackbone.ARG_FILE}"
+    output: f"{PoolSizeEstimate.MANIFEST}"
+    params:
+        src=SRC
+    threads: THREADS
+    shell:
+        """\
+        PYTHONPATH={params.src}:$PYTHONPATH
+        python -m fabfos api --step estimate_pool_size --args {threads} {output} {input}
         """

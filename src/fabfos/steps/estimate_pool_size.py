@@ -1,39 +1,41 @@
 import os
-import subprocess
 from pathlib import Path
 from Bio import SeqIO
-from ..models import ReadsManifest
+import pandas as pd
 from .common import Init
+from ..models import ReadsManifest, VectorBackbone
+from ..models import PoolSizeEstimate
+from ..process_management import Shell
 
-def Process(args):
+def Procedure(args):
     C = Init(args, __file__)
     reads = ReadsManifest.Load(C.NextArg())
+    vector = VectorBackbone.Load(C.NextArg())
+    assert vector.fasta is not None, "vector backbone fasta not given"
+    assert len(reads.forward) == 1, "reads were not aggregated"
 
-    EstimateFosmidPoolSize([r for g in reads.AllReads() for r in g], ..., C.out_dir, C.threads)
-
-def EstimateFosmidPoolSize(
-        reads: list[Path],
-        backbone: Path,
-        workspace: Path,
-        threads: int|None=None,
-    ):
+    fwd, rev = reads.forward[0], reads.reverse[0]
 
     BACKBONE_SIGNATURE_SIZE = 7
     BACKBONE = "vector_backbone"
     BACKBONE_HEADER = BACKBONE
-    backbone = backbone.absolute()
-    reads = [r.absolute() for r in reads]
+    backbone = vector.fasta
+    workspace = C.out_dir
 
     os.makedirs(workspace, exist_ok=True)
     original_dir = os.getcwd()
     os.chdir(workspace)
-    log = ""
-    def shell(cmd):
-        proc = subprocess.Popen(cmd, shell=True, preexec_fn=os.setsid, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        stdout = proc.communicate()[0].decode("utf-8")
-        nonlocal log
-        log += stdout+"\n"
-    
+
+    def _shell(cmd: str):
+        log_path = "./log.txt"
+        def _log(x: str):
+            with open(log_path, "a") as f:
+                f.write(x); f.write("\n")
+        # r = Shell(cmd, lambda x: C.log.info(x), lambda x: C.log.info(f"ERR: {x}"))
+        r = Shell(cmd, _log, lambda x: _log(f"ERR: {x}"))
+        if r.killed:
+            C.log.error("killed")
+            exit(1)
     try:
         # Copies fosmid backbone senquence to new directory
         BACKBONE_SIGNATURE = None # the first 7 nucleotides of backbone
@@ -45,19 +47,15 @@ def EstimateFosmidPoolSize(
                 BACKBONE_SIGNATURE = l[:BACKBONE_SIGNATURE_SIZE]
                 new_f.write(l)
                 for l in f: new_f.write(l)
-        shell('bwa index '+f'{BACKBONE}.fasta')
 
-        # Aligns reads to vector backbone ***PATH TO FILES UPDATED HERE***
-        read_args = " ".join(str(r) for r in reads)
-
-        shell(f'bwa mem ./{BACKBONE}.fasta {read_args} >{BACKBONE}_aln.sam')
-        shell('samtools sort '+f'{BACKBONE}_aln.sam >{BACKBONE}_aln.bam')
-        shell('samtools index '+f'{BACKBONE}_aln.bam')
-        shell('samtools view '+f'{BACKBONE}_aln.bam {BACKBONE_HEADER}:0-20 -o '+f'{BACKBONE}-5-020.bam')
-        shell('samtools view -F 0x10 '+f'{BACKBONE}-5-020.bam -o '+'020-fwd.bam')
-        shell('samtools view -f 0x10 '+f'{BACKBONE}-5-020.bam -o '+'020-rev.bam')
-        shell('samtools fasta '+'020-fwd.bam > '+'020-fwd.fasta')
-        shell('samtools fasta '+'020-rev.bam > '+'020-rev.fasta')
+        # Aligns reads to vector backbone
+        # assumes fwd ends in _1 and rev ends in _2
+        _shell(f"""\
+            BAM=temp.bam
+            minimap2 -a -x sr -t {C.threads} --secondary=no ./{BACKBONE}.fasta {fwd} {rev} \
+            && samtools view -ub -F 4 -@ {C.threads} $BAM \
+            | samtools fastq --verbosity 1 -N -1 020-fwd.fasta -2 020-rev.fasta
+        """)
 
         fwd = SeqIO.parse(str('020-fwd.fasta'), "fasta")
         recs = []
@@ -93,19 +91,13 @@ def EstimateFosmidPoolSize(
             f.write("\t".join(str(x) for x in [len(hit_lens), len(final_recs), hl_str])+"\n")
 
 
-        uclust_cmd = [
-            f"vsearch",
-            "-cluster_fast", f"{BACKBONE}-5-020.fasta",
-            "-uc", f"{BACKBONE}-5-020.uc",
-            "-id", str(0.9),
-            "-consout", f"{BACKBONE}-5-020_clusters.fasta",
-            "-sizeout",
-            "-centroids", f"{BACKBONE}-5-020_centroids.fasta",
-        ]
-        if threads is not None:
-            # print(f"\nusing {threads} threads for usearch")
-            uclust_cmd+= ["-threads", threads]
-        shell(" ".join(uclust_cmd))
+        _shell(f"""
+            vsearch -sizeout -id 0.9 -threads {C.threads} \
+            -cluster_fast {BACKBONE}-5-020.fasta \
+            -uc {BACKBONE}-5-020.uc \
+            -consout {BACKBONE}-5-020_clusters.fasta \
+            -centroids {BACKBONE}-5-020_centroids.fasta
+        """)
 
         final_output =  open(f'original.fasta', 'w')
         hits =          open(f'hits.fasta', 'w')
@@ -125,15 +117,17 @@ def EstimateFosmidPoolSize(
                     size_ones += 1
 
             total = estimate + size_ones
-            with open(f"results.tsv", "w") as f:
-                f.write("\t".join("n_fosmids, n_fosmids_and_singletons".split(", "))+"\n")
-                f.write("\t".join(str(x) for x in [estimate, total])+"\n")
-            return estimate
+
+            os.chdir(original_dir)
+            C.log.info(f"estimated pool size: {estimate}")
+            pd.DataFrame([(estimate, total)], columns=["estimated_pool_size", "estimated_pool_size_with_singletons"])\
+                .to_csv(C.root_workspace.joinpath("pool_size_estimate.csv"), index=False)
+            C.log.info(C.expected_output)
+            PoolSizeEstimate(size=estimate, size_with_singletons=total).Save(C.expected_output)
+
         finally:
             final_output.close()
             hits.close()
 
     finally:
-        with open("./log", "w") as f:
-            f.write(log)
         os.chdir(original_dir)

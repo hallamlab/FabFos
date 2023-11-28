@@ -158,14 +158,15 @@ case $1 in
             # --endf ../data/beaver/endseq_CEC_FW.fa \
             # --endr ../data/beaver/endseq_CEC_RE.fa \
             # -a megahit_sensitive \
+            # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_isolate/contigs.fasta \
+            # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
+            # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
+            # --end_regex "\w+_\d+" \
         export PYTHONPATH=$HERE/src:$PYTHONPATH
         cd scratch
         python -m $NAME run -t 12 \
-            -i ./inputs/ss01.fastq.gz \
-            ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_isolate/contigs.fasta \
-            ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
-            ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
-            --end_regex "\w+_\d+" \
+            -i ./inputs/ss10.fastq.gz \
+            --vector ./inputs/pcc1.fasta \
             -o ./test01
     ;;
 

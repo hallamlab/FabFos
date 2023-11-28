@@ -13,7 +13,7 @@ def Procedure(args):
     adapter_folder = Path(adapter_folder).parents[1].joinpath("share/trimmomatic/adapters")
 
     count = 0
-    expected_runs = len(man.forward)+len(man.single)
+    expected_runs = len(man.forward)+len(man.singles)
     def trim(fwd: Path, rev: Path|None=None):
         T = "temp."
         TR = ".trimmed"
@@ -48,7 +48,7 @@ def Procedure(args):
         fwd.append(pf)
         rev.append(pr)
         single += s
-    for r in man.single:
+    for r in man.singles:
         _, _, s = trim(r)
         single += s
 

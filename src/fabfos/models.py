@@ -33,7 +33,7 @@ class ReadsManifest(Saveable):
     forward: list[Path]
     reverse: list[Path]
     interleaved: list[Path]
-    single: list[Path]
+    singles: list[Path]
 
     ARG_FILE =  Path("internals/temp_reads/original_reads.json")
     STD =       Path("internals/temp_reads/std_reads.json")
@@ -41,7 +41,7 @@ class ReadsManifest(Saveable):
     FILTER =    Path("internals/temp_filter/filtered.json")
 
     def AllReads(self):
-        return [self.forward, self.reverse, self.interleaved, self.single]
+        return [self.forward, self.reverse, self.interleaved, self.singles]
 
     @classmethod
     def Parse(cls, args, out_dir: Path, on_error: Callable):
@@ -50,7 +50,7 @@ class ReadsManifest(Saveable):
             forward=_listify(args.forward),
             reverse=_listify(args.reverse),
             interleaved=_listify(args.interleaved),
-            single=_listify(args.single),
+            singles=_listify(args.single),
         )
 
         # verify
@@ -234,6 +234,39 @@ class EndSequences(Saveable):
                 insert_ids = raw.get("insert_ids", []),
             )
 
+@dataclass
+class VectorBackbone(Saveable):
+    given: bool
+    fasta: Path|None
+
+    ARG_FILE = Path("internals/temp_estimate_pool_size/manifest.json")
+    SKIP = "SKIP"
+
+    @classmethod
+    def Parse(cls, args, out_dir: Path, on_error: Callable):
+        raw_vec_path = args.vector
+        if raw_vec_path is not None:
+            raw_vec_path = Path(raw_vec_path).absolute()
+            if not raw_vec_path.exists():
+                on_error(f"vector backbone file [{raw_vec_path}] doesn't exist")
+            
+        model = cls(
+            given=raw_vec_path is not None,
+            fasta=raw_vec_path,
+        )
+        model.Save(out_dir.joinpath(cls.ARG_FILE))
+        return model
+
+    @classmethod
+    def Load(cls, path):
+        with open(path) as j:
+            raw = json.load(j)
+            _pathify = lambda x: Path(x) if x != "None" else None
+            return cls(
+                given = raw.get("given", "False").title() == "True",
+                fasta = _pathify(raw.get("fasta", "None")),
+            )
+        
 #################################
 # internal (not parsed from args)
 #################################
@@ -301,3 +334,16 @@ class QCStatsForReads(Saveable):
         with open(path) as j:
             raw = [Path(v) for v in json.load(j)]
             return cls(raw)
+
+@dataclass
+class PoolSizeEstimate(Saveable):
+    size: int
+    size_with_singletons: int
+
+    MANIFEST = Path("internals/temp_estimate_pool_size/size.json")
+
+    @classmethod
+    def Load(cls, path):
+        with open(path) as j:
+            raw = json.load(j)
+            return cls(**raw)

@@ -19,7 +19,7 @@ def Procedure(args):
 
     def _stringify(lst):
         return ','.join(str(p) for p in lst)
-    fwds, revs, singles = [_stringify(l) for l in [reads.forward, reads.reverse, reads.single]]
+    fwds, revs, singles = [_stringify(l) for l in [reads.forward, reads.reverse, reads.singles]]
     
     # spades and megahit make their own logs, so console out goes to /dev/null
     if len(assemblers)>0: C.log.info(f"performing {len(assemblers)} assemblies using [{', '.join(assemblers)}]")
