@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
 import json
-from fabfos.models import ReadsManifest, BackgroundGenome, Assembly, EndSequences, VectorBackbone
-from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs, PoolSizeEstimate
+from fabfos.models import ReadsManifest, BackgroundGenome, Assembly, EndSequences, VectorBackbone, MetapathwaysArgs
+from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs, PoolSizeEstimate, MetapathwaysResults
 from fabfos.models import QCStatsForAssemblies, QCStatsForReads
 
 # the actual commands to call each tool are found in src/fabfos/steps/*.py
@@ -24,12 +24,13 @@ given_reads = len([r for g in reads.AllReads() for r in g]) > 0
 endseqs = EndSequences.Load(EndSequences.ARG_FILE)
 vector_backbone = VectorBackbone.Load(VectorBackbone.ARG_FILE)
 no_trim = params.get("no_trim", False)
+mpw_args = MetapathwaysArgs.Load(MetapathwaysArgs.ARG_FILE)
 
 # -------------------------------------
 # snakemake
 
 targets = [
-    f"{Scaffolds.MANIFEST if endseqs.given else LenFilteredContigs.MANIFEST}"
+    f"{Scaffolds.MANIFEST if endseqs.given else LenFilteredContigs.MANIFEST}",
 ]
 if len(assembly_params.modes)>0:
     targets.append(f"{QCStatsForAssemblies.MANIFEST}")
@@ -37,6 +38,8 @@ if given_reads:
     targets.append(f"{QCStatsForReads.MANIFEST}")
 if given_reads and vector_backbone.given:
     targets.append(f"{PoolSizeEstimate.MANIFEST}")
+if not mpw_args.skip_annotation:
+    targets.append(f"{MetapathwaysResults.MANIFEST}")
 
 rule target:
     input: expand("{t}", t=targets)
@@ -137,6 +140,21 @@ if endseqs.given:
 else:
     qc_assemblies_input+=[LenFilteredContigs.MANIFEST]
     contig_type = "contigs"
+
+rule annotation:
+    input:
+        f"{Scaffolds.MANIFEST if contig_type == 'scaffolds' else LenFilteredContigs.MANIFEST}",
+        f"{MetapathwaysArgs.ARG_FILE}"
+    output: f"{MetapathwaysResults.MANIFEST}"
+    params:
+        src=SRC,
+        contig_type=contig_type
+    threads: THREADS
+    shell:
+        """\
+        PYTHONPATH={params.src}:$PYTHONPATH
+        python -m fabfos api --step annotation --args {threads} {output} {params.contig_type} {input}
+        """
 
 rule qc_assemblies:
     input: expand("{f}", f=qc_assemblies_input)

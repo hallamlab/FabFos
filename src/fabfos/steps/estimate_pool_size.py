@@ -27,12 +27,11 @@ def Procedure(args):
     os.chdir(workspace)
 
     def _shell(cmd: str):
-        log_path = "./log.txt"
         def _log(x: str):
-            with open(log_path, "a") as f:
-                f.write(x); f.write("\n")
+            with open(C.log_file, "a") as f:
+                f.write(x);
         # r = Shell(cmd, lambda x: C.log.info(x), lambda x: C.log.info(f"ERR: {x}"))
-        r = Shell(cmd, _log, lambda x: _log(f"ERR: {x}"))
+        r = Shell(cmd, _log, lambda x: _log(f"STD_ERR: {x}"))
         if r.killed:
             C.log.error("killed")
             exit(1)

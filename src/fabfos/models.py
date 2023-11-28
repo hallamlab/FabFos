@@ -5,6 +5,8 @@ from typing import Callable, Any
 from Bio import SeqIO
 import json
 
+from pysam import reference
+
 from .utils import regex
 
 class Saveable:
@@ -267,6 +269,49 @@ class VectorBackbone(Saveable):
                 fasta = _pathify(raw.get("fasta", "None")),
             )
         
+@dataclass
+class MetapathwaysArgs(Saveable):
+    skip_annotation: bool
+    reference_databases: Path|None
+    additional_args: dict[str, str]
+
+    ARG_FILE = Path("internals/temp_annotation/metapathways_args.json")
+
+    @classmethod
+    def Parse(cls, args, out_dir: Path, on_error: Callable):
+        if args.reference_databases is None:
+            model = cls(
+                skip_annotation=True,
+                reference_databases=None,
+                additional_args={},
+            )
+        else:
+            ref_path = Path(args.reference_databases).absolute()
+            if not ref_path.exists():
+                on_error(f"metapathways reference databases at [{ref_path}] don't exist")
+            model = cls(
+                skip_annotation=False,
+                reference_databases=ref_path,
+                additional_args={k:v for k, v in [a.split("=") if "=" in a else (a, "") for a in args.metapathways]},
+            )
+        model.Save(out_dir.joinpath(cls.ARG_FILE))
+        return model
+    
+    @classmethod
+    def Load(cls, path):
+        with open(path) as j:
+            raw = json.load(j)
+            ref_path = raw.get("reference_databases", "None")
+            if ref_path == "None":
+                ref_path = None
+            else:
+                ref_path = Path(ref_path)
+            return cls(**dict(
+                skip_annotation = raw.get("skip_annotation", "False").title() == "True",
+                reference_databases = ref_path,
+                additional_args = raw.get("additional_args", {}),
+            ))
+
 #################################
 # internal (not parsed from args)
 #################################
@@ -341,6 +386,18 @@ class PoolSizeEstimate(Saveable):
     size_with_singletons: int
 
     MANIFEST = Path("internals/temp_estimate_pool_size/size.json")
+
+    @classmethod
+    def Load(cls, path):
+        with open(path) as j:
+            raw = json.load(j)
+            return cls(**raw)
+
+@dataclass
+class MetapathwaysResults(Saveable):
+    results: Path
+
+    MANIFEST = Path("internals/temp_annotation/manifest.json")
 
     @classmethod
     def Load(cls, path):

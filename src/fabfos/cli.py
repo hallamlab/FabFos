@@ -25,7 +25,7 @@ from dataclasses import dataclass
 import multiprocessing
 import importlib
 
-from .models import Assembly, BackgroundGenome, EndSequences, ReadsManifest, VectorBackbone
+from .models import Assembly, BackgroundGenome, EndSequences, MetapathwaysArgs, ReadsManifest, VectorBackbone
 from .utils import NAME, USER, VERSION, ENTRY_POINTS, MODULE_ROOT
 
 CLI_ENTRY = ENTRY_POINTS[0]
@@ -73,6 +73,12 @@ class CommandLineInterface:
         fos.add_argument("--vector", metavar="FASTA", required=False,
             help="the vector backbone sequence for pool size estimation")
 
+        ann = parser.add_argument_group(title="annotation with metapathways")
+        ann.add_argument("-d", "--reference_databases", metavar="PATH", required=False,
+            help="path to metapathways reference database folder")
+        ann.add_argument("--metapathways", nargs='*', required=False, default=[],
+            help="additional metapathways cli args in the form of KEY=\"VALUE\" or KEY (no leading dashes)")
+
         # "options" group
         parser.add_argument("-a", "--assemblies", nargs='*', required=False, default=[],
             help=f"pre-assembled contigs or assembly modes to use, pick any combination of {Assembly.CHOICES}, default:{DEFAULT_ASSEMBLY_MODES}")
@@ -85,7 +91,7 @@ class CommandLineInterface:
         parser.add_argument("--mock", action="store_true", default=False, required=False,
             help="dry run snakemake")
         parser.add_argument("--snakemake", nargs='*', required=False, default=[],
-            help="additional snakemake cli args in the form of KEY=VALUE or KEY (no leading dashes)")
+            help="additional snakemake cli args in the form of KEY=\"VALUE\" or KEY (no leading dashes)")
         args = parser.parse_args(raw_args)
 
         #########################
@@ -117,7 +123,7 @@ class CommandLineInterface:
 
         input_models = {}
         for model_class in [
-            ReadsManifest, BackgroundGenome, Assembly, EndSequences, VectorBackbone,
+            ReadsManifest, BackgroundGenome, Assembly, EndSequences, VectorBackbone, MetapathwaysArgs
         ]:
             input_models[model_class] = model_class.Parse(args, output, _error)
         has_reads = len([r for g in input_models[ReadsManifest].AllReads() for r in g])>0

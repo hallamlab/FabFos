@@ -166,8 +166,20 @@ case $1 in
         cd scratch
         python -m $NAME run -t 12 \
             -i ./inputs/ss10.fastq.gz \
+            -d ../../../resources/mp3db \
             --vector ./inputs/pcc1.fasta \
             -o ./test01
+    ;;
+
+    -tm)
+    cd scratch
+    metapathways run -t 12 \
+        -i ./mpwi/contigs.fna \
+        -r ./mpwi/reads \
+        -d ../../../resources/mp3db \
+        --annotation_dbs swissprot metacyc\
+        --COMPUTE_TPM skip \
+        -o ./mpw_test
     ;;
 
     -td) # test docker
