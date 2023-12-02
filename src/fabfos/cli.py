@@ -26,7 +26,7 @@ import multiprocessing
 import importlib
 
 from .models import Assembly, BackgroundGenome, EndSequences, MetapathwaysArgs, ReadsManifest, VectorBackbone
-from .utils import NAME, USER, VERSION, ENTRY_POINTS, MODULE_ROOT
+from .utils import NAME, USER, VERSION, ENTRY_POINTS, MODULE_ROOT, StdTime
 
 CLI_ENTRY = ENTRY_POINTS[0]
     
@@ -97,6 +97,7 @@ class CommandLineInterface:
         #########################
         # verify & parse inputs
         #########################
+        timestamp = StdTime.Timestamp()
         input_error = False
         _printed = False
         def _error(message: str):
@@ -109,12 +110,13 @@ class CommandLineInterface:
             input_error = True
 
         output = Path(args.output).absolute()
-        logs = output.joinpath("logs")
+        logs = output.joinpath(f"logs/{timestamp}")
         if not output.exists(): os.makedirs(output)
         if not logs.exists(): os.makedirs(logs)
         with open(output.joinpath("params.json"), "w") as j:
             d = args.__dict__|dict(
-                current_directory=os.getcwd(),
+                initial_directory=os.getcwd(),
+                log_folder=str(logs.absolute()),
             )
             for k in list(d):
                 if isinstance(d[k], list) and len(d[k]) == 0: del d[k]
@@ -150,8 +152,8 @@ class CommandLineInterface:
         # run snakemake
         #########################
         if input_error: return
-        smk_log = logs.joinpath("snakemake")
-        link_log = "" if smk_log.exists() else f'ln -s ../.snakemake/log {logs.joinpath("snakemake")}'
+        smk_log = logs.parent.joinpath("snakemake")
+        link_log_cmd = "" if smk_log.exists() else f'ln -s ../.snakemake/log {smk_log}'
         params = dict(
             src=MODULE_ROOT,
             log=logs,
@@ -161,7 +163,7 @@ class CommandLineInterface:
         params_str = ' '.join(f"{k}={v}" for k, v in params.items())
         cache = output.joinpath("internals/temp_cache")
         cmd = f"""\
-            {link_log}
+            {link_log_cmd}
             mkdir -p {cache}
             export XDG_CACHE_HOME={cache}
             snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} --rerun-incomplete \

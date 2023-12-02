@@ -35,7 +35,7 @@ def Init(args, name: str, level=logging.INFO):
     ws = Path(".").absolute()
     with open(ws.joinpath("params.json")) as j:
         params = json.load(j)
-    log_file = ws.joinpath(f"logs/{name}.log")
+    log_file = Path(params.get("log_folder", "./logs")).joinpath(f"{name}.log") # created in cli.py
     logging.basicConfig(
         filename=str(log_file),
         filemode='a',
@@ -50,6 +50,17 @@ def Init(args, name: str, level=logging.INFO):
     log.addHandler(logging.StreamHandler(sys.stderr))
     threads = int(threads)
     if not out_dir.exists(): os.makedirs(out_dir)
+
+    def _shell(cmd: str):
+        def _log(x: str):
+            with open(log_file, "a") as f:
+                f.write(x);
+        r = Shell(cmd, _log, lambda x: _log(f"ERR: {x}"))
+        if r.killed:
+            log.error("killed")
+            exit(1)
+        return r
+
     return Context(
         threads=threads,
         expected_output=Path(output),
@@ -59,7 +70,7 @@ def Init(args, name: str, level=logging.INFO):
         log_file=log_file,
         args=args[N:],
         params=params,
-        shell=lambda cmd: Shell(cmd, on_out=log.info, on_err=log.error)
+        shell=lambda cmd: _shell(cmd)
     )
 
 def FileSafeStr(s: str):

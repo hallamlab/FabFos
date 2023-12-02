@@ -121,7 +121,6 @@ def Procedure(args):
             C.log.info(f"estimated pool size: {estimate}")
             pd.DataFrame([(estimate, total)], columns=["estimated_pool_size", "estimated_pool_size_with_singletons"])\
                 .to_csv(C.root_workspace.joinpath("pool_size_estimate.csv"), index=False)
-            C.log.info(C.expected_output)
             PoolSizeEstimate(size=estimate, size_with_singletons=total).Save(C.expected_output)
 
         finally:

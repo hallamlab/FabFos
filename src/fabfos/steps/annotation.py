@@ -3,8 +3,7 @@ from pathlib import Path
 import pandas as pd
 from .common import Init
 from ..models import MetapathwaysArgs, Scaffolds, LenFilteredContigs
-from ..models import MetapathwaysResults
-from ..process_management import Shell
+from ..models import AnnotationResults
 
 def Procedure(args):
     C = Init(args, __file__)
@@ -14,17 +13,7 @@ def Procedure(args):
     assert mpw_args.reference_databases is not None
     assert mpw_args.skip_annotation == False
 
-    def _shell(cmd: str):
-        def _log(x: str):
-            with open(C.log_file, "a") as f:
-                f.write(x);
-        r = Shell(cmd, _log, lambda x: _log(f"STD_ERR: {x}"))
-        if r.killed:
-            C.log.error("killed")
-            exit(1)
-        return r
-
-    mpw_out = C.root_workspace.joinpath("annotation")
+    mpw_out = C.root_workspace.joinpath("metapathways")
     args = dict(
         input_file = resolved_inserts,
         refdb_dir = mpw_args.reference_databases,
@@ -46,8 +35,14 @@ def Procedure(args):
 
     str_args = " ".join([f"--{k} {v}" for k,v in args.items()])
 
-    r = _shell(f"""\
-        metapathways run {str_args}
+    _name = ".".join(resolved_inserts.name.split(".")[:-1])
+    r = C.shell(f"""\
+        if [ -d "{mpw_out}" ]; then rm -r {mpw_out}; fi
+        metapathways run {str_args} \
+        && mv {mpw_out}/{_name}/* {mpw_out} && rmdir {mpw_out}/{_name}
     """)
-    if r.exit_code == 0:
-        MetapathwaysResults(mpw_out).Save(C.expected_output)
+    if r.exit_code != 0:
+        C.log.error(f"metapathways failed with exit code {r.exit_code}")
+        exit(1)
+
+    AnnotationResults(raw_results=mpw_out, contigs_used=resolved_inserts).Save(C.expected_output)

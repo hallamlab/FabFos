@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 import json
 from fabfos.models import ReadsManifest, BackgroundGenome, Assembly, EndSequences, VectorBackbone, MetapathwaysArgs
-from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs, PoolSizeEstimate, MetapathwaysResults
+from fabfos.models import RawContigs, Scaffolds, LenFilteredContigs, PoolSizeEstimate, AnnotationResults, StandardizedAnnotations
 from fabfos.models import QCStatsForAssemblies, QCStatsForReads
 
 # the actual commands to call each tool are found in src/fabfos/steps/*.py
@@ -39,7 +39,7 @@ if given_reads:
 if given_reads and vector_backbone.given:
     targets.append(f"{PoolSizeEstimate.MANIFEST}")
 if not mpw_args.skip_annotation:
-    targets.append(f"{MetapathwaysResults.MANIFEST}")
+    targets.append(f"{StandardizedAnnotations.MANIFEST}")
 
 rule target:
     input: expand("{t}", t=targets)
@@ -145,7 +145,7 @@ rule annotation:
     input:
         f"{Scaffolds.MANIFEST if contig_type == 'scaffolds' else LenFilteredContigs.MANIFEST}",
         f"{MetapathwaysArgs.ARG_FILE}"
-    output: f"{MetapathwaysResults.MANIFEST}"
+    output: f"{AnnotationResults.MANIFEST}"
     params:
         src=SRC,
         contig_type=contig_type
@@ -154,6 +154,19 @@ rule annotation:
         """\
         PYTHONPATH={params.src}:$PYTHONPATH
         python -m fabfos api --step annotation --args {threads} {output} {params.contig_type} {input}
+        """
+
+rule standardize_annotations:
+    input:
+        f"{AnnotationResults.MANIFEST}"
+    output: f"{StandardizedAnnotations.MANIFEST}"
+    params:
+        src=SRC
+    threads: THREADS
+    shell:
+        """\
+        PYTHONPATH={params.src}:$PYTHONPATH
+        python -m fabfos api --step standardize_annotations --args {threads} {output} {input}
         """
 
 rule qc_assemblies:

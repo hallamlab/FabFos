@@ -1,8 +1,10 @@
 HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
 NAME=fabfos
-DOCKER_IMAGE=quay.io/hallamlab/$NAME
-VER=$(cat $HERE/src/$NAME/version.txt)
+UTILS=$HERE/src/$NAME/utils.py
+DEV_USER=$(python $UTILS USER)
+VER=$(python $UTILS VERSION)
+DOCKER_IMAGE=quay.io/$USER/$NAME
+
 # CONDA=conda
 CONDA=mamba # https://mamba.readthedocs.io/en/latest/mamba-installation.html#mamba-install
 echo image: $DOCKER_IMAGE:$VER
@@ -30,7 +32,7 @@ echo ""
 # dev.sh --idev # create a local conda dev env
 # dev.sh -bd # build docker image
 # dev.sh -ud # publish to quay.io
-# dev.sh -bs # build singularity image from local docker image
+# dev.sh -bs # build apptainer image from local docker image
 
 case $1 in
     ###################################################
@@ -38,11 +40,16 @@ case $1 in
 
     --idev) # with dev tools for packaging
         cd $HERE/envs
-        $CONDA env create --no-default-packages -n $NAME -f ./base.yml
-        $CONDA env update -n $NAME -f ./dev.yml
+        echo "creating new conda env: $NAME"
+        echo "WARNING: you will need to install docker and apptainer individually"
+        sleep 2
+        $CONDA env create --no-default-packages -n $NAME -f ./base.yml \
+        && $CONDA env update -n $NAME -f ./dev.yml
     ;;
     --ibase) # base only
         cd $HERE/envs
+        echo "creating new conda env: $NAME"
+        sleep 2
         $CONDA env create --no-default-packages -n $NAME -f ./base.yml
     ;;
 
@@ -62,6 +69,7 @@ case $1 in
         pip uninstall -y $NAME
     ;;
     -bc) # conda
+        # requires built pip package
         rm -r $HERE/conda_build
         python ./conda_recipe/compile_recipe.py
         $HERE/conda_recipe/call_build.sh
@@ -69,8 +77,8 @@ case $1 in
     -bd) # docker
         docker build -t $DOCKER_IMAGE:$VER .
     ;;
-    -bs) # singularity image *from docker*
-        singularity build $NAME.sif docker-daemon://$DOCKER_IMAGE:$VER
+    -bs) # apptainer image *from docker*
+        apptainer build $NAME.sif docker-daemon://$DOCKER_IMAGE:$VER
     ;;
 
     ###################################################
@@ -89,7 +97,7 @@ case $1 in
     ;;
     -uc) # conda (personal channel)
         # run `anaconda login` first
-        find ./conda_build -name *.tar.bz2 | xargs -I % anaconda upload %
+        find ./conda_build -name *.tar.bz2 | xargs -I % anaconda upload -u $DEV_USER %
     ;;
     -ud) # docker
         # login and push image to quay.io
@@ -117,10 +125,10 @@ case $1 in
             --workdir="/ws" \
             $DOCKER_IMAGE:$VER /bin/bash
     ;;
-    -rs) # singularity
+    -rs) # apptainer
             # -e XDG_CACHE_HOME="/ws"\
         shift
-        singularity exec \
+        apptainer exec \
             --bind ./:/ws \
             --workdir /ws \
             $HERE/$NAME.sif fabfos /bin/bash
@@ -177,8 +185,7 @@ case $1 in
         -i ./mpwi/contigs.fna \
         -r ./mpwi/reads \
         -d ../../../resources/mp3db \
-        --annotation_dbs swissprot metacyc\
-        --COMPUTE_TPM skip \
+        --annotation_dbs metacyc\
         -o ./mpw_test
     ;;
 
@@ -201,9 +208,9 @@ case $1 in
                 -o /ws/scratch/test_docker01
     ;;
 
-    -ts) # test singularity
+    -ts) # test apptainer
         shift
-        singularity run -B $HERE:/ws,"/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos":"/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos" \
+        apptainer run -B $HERE:/ws,"/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos":"/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos" \
         $HERE/fabfos.sif fabfos run -t 12 \
             -a megahit \
             --overwrite \
@@ -212,7 +219,7 @@ case $1 in
             --endf /ws/data/beaver/endseq_COL_FW.fa \
             --endr /ws/data/beaver/endseq_COL_RE.fa \
             --end_regex "\\w+_\\d+" \
-            -o /ws/scratch/test_singularity01
+            -o /ws/scratch/test_apptainer01
     ;;
 
     ###################################################

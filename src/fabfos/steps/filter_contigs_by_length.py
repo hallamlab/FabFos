@@ -1,6 +1,7 @@
 import os, sys
 from pathlib import Path
 from Bio import SeqIO
+import math
 import pandas as pd
 from ..models import LenFilteredContigs, RawContigs
 from .common import ClearTemp, Init
@@ -25,7 +26,7 @@ def Procedure(args):
             for e in SeqIO.parse(con, "fasta"):
                 seq = str(e.seq)
                 if len(seq)<MIN_LEN: continue
-                k = f"{i:06}_{asm}"
+                k = f"{i:06} {asm}"
                 f.write(f">{k} length={len(seq)}"+"\n")
                 f.write(seq); f.write("\n")
                 all_contigs[k] = Sequence(k, seq, dict(assembler=asm))
@@ -76,9 +77,18 @@ def Procedure(args):
 
     discard = open(C.out_dir.joinpath("discard.fna"), "w")
     contigs = open(C.root_workspace.joinpath("contigs.fna"), "w")
+    places = int(math.log10(len(all_contigs)))+1
+    i_k, i_d = 0, 0
     for k, s in sorted(all_contigs.items(), key=lambda t: len(t[1].seq), reverse=True):
-        f = discard if k in to_remove else contigs
-        f.write(f">{k} length={len(s.seq)}"+"\n")
+        if k in to_remove:
+            i_d += 1
+            i = i_d
+            f = discard
+        else:
+            i_k += 1
+            i = i_k
+            f = contigs
+        f.write(f">C{i:0{places}} length={len(s.seq)}"+"\n")
         f.write(s.seq); f.write("\n")
     discard.close()
     contigs.close()

@@ -6,7 +6,7 @@ sys.path = [str(p) for p in set([
 ]+sys.path)]
 import setuptools
 from fabfos.utils import USER, NAME, ENTRY_POINTS, VERSION
-
+SHORT_SUMMARY = "A pipeline for the analysis of pooled fosmid data"
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
@@ -16,7 +16,7 @@ if __name__ == "__main__":
         version=VERSION,
         author="Tony Liu, Connor Morgan-Lang, Avery Noonan, Zach Armstrong, and Steven J. Hallam",
         author_email="shallam@mail.ubc.ca",
-        description="Analysis pipeline for pooled fosmids",
+        description=SHORT_SUMMARY,
         long_description=long_description,
         long_description_content_type="text/markdown",
         license_files = ('LICENSE',),
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         entry_points={
             'console_scripts': [f"{e} = {NAME}.cli:main" for e in ENTRY_POINTS],
         },
-        python_requires=">=3.11",
+        python_requires=">=3.10",
         install_requires=[
             "packaging >=21.0",
         ]

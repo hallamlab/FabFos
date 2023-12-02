@@ -1,8 +1,9 @@
-import os
+import os, sys
 import time
 from datetime import datetime as dt
 from pathlib import Path
 import re
+from typing import Iterable, Sequence
 
 USER = "hallamlab" # github id
 MODULE_ROOT = Path("/".join(os.path.realpath(__file__).split('/')[:-1]))
@@ -18,6 +19,10 @@ def regex(r, s):
     for m in re.finditer(r, s):
         yield s[m.start():m.end()]
 
+def Batchify(lst: Sequence, size: int):
+    for i in range(0, len(lst), size):
+        yield lst[i:i + size]
+        
 class StdTime:
     FORMAT = '%Y-%m-%d_%H-%M-%S'
 
@@ -37,3 +42,19 @@ class StdTime:
     def CurrentTimeMillis(cls):
         return round(time.time() * 1000)
     
+if __name__ == "__main__":
+    sys.path = [str(p) for p in set([
+        MODULE_ROOT.parents[1]
+    ]+sys.path)]
+    from setup import SHORT_SUMMARY
+    if len(sys.argv)>1:
+        k = sys.argv[1]
+        meta = dict(
+            USER = USER,
+            NAME = NAME,
+            ENTRY_POINTS = ENTRY_POINTS,
+            VERSION = VERSION,
+            SHORT_SUMMARY = SHORT_SUMMARY,
+            MODULE_ROOT = MODULE_ROOT,
+        )
+        print(meta.get(k, ""))

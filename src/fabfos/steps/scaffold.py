@@ -101,7 +101,7 @@ def Procedure(args):
             for e in SeqIO.parse(con, "fasta"):
                 seq = str(e.seq)
                 if len(seq)<MIN_LEN: continue
-                k = f"{i:06}_{asm}"
+                k = f"{i:06} {asm}"
                 f.write(f">{k} length={len(seq)}"+"\n")
                 f.write(seq); f.write("\n")
                 all_contigs[k] = Sequence(k, seq, dict(assembler=asm))

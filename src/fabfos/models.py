@@ -275,7 +275,7 @@ class MetapathwaysArgs(Saveable):
     reference_databases: Path|None
     additional_args: dict[str, str]
 
-    ARG_FILE = Path("internals/temp_annotation/metapathways_args.json")
+    ARG_FILE = Path("internals/temp_annotation_raw/metapathways_args.json")
 
     @classmethod
     def Parse(cls, args, out_dir: Path, on_error: Callable):
@@ -394,13 +394,36 @@ class PoolSizeEstimate(Saveable):
             return cls(**raw)
 
 @dataclass
-class MetapathwaysResults(Saveable):
-    results: Path
+class AnnotationResults(Saveable):
+    raw_results: Path
+    contigs_used: Path
 
-    MANIFEST = Path("internals/temp_annotation/manifest.json")
+    MANIFEST = Path("internals/temp_annotation_raw/manifest.json")
 
     @classmethod
     def Load(cls, path):
         with open(path) as j:
             raw = json.load(j)
-            return cls(**raw)
+            _pathify = lambda k:  Path(raw[k])
+            return cls(**dict(
+                raw_results = _pathify("raw_results"),
+                contigs_used = _pathify("contigs_used"),
+            ))
+        
+@dataclass
+class StandardizedAnnotations(Saveable):
+    gffs: dict[str, Path]
+    fna: Path
+    faa: Path
+
+    MANIFEST = Path("internals/temp_annotation_std/manifest.json")
+
+    @classmethod
+    def Load(cls, path):
+        with open(path) as j:
+            raw = json.load(j)
+            return cls(
+                gffs = {k:Path(p) for k, p in raw["gffs"].items()},
+                fna = Path(raw["fna"]),
+                faa = Path(raw["faa"]),
+            )
