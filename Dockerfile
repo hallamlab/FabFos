@@ -20,9 +20,8 @@ ARG CONDA_ENV
 COPY --from=build-env /opt/conda/envs/${CONDA_ENV} /opt/conda/envs/${CONDA_ENV}
 ENV PATH /opt/conda/envs/${CONDA_ENV}/bin:$PATH
 
-COPY ./src/fabfos /app/fabfos_src
-RUN echo "python -m fabfos_src \$@" >/app/fabfos && chmod +x /app/fabfos
-ENV PATH /app:$PATH
+COPY ./src/fabfos /app/fabfos
+RUN echo "python -m fabfos \$@" >/usr/bin/fabfos && chmod +x /usr/bin/fabfos
 ENV PYTHONPATH /app:$PYTHONPATH
 
 # Singularity uses tini, but raises warnings
@@ -30,12 +29,6 @@ ENV PYTHONPATH /app:$PYTHONPATH
 ENV TINI_VERSION v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
-
-## We do some umask munging to avoid having to use chmod later on,
-## as it is painfully slow on large directores in Docker.
-RUN old_umask=`umask` && \
-    umask 0000 && \
-    umask $old_umask
     
 # singularity doesn't use the -s flag, and that causes warnings
 ENTRYPOINT ["/tini", "-s", "--"]
