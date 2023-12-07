@@ -27,6 +27,7 @@ import importlib
 
 from .models import Assembly, BackgroundGenome, EndSequences, MetapathwaysArgs, ReadsManifest, VectorBackbone
 from .utils import NAME, USER, VERSION, ENTRY_POINTS, MODULE_ROOT, StdTime
+from .process_management import Shell
 
 CLI_ENTRY = ENTRY_POINTS[0]
     
@@ -88,7 +89,7 @@ class CommandLineInterface:
             help="overwrite previous output, if given same output path")
         parser.add_argument("-t", "--threads", metavar="INT", type=int,
             help="threads, default:ALL", default=multiprocessing.cpu_count())
-        parser.add_argument("--mock", action="store_true", default=False, required=False,
+        parser.add_argument("--dryrun", action="store_true", default=False, required=False,
             help="dry run snakemake")
         parser.add_argument("--snakemake", nargs='*', required=False, default=[],
             help="additional snakemake cli args in the form of KEY=\"VALUE\" or KEY (no leading dashes)")
@@ -169,11 +170,11 @@ class CommandLineInterface:
             snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} --rerun-incomplete \
                 {'--forceall' if args.overwrite else ''} \
                 {' '.join(smk_args)} \
-                {"-n" if args.mock else ""} \
+                {"--dryrun" if args.dryrun else ""} \
                 --config {params_str} \
                 --keep-going --keep-incomplete --cores {args.threads}
         """
-        os.system(cmd)
+        Shell(cmd, on_out=lambda x: print(x, end=""), on_err=lambda x: print(x, end=""))
 
     def api(self, raw_args=None):
         parser = ArgumentParser(

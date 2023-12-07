@@ -1,4 +1,5 @@
 import os
+import re
 import signal
 from dataclasses import dataclass
 from typing import IO, Any, Callable
@@ -11,6 +12,11 @@ import subprocess
 class ShellResult:
     killed: bool
     exit_code: int|None
+
+# example: colors, escape, control sequences
+# https://stackoverflow.com/questions/14693701/how-can-i-remove-the-ansi-escape-sequences-from-a-string-in-python 
+def StripANSI(s: str):
+    return re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])').sub('', s)
 
 def Shell(cmd: str, on_out: Callable[[str], Any]|None=None, on_err: Callable[[str], Any]|None=None):
     killed = False
@@ -44,17 +50,22 @@ class LiveShell:
             self.Lock.release()
 
     def __init__(self) -> None:
+        import pty
+
+        # https://stackoverflow.com/questions/41542960/run-interactive-bash-with-popen-and-a-dedicated-tty-python
+        out_master, out_slave = pty.openpty()
+        err_master, err_slave = pty.openpty()
+        self._fds = [out_master, err_master, out_slave, err_slave]
+
         console = subprocess.Popen(
             ["/bin/bash"],
             stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=out_slave,
+            stderr=err_slave,
         )
 
         self._console = console
         self._in = LiveShell.Pipe(console.stdin)
-        self._out = LiveShell.Pipe(console.stdout)
-        self._err = LiveShell.Pipe(console.stderr)
         self._onCloseLock = Condition()
         self._closed = False
         self.pid = console.pid
@@ -62,24 +73,25 @@ class LiveShell:
         self._on_err_callbacks = []
 
         workers: list[Thread] = []
-        def reader(pipe: LiveShell.Pipe, callbacks):
-            io = iter(pipe.IO.readline, b'')
+        def reader(fd: int, callbacks):
+            io = None
+            try:
+                io = open(fd, "rb")
+            except OSError:
+                return
+
             while True:
-                if self.IsClosed():
-                    return
+                if self.IsClosed(): break
                 try:
                     line = next(io, None)
-                    if line is None: continue
-                except ValueError:
-                    break
+                except (OSError, ValueError): break
+                if line is None: break
                 for cb in callbacks: cb(line)
-                with pipe:
-                    pipe.Q.put(line)
-        workers.append(Thread(target=reader, args=[self._out, self._on_out_callbacks]))
-        workers.append(Thread(target=reader, args=[self._err, self._on_err_callbacks]))
+        workers.append(Thread(target=reader, args=[out_master, self._on_out_callbacks]))
+        workers.append(Thread(target=reader, args=[err_master, self._on_err_callbacks]))
 
         for w in workers:
-            w.daemon = True # stop with program
+            # w.daemon = True # stop with program
             w.start()
 
     def Send(self, payload: bytes):
@@ -105,17 +117,6 @@ class LiveShell:
 
     def RemoveOnErr(self, callback: Callable[[bytes], None]):
         self._on_err_callbacks.remove(callback)
-
-    def PollRead(self):
-        def _r(p: LiveShell.Pipe):
-            with p:
-                q = p.Q
-                while not q.empty():
-                    yield q.get_nowait()
-
-        errs = list(_r(self._err))
-        outs = list(_r(self._out))
-        return errs, outs
     
     def __enter__(self):
         return self
@@ -136,3 +137,5 @@ class LiveShell:
             self._onCloseLock.notify_all()
 
         self._console.terminate()
+        for fd in self._fds:
+            os.close(fd)

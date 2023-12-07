@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Iterable
 import pandas as pd
+from pytest import skip
 from .common import Init
 from ..models import AnnotationResults
 from ..models import StandardizedAnnotations
@@ -20,10 +21,13 @@ def Procedure(args):
         mkdir {ann_out}
     """)
 
-    contig_mapping_path = mpw_out.joinpath("preprocessed/contigs.mapping.txt")
+    _name = mpw_results.contigs_used.name
+    NAME = ".".join(_name.split(".")[:-1]) # name of input fasta file ("contigs", or "scaffolds" depending on previous steps)
+
+    contig_mapping_path = mpw_out.joinpath(f"preprocessed/{NAME}.mapping.txt")
     mpw2original = {}
     for _, row in pd.read_csv(contig_mapping_path, sep="\t", header=None, names=["contig", "original_name", "length"]).iterrows():
-        mpw2original[row.contig[len("contigs-"):]] = row.original_name
+        mpw2original[row.contig[len(f"{NAME}-"):]] = row.original_name
 
     # -------------------------------------------------------------------
     # parse open reading frame fastas 
@@ -58,8 +62,8 @@ def Procedure(args):
                     _seq.append(l)
             _submit()
         return entries
-    aa_orfs = _parse_fasta(mpw_out.joinpath("orf_prediction/contigs.qced.faa"))
-    nt_orfs = _parse_fasta(mpw_out.joinpath("orf_prediction/contigs.fna"))
+    aa_orfs = _parse_fasta(mpw_out.joinpath(f"orf_prediction/{NAME}.qced.faa"))
+    nt_orfs = _parse_fasta(mpw_out.joinpath(f"orf_prediction/{NAME}.fna"))
     all_orfs, mapping = {}, {}
     max_orf_count = 0
     last_contig, i = None, 1
@@ -120,14 +124,14 @@ def Procedure(args):
             ])
     
     templates: dict[tuple[str, str], GffCdsTemplate] = {}
-    with open(mpw_out.joinpath("orf_prediction/contigs.cds.gff")) as f:
+    with open(mpw_out.joinpath(f"orf_prediction/{NAME}.cds.gff")) as f:
         for l in f:
             if l.startswith("#"): continue
             _contig, _, _, _start, _end, _, strand, _phase, _attributes = l.split("\t")
             start, end, phase = [int(x) for x in [_start, _end, _phase]]
             is_plus = strand == "+"
             attributes = dict([x.split("=") for x in _attributes.split(";")[:-1]])
-            contig = _contig[len("contigs-"):]
+            contig = _contig[len(f"{NAME}-"):]
             orf = attributes["ID"].split("_")[1]
             templates[(contig, orf)] = GffCdsTemplate(mpw2original[contig], start, end, is_plus, phase)
 
@@ -180,7 +184,7 @@ def Procedure(args):
     fna.close()
 
     # -------------------------------------------------------------------
-    # parse annotation hits as gff3
+    # parse functionl annotation hits as gff3
 
     @dataclass
     class Hit:
@@ -201,7 +205,7 @@ def Procedure(args):
         _entries = []
         for (contig, orf), hits in hits_dict.items():
             if (contig, orf) not in templates:
-                C.log.error(f"{ref_name} produced hit that was not in orfs") # should not be possible
+                C.log.error(f"{ref_name} had hit that was not in predicted orfs") # should not be possible
                 continue
             
             best_hit = hits[0]
@@ -224,6 +228,26 @@ def Procedure(args):
             _entries.append((f"{contig} {min(_template.start, _template.end):032}", line))
         _entries.sort(key=lambda x: x[0])
         write_gff(ref_name, [l for _, l in _entries])
+
+    # -------------------------------------------------------------------
+    # rRNA gff3
+
+    rrna_gff_path = mpw_out.joinpath(f"orf_prediction/{NAME}.rRNA.gff")
+    rrna_fna_path = mpw_out.joinpath(f"orf_prediction/{NAME}.rRNA.fna")
+    rrna_results = os.listdir(mpw_out.joinpath("results/rRNA"))
+    _filter = lambda lst, term: [f for f in lst if term in f.lower()]
+    ssu_results, lsu_results = [_filter(rrna_results, term)[0] for term in ["ssu", "lsu"]]
+
+    # -------------------------------------------------------------------
+    # tRNA gff3
+
+    trna_gff_path = mpw_out.joinpath(f"orf_prediction/{NAME}.tRNA.gff")
+    trna_fna_path = mpw_out.joinpath(f"orf_prediction/{NAME}.tRNA.fasta")
+    trna_results_path = mpw_out.joinpath(f"results/tRNA/{NAME}.tRNA.results.txt")
+    trna_results = pd.read_csv(
+        trna_results_path, sep="\t", skiprows=3, header=None,
+        names="contig trna_number start end aa codon intron_start intron_end score note".split(" ")
+    )
 
     StandardizedAnnotations(
         gffs = {k:p for k,p in gffs.items()},

@@ -170,20 +170,22 @@ case $1 in
             # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
             # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
             # --end_regex "\w+_\d+" \
+            # -i ./inputs/ss10.fastq.gz \
         export PYTHONPATH=$HERE/src:$PYTHONPATH
         cd scratch
         python -m $NAME run -t 12 \
-            -i ./inputs/ss10.fastq.gz \
+            --dryrun \
             -d ../../../resources/mp3db \
+            -i ./mpwi/reads/ss10.fastq \
             --vector ./inputs/pcc1.fasta \
-            -o ./test01
+            -o ./test02
     ;;
 
     -tm)
     cd scratch
     metapathways run -t 12 \
-        -i ./mpwi/contigs.fna \
-        -r ./mpwi/reads \
+        -i ./mpwi/asdf.fna \
+        --interleaved -1 ./mpwi/reads/ss10.fastq \
         -d ../../../resources/mp3db \
         --annotation_dbs metacyc\
         -o ./mpw_test
