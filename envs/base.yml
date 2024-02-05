@@ -12,6 +12,7 @@ dependencies:
   - megahit=1.2
   - spades=3.15
   - biopython=1.81
+  - numpy=1.26
   - vsearch=2.25
   - fastqc=0.12
   - minimap2=2.26

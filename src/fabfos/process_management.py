@@ -7,6 +7,7 @@ from threading import Condition
 from threading import Thread
 from multiprocessing import Queue
 import subprocess
+import select
 
 @dataclass
 class ShellResult:
@@ -55,15 +56,18 @@ class LiveShell:
         # https://stackoverflow.com/questions/41542960/run-interactive-bash-with-popen-and-a-dedicated-tty-python
         out_master, out_slave = pty.openpty()
         err_master, err_slave = pty.openpty()
-        self._fds = [out_master, err_master, out_slave, err_slave]
+        # self._fds = [out_master, err_master, out_slave, err_slave]
+        self._fds = [out_master, err_master]
 
         console = subprocess.Popen(
             ["/bin/bash"],
             stdin=subprocess.PIPE,
             stdout=out_slave,
             stderr=err_slave,
+            close_fds=True
         )
 
+        self.ENCODING = "utf-8"
         self._console = console
         self._in = LiveShell.Pipe(console.stdin)
         self._onCloseLock = Condition()
@@ -74,22 +78,39 @@ class LiveShell:
 
         workers: list[Thread] = []
         def reader(fd: int, callbacks):
-            io = None
-            try:
-                io = open(fd, "rb")
-            except OSError:
-                return
+            _buffer = []
+            def _try_read():
+                nonlocal _buffer
+                changed = False
+                while True:
+                    # https://stackoverflow.com/a/21429655/13690762
+                    r, _, _ = select.select([ fd ], [], [], 0.1)
+                    if fd in r:
+                        _buffer.append(os.read(fd, 1024))
+                        changed = True
+                    else:
+                        break
+                if not changed: return
+
+                for line in b''.join(_buffer).splitlines(True):
+                    if line.endswith(b'\n'):
+                        yield line
+                    else:
+                        _buffer = [line]
+                        break
 
             while True:
                 if self.IsClosed(): break
                 try:
-                    line = next(io, None)
-                except (OSError, ValueError): break
-                if line is None: break
-                for cb in callbacks: cb(line)
+                    for line in _try_read():
+                        if line is None: break
+                        for cb in callbacks: cb(line)
+                except OSError: # fd closed
+                    break
+
         workers.append(Thread(target=reader, args=[out_master, self._on_out_callbacks]))
         workers.append(Thread(target=reader, args=[err_master, self._on_err_callbacks]))
-
+        self._workers = workers
         for w in workers:
             # w.daemon = True # stop with program
             w.start()
@@ -101,10 +122,10 @@ class LiveShell:
             stdin.IO.flush()
     
     def Decode(self, payload: bytes):
-        return payload.decode()
+        return payload.decode(encoding=self.ENCODING)
 
     def Write(self, msg: str):
-        self.Send(bytes('%s\n' % (msg), encoding="utf-8"))
+        self.Send(bytes('%s\n' % (msg), encoding=self.ENCODING))
 
     def RegisterOnOut(self, callback: Callable[[bytes], None]):
         self._on_out_callbacks.append(callback)
@@ -136,6 +157,9 @@ class LiveShell:
             self._closed = True
             self._onCloseLock.notify_all()
 
+        for w in self._workers:
+            w.join()
+
         self._console.terminate()
-        for fd in self._fds:
+        for i, fd in enumerate(self._fds):
             os.close(fd)

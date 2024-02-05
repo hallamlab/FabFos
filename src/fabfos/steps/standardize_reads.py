@@ -40,7 +40,7 @@ def Procedure(args):
     if len(man.forward)>0:
         C.log.info(f"unzipping {len(man.forward)} paired end reads if zipped")
         for f, r in zip(man.forward, man.reverse):
-            name = RemoveExt(f.name)
+            name, ext = RemoveExt(f.name)
             fwd.append(prep(f, f"{name}_1.fq"))
             rev.append(prep(r, f"{name}_2.fq"))
 

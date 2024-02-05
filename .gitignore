@@ -18,3 +18,4 @@ trim_sequences.fasta.*
 /scratch
 /docker/src
 /secrets
+/tests/cache

@@ -36,7 +36,7 @@ if len(assembly_params.modes)>0:
     targets.append(f"{QCStatsForAssemblies.MANIFEST}")
 if given_reads:
     targets.append(f"{QCStatsForReads.MANIFEST}")
-if given_reads and vector_backbone.given:
+if given_reads and vector_backbone.vector_backbone_given:
     targets.append(f"{PoolSizeEstimate.MANIFEST}")
 if not mpw_args.skip_annotation:
     targets.append(f"{StandardizedAnnotations.MANIFEST}")

@@ -26,7 +26,7 @@ if __name__ == "__main__":
         },
         classifiers=[
             "Programming Language :: Python :: 3",
-            "Operating System :: OS Independent",
+            "Operating System :: Unix",
         ],
         package_dir={"": "src"},
         packages=setuptools.find_packages(where="src"),
@@ -45,6 +45,5 @@ if __name__ == "__main__":
         },
         python_requires=">=3.10",
         install_requires=[
-            "packaging >=21.0",
         ]
     )

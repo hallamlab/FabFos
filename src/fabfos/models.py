@@ -9,6 +9,18 @@ from pysam import reference
 
 from .utils import regex
 
+# CREATED_FOLDERS:set[Path] = set()
+# # this automatically registers the first folder of static paths in saveable models
+# class AutoRegisterPaths(type):
+#     def __new__(cls, name, bases, dct):
+#         x = super().__new__(cls, name, bases, dct)
+#         for v in x.__dict__.values():
+#             if isinstance(v, Path) and not v.is_absolute():
+#                 d = v.parents[-2] if len(v.parents) > 1 else v
+#                 CREATED_FOLDERS.add(d)
+#         return x
+
+# class Saveable(metaclass=AutoRegisterPaths):
 class Saveable:
     def Save(self, path: str|Path):
         path = Path(path)
@@ -104,7 +116,7 @@ class BackgroundGenome(Saveable):
 class Assembly(Saveable):
     modes: list[str]
     given: dict[str, Path]
-    CHOICES = "megahit_sensitive, megahit_meta, spades_meta, spades_isolate, spades_sc,".lower().split(", ")
+    CHOICES = "megahit_sensitive, megahit_default, megahit_meta, spades_isolate, spades_meta, spades_sc".lower().split(", ")
 
     ARG_FILE = Path("internals/temp_assembly/assemblies.json")
     CONTIG_DIR = Path("intermediate_contigs")
@@ -164,7 +176,7 @@ class EndSequences(Saveable):
     reverse: Path|None
     insert_ids: list[str] # as in fosmid inserts
 
-    ARG_FILE = Path("internals/temp_contigs/endseqs.json")
+    ARG_FILE = Path("internals/temp_scaffold/endseqs.json")
     SKIP = "SKIP"
     DEFAULT_REGEX = r'\w+'
 
@@ -189,7 +201,7 @@ class EndSequences(Saveable):
             if p.exists(): continue
             on_error(f"--{e} file doesn't exist [{p}]")
         
-        _no_pair = lambda p, x: f"{p} [{x}] has no matching pair"
+        # _no_pair = lambda p, x: f"{p} [{x}] has no matching pair"
         _dup = lambda p, x: f"{p} [{x}] is duplicate"
         
         allf_p, allr_p = [out_dir.joinpath(cls.ARG_FILE.parent).joinpath(f).absolute() for f in ["endf.fa", "endr.fa"]]
@@ -200,7 +212,12 @@ class EndSequences(Saveable):
             for p in lst:
                 if not p.exists(): continue
                 for e in SeqIO.parse(p, "fasta"):
-                    yield next(regex(id_regex, e.id)), (p, e)
+                    try:
+                        next(regex(id_regex, e.id))
+                        yield next(regex(id_regex, e.id)), (p, e)
+                    except StopIteration:
+                        on_error(f"ID [{e.id}] in {p} doesn't match regex [{id_regex}]")
+
         fids = list(_get(forwards))
         rids = list(_get(reverses))
         all_ids = set()
@@ -213,7 +230,7 @@ class EndSequences(Saveable):
             for id, (p, e) in this:
                 all_ids.add(id)
                 if id in _seen: on_error(_dup(p, id))
-                if id not in other: on_error(_no_pair(p, id))
+                if id not in other: print(f"WARNING: {p} [{id}] has no matching pair")
                 _seen.add(id)
                 out.write(f">{id}"+"\n")
                 out.write(str(e.seq))
@@ -238,7 +255,7 @@ class EndSequences(Saveable):
 
 @dataclass
 class VectorBackbone(Saveable):
-    given: bool
+    vector_backbone_given: bool
     fasta: Path|None
 
     ARG_FILE = Path("internals/temp_estimate_pool_size/manifest.json")
@@ -253,7 +270,7 @@ class VectorBackbone(Saveable):
                 on_error(f"vector backbone file [{raw_vec_path}] doesn't exist")
             
         model = cls(
-            given=raw_vec_path is not None,
+            vector_backbone_given=raw_vec_path is not None,
             fasta=raw_vec_path,
         )
         model.Save(out_dir.joinpath(cls.ARG_FILE))
@@ -265,7 +282,7 @@ class VectorBackbone(Saveable):
             raw = json.load(j)
             _pathify = lambda x: Path(x) if x != "None" else None
             return cls(
-                given = raw.get("given", "False").title() == "True",
+                vector_backbone_given = raw.get("vector_backbone_given", "False").title() == "True",
                 fasta = _pathify(raw.get("fasta", "None")),
             )
         

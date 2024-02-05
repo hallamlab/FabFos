@@ -61,13 +61,17 @@ def Procedure(args):
                     -1 {fwds} -2 {revs} -s {singles} -o {asm_out} \
                     >/dev/null 2>&1 \
                 && cp {asm_out}/contigs.fasta {expected_out} \
-                && cp {asm_out}/spades.log {C.root_workspace}/logs/assembly.{assembler_mode}.log
+                && cp {asm_out}/spades.log {C.log_file.parent}/assembly.{assembler_mode}.log
             """)
         else: # megahit
             if mode == "sensitive":
                 preset = ""
                 kmin = "--k-min 71"
                 mercy = "--no-mercy"
+            elif mode == "default":
+                preset = ""
+                kmin = ""
+                mercy = ""
             else:
                 preset = "--presets meta-large"
                 mercy = "" # yes mercy
@@ -78,7 +82,7 @@ def Procedure(args):
                     -1 {fwds} -2 {revs} -r {singles} -o {asm_out} \
                     >/dev/null 2>&1 \
                 && cp {asm_out}/final.contigs.fa {expected_out} \
-                && cp {asm_out}/log {C.root_workspace}/logs/assembly.{assembler_mode}.log
+                && cp {asm_out}/log {C.log_file.parent}/assembly.{assembler_mode}.log
             """)
             if r.killed: return
             

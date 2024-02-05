@@ -18,6 +18,9 @@ with open(HERE.joinpath(f"../envs/base.yml")) as y:
 def _parse_deps(level: list, compiled: str, depth: int):
     tabs_space = "  "*depth
     for item in level:
+        # conda recipes can't have pip
+        # instead, a few can be added into the template, but these will not be tracked!
+        if not isinstance(item, str) or item in {"pip"}: continue
         if isinstance(item, str):
             compiled += f"{tabs_space}- {item}\n"
         else:
@@ -27,7 +30,7 @@ def _parse_deps(level: list, compiled: str, depth: int):
     compiled = compiled[:-1] # remove trailing \n
     return compiled
 reqs = _parse_deps(raw_deps["dependencies"], "", 2)
-python_dep = [d for d in raw_deps["dependencies"] if d.startswith("python=")]
+python_dep = [d for d in raw_deps["dependencies"] if isinstance(d, str) and d.startswith("python=")]
 if len(python_dep) < 1:
     python_dep = ["python=3.11"]
 python_ver = _parse_deps(python_dep, "", 2)
@@ -46,6 +49,7 @@ entry_points = entry_points[:-1] # remove trailing \n
 # path to tar archive of source code
 
 dist_path = Path(os.path.abspath(HERE.joinpath("../dist")))
+assert dist_path.exists(), f"did you forget to build the pip package first?"
 tar_path = [dist_path.joinpath(f) for f in os.listdir(dist_path) if VERSION in f and ".tar.gz" in f][0]
 
 

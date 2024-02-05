@@ -63,7 +63,7 @@ case $1 in
         python -m build
     ;;
     -bpi) # pip - test install
-        python setup.py install
+        pip install $HERE/dist/$NAME-$VER-py3-none-any.whl
     ;;
     -bpx) # pip - remove package
         pip uninstall -y $NAME
@@ -169,19 +169,68 @@ case $1 in
             # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_isolate/contigs.fasta \
             # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
             # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
-            # --end_regex "\w+_\d+" \
             # -i ./inputs/ss10.fastq.gz \
+            # --dryrun \
+        # python -m $NAME run -t 12 \
+        #     -d ../../../resources/mp3db \
+        #     -i ./mpwi/reads/ss10.fastq \
+        #     --vector ./inputs/pcc1.fasta \
+        #     --end_regex "\w+_\d+" \
+        #     --endf ../data/beaver/endseq_CEC_FW.fa \
+        #     --endr ../data/beaver/endseq_CEC_RE.fa \
+        #     -o ./test01
         export PYTHONPATH=$HERE/src:$PYTHONPATH
         cd scratch
-        python -m $NAME run -t 12 \
-            --dryrun \
-            -d ../../../resources/mp3db \
-            -i ./mpwi/reads/ss10.fastq \
-            --vector ./inputs/pcc1.fasta \
-            -o ./test02
+        BVR=../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/col_all/temp_assembly
+        python -m $NAME run \
+            --overwrite \
+            -t 14 \
+            -a \
+                $BVR/megahit_sensitive/final.contigs.fa \
+                $BVR/megahit_meta/final.contigs.fa \
+                $BVR/spades_isolate/contigs.fasta \
+                $BVR/spades_meta/contigs.fasta \
+            --endf ../data/beaver/endseq_COL_FW.fa \
+            --endr ../data/beaver/endseq_COL_RE.fa \
+            --end_regex "\w+_\d+" \
+            -o ./test_scaffold01
+
     ;;
 
-    -tm)
+    --check)
+
+        cd scratch
+        mkdir -p ./check_scaffold
+        cd ./check_scaffold
+        rm -r *
+
+        PIDENT_THRESH=90
+        BLAST_DB="./scaffolds"
+        COLS="qseqid sseqid nident length qlen slen qstart qend sstart send"
+        makeblastdb \
+            -dbtype nucl \
+            -in ../test_scaffold01/scaffolds.fna \
+            -out ${BLAST_DB} >>./build.log 2>&1
+            
+        blastn \
+            -perc_identity ${PIDENT_THRESH} \
+            -num_threads 14 \
+            -query ../../data/beaver/endseq_COL_FW.fa \
+            -db ${BLAST_DB} \
+            -outfmt "6 ${COLS}" \
+            -out ./hits_fwd.tsv >>./blast_fwd.log 2>&1
+
+        blastn \
+            -perc_identity ${PIDENT_THRESH} \
+            -num_threads 14 \
+            -query ../../data/beaver/endseq_COL_RE.fa \
+            -db ${BLAST_DB} \
+            -outfmt "6 ${COLS}" \
+            -out ./hits_rev.tsv >>./blast_rev.log 2>&1
+
+    ;;
+
+    -tm) # metapathways
     cd scratch
     metapathways run -t 12 \
         -i ./mpwi/asdf.fna \

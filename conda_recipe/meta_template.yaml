@@ -8,16 +8,16 @@ source:
 build:
   noarch: python
   number: 0
-  script: {{ PYTHON }} -m pip install . -vv
+  script: {{ PYTHON }} -m pip install . -v
   entry_points:
 <ENTRY>
 
 test:
   imports:
-    - fabfos
+    - <NAME>
   commands:
     - pip check
-    - fabfos --help
+    - <NAME> --help
   requires:
     - pip
 

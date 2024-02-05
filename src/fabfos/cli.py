@@ -71,6 +71,8 @@ class CommandLineInterface:
             help="sanger end sequences from the other end, IDs must match those from --endf")
         fos.add_argument("--end_regex", metavar="STR", required=False,
             help="regex for getting ID of end seq., default: \"%s\", ex. \"\\w+_\\d+\" would get ABC_123 from ABC_123_FW" % EndSequences.DEFAULT_REGEX)
+        fos.add_argument("--ends_facing", action="store_true", default=False, required=False,
+            help="indicate reverse ends are on the complimentary strand of forward ends")
         fos.add_argument("--vector", metavar="FASTA", required=False,
             help="the vector backbone sequence for pool size estimation")
 
@@ -83,8 +85,12 @@ class CommandLineInterface:
         # "options" group
         parser.add_argument("-a", "--assemblies", nargs='*', required=False, default=[],
             help=f"pre-assembled contigs or assembly modes to use, pick any combination of {Assembly.CHOICES}, default:{DEFAULT_ASSEMBLY_MODES}")
-        parser.add_argument("--min_length", metavar="INT", required=False, default=1000,
-            help="min contig length to accept, default=1000")
+        parser.add_argument("--min_length", metavar="INT", required=False, default=20_000,
+            help="expected min. length of fosmid inserts, default=30000")
+        parser.add_argument("--min_length_range", metavar="INT", required=False, default=2000,
+            help="smooth transition range (+- value in bp) from preferring length to quality, default=5000")
+        parser.add_argument("--gap_str", metavar="STR", required=False, default="N",
+            help="string to indicate gap in scaffold. default:\"N\"")
         parser.add_argument("--overwrite", action="store_true", default=False, required=False,
             help="overwrite previous output, if given same output path")
         parser.add_argument("-t", "--threads", metavar="INT", type=int,
@@ -114,6 +120,15 @@ class CommandLineInterface:
         logs = output.joinpath(f"logs/{timestamp}")
         if not output.exists(): os.makedirs(output)
         if not logs.exists(): os.makedirs(logs)
+
+        try: # this is a bit tacked on, should move to input model as complexity increases
+            args.min_length = int(args.min_length)
+            args.min_length_range = int(args.min_length)
+            assert args.min_length > 0
+            assert args.min_length_range > 0
+        except (ValueError, AssertionError):
+            _error("--min_length and --min_length_range must be positive integers")
+
         with open(output.joinpath("params.json"), "w") as j:
             d = args.__dict__|dict(
                 initial_directory=os.getcwd(),
