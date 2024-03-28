@@ -90,9 +90,14 @@ class Hit:
         # |(re)<--------(fs)-->>(fwd end)----------(rev end)<--(rs)-------->>(fe)|
         # self.subject should == other.subject
         # so final scaffold is: (fwd end) + (assembly truncated to where the ends mapped) + (rev end)
+
         if (fs > fe) == (rs > re): # both hit are in the same direction (== is !XOR)
             return RawSeq("") # end seqs should be facing; this is a false positive
             # return self.query.Forward()+self._cut(self.subject, fs, rs)+other.query.Forward() # return anyway for testing
+        if fs < fe and fs > rs: # fwd is left but rev is further left
+            return RawSeq("")
+        if rs < re and rs > fs: # rev is left but fwd is further left
+            return RawSeq("")
         
         s, e, left_overflow, right_overflow = self._get_edges_and_overflows(fs, rs) # _cut will handle reverse compliment if rs < fs
         if left_overflow>0:
@@ -105,9 +110,10 @@ class Hit:
         else:
             right_pad_rc = RawSeq("")
 
-        # print(self.qseqid, s, e, "|", fs, fe, rs, re)
-        # print(self.qseqid, left_overflow, right_overflow)
-        # print(self.qseqid, len(left_pad), len(self._cut(self.subject, s, e)), len(right_pad_rc))
+        # if self.qseqid=="case_facing_but_past":
+        #     print(self.qseqid, s, e, "|", fs, fe, rs, re)
+        #     print(self.qseqid, left_overflow, right_overflow)
+        #     print(self.qseqid, len(left_pad), len(self._cut(self.subject, s, e)), len(right_pad_rc))
         return left_pad+self._cut(self.subject, s, e)+right_pad_rc
 
     def AlignSubjectToQuery(self) -> RawSeq:
@@ -121,9 +127,11 @@ class Hit:
             right_pad = self._cut(self.query, len(self.query)-right_overflow, len(self.query))
         else:
             right_pad = RawSeq("")
-        if self.qseqid=="case_fwd_only_slightly_short_rc": 
+        if self.qseqid=="case_fwd_only": 
             print(self.qseqid, s, e, "|", left_overflow, right_overflow, len(self.subject))
             print(self.qseqid, len(left_pad), len(self._cut(self.subject, s, e)), len(right_pad))
+            # print(self.qseqid, self.subject.Forward()[s:e])
+            # print(self.qseqid, self._cut(self.subject, s, e))
         return left_pad+self._cut(self.subject, s, e)+right_pad
 
     def Union(self):
@@ -140,10 +148,11 @@ def Procedure(args):
     C = Init(args, __file__)
     raw_contigs = RawContigs.Load(C.NextArg())
     end_seqs = EndSequences.Load(C.NextArg())
-    expected_insert_length = C.params["min_length"]
-    expected_insert_length_transition_range = max(C.params["min_length_range"], 0)
+    expected_insert_length = C.params["exp_length"]
+    expected_insert_length_range = C.params["exp_length_range"]
     GAP_CHAR = C.params["gap_str"]
     ends_facing = C.params.get("ends_facing", False)
+    PIDENT_THRESH = C.params.get("pident", 90)
     assert end_seqs.forward is not None and end_seqs.reverse is not None
 
     ######################################
@@ -161,16 +170,28 @@ def Procedure(args):
     # load end seqs and contigs as @Sequence
 
     MIN_CONTIG_LENGTH = 1000
-    PIDENT_THRESH = 90
 
     all_contigs: dict[str, Sequence] = {}
+    original_contig_id = {}
     all_contigs_path = C.out_dir.joinpath("all_contigs.fa")
+    temp_counts_dir = C.out_dir/"temp_counts"
+    if temp_counts_dir.exists(): C.shell(f"rm -rf {temp_counts_dir}")
+    os.makedirs(temp_counts_dir, exist_ok=True)
     i = 1
     with open(all_contigs_path, "w") as f:
-        for asm, con in raw_contigs.contigs.items():
-            for e in SeqIO.parse(con, "fasta"):
+        count = 0 # to get number of digits for id of contigs
+        for asm, file_path in raw_contigs.contigs.items():
+            _temp = temp_counts_dir/f"{asm}.count"
+            C.shell(f"cat {file_path} | grep \">\" | wc -l > {_temp}")
+            with open(_temp, "r") as _count_file:
+                count += int(_count_file.read())
+        digits = int(np.ceil(np.log10(count)))
+
+        for asm, file_path in raw_contigs.contigs.items():
+            for e in SeqIO.parse(file_path, "fasta"):
                 if len(e.seq)<MIN_CONTIG_LENGTH: continue
-                k = f"C{i:06}"
+                k = f"C{i:0{digits}}"
+                original_contig_id[k] = e.id
                 f.write(f">{k} asm={asm} length={len(e.seq)}"+"\n")
                 f.write(str(e.seq)); f.write("\n")
                 all_contigs[k] = Sequence(k, e.seq, dict(assembler=asm))
@@ -189,13 +210,13 @@ def Procedure(args):
     ######################################
     # blast ends against contigs
 
+    db_folder = C.out_dir.joinpath("temp.blast_dbs")
+    os.makedirs(db_folder, exist_ok=True)
+    blast_log = C.out_dir.joinpath("blast_log.txt")
     C.log.info(f"blasting [{len(end_seqs.insert_ids)}] ends against [{len(all_contigs)}] contigs")
 
     # make blastdb of contigs
-    db_folder = C.out_dir.joinpath("temp.blast_dbs")
-    os.makedirs(db_folder, exist_ok=True)
     _blastdb = db_folder.joinpath("all_contigs")
-    blast_log = C.out_dir.joinpath("blast_log.txt")
     C.shell(f"""\
     echo "# makeblastdb" >>{blast_log}
     makeblastdb \
@@ -216,6 +237,7 @@ def Procedure(args):
         C.shell(f"""\
         echo "# {_name}" >>{blast_log}
         blastn \
+            -evalue 999 \
             -perc_identity {PIDENT_THRESH} \
             -num_threads {C.threads} \
             -query {_query_path} \
@@ -259,37 +281,52 @@ def Procedure(args):
 
     # score multipliers for choosing "longest" resolved contigs / scaffolds
     class QUALITY(float, Enum):
-        FULL_MATCH =        5
-        FULL_SCAFFOLD =     4
-        GAPPED_SCAFFOLD =   3
-        FORWARD_END_ONLY =  2
-        REVERSE_END_ONLY =  1
+        FULL_MATCH =        10
+        FULL_SCAFFOLD =     7
+        GAPPED_SCAFFOLD =   5
+        FORWARD_END_ONLY =  3.001 # enums can't have same value...
+        REVERSE_END_ONLY =  3
         NO_HITS =           0
 
     C.log.info(f"mapping [{num_hits}] hits ")
     mapped_contigs: dict[str, list[Sequence]] = {}
-    _to_scaffold: list[tuple[str, dict[str, Hit], dict[str, Hit]]] = []
+    _to_scaffold: list[tuple[str, list[tuple[str, Hit]], list[tuple[str, Hit]]]] = []
     for i, insert_id in enumerate(end_seqs.insert_ids):
-        _dictify: Callable[[dict[str, list[Hit]]], dict[str, Hit]] = lambda hit_dict: {h.sseqid:h for h in hit_dict.get(insert_id, [])}
+        def _dictify(hit_dict: dict[str, list[Hit]]):
+            _hits: dict[str, list[Hit]] = {}
+            for h in hit_dict.get(insert_id, []):
+                _hits[h.sseqid] = _hits.get(h.sseqid, [])+[h]
+            return _hits
         fhits, rhits = _dictify(fwd_hits), _dictify(rev_hits)
+
+        # if insert_id == "CEC_1723":
+        #     print([(h.sseqid, h.) for h in fhits.values()])
 
         # full contig match
         _candidates = []
         paired_hits = fhits.keys()&rhits.keys()
         if len(paired_hits)>0:
+            def _iterate_hit_pairs(cid: str):
+                for fwd in fhits[cid]:
+                    for rev in rhits[cid]:
+                        yield fwd, rev
             def _get_contigs():
                 for cid in paired_hits:
-                    fwd, rev = fhits[cid], rhits[cid]
-                    seq = fwd.SeqFromPairedHit(rev)
-                    # print(insert_id, fwd.sseqid, rev.sseqid, len(seq))
-                    yield Sequence(insert_id, seq, dict(
-                        assembler=_get_assembler(cid),
-                        quality = QUALITY.FULL_MATCH,
-                    ))
-            _candidates.append(_longest(_get_contigs()))
+                    for fwd, rev in _iterate_hit_pairs(cid):
+                        seq = fwd.SeqFromPairedHit(rev)
+                        # if insert_id == "CEC_1723":
+                        #     print(len(seq), cid, fwd._subject_trunc_loc, rev._subject_trunc_loc)
+                        yield Sequence(insert_id, seq, dict(
+                            assembler=_get_assembler(cid),
+                            contig=cid,
+                            quality = QUALITY.FULL_MATCH,
+                        ))
+            x = _longest(_get_contigs())
+            # if x.id == "CEC_1723": print(x.id, x.meta, len(x.raw_seq))
+            _candidates.append(x)
 
         # fwd and rev hits -> possible to scaffold
-        _select = lambda a, b: {k:h for k, h in a.items() if k not in b}
+        _select = lambda a, b: [(k, h) for k, hs in a.items() if k not in b for h in hs]
         ufhits, urhits = _select(fhits, rhits), _select(rhits, fhits)
         if len(ufhits)>0 and len(urhits)>0:
             _to_scaffold.append((insert_id, ufhits, urhits))
@@ -299,8 +336,9 @@ def Procedure(args):
             _candidates.append(_longest(
                 Sequence(insert_id, hit.AlignSubjectToQuery(), dict(
                     assembler=_get_assembler(cid),
+                    contig=cid,
                     quality = QUALITY.FORWARD_END_ONLY,
-                )) for cid, hit in fhits.items() # this is a generator
+                )) for cid, hits in fhits.items() for hit in hits # this is a generator
             ))
 
         # rev hits only
@@ -308,8 +346,9 @@ def Procedure(args):
             _candidates.append(_longest(
                 Sequence(insert_id, hit.AlignSubjectToQuery(), dict(
                     assembler=_get_assembler(cid),
+                    contig=cid,
                     quality = QUALITY.REVERSE_END_ONLY,
-                )) for cid, hit in rhits.items() # this is a generator
+                )) for cid, hits in rhits.items() for hit in hits# this is a generator
             ))
 
         mapped_contigs[insert_id] = _candidates
@@ -348,12 +387,12 @@ def Procedure(args):
     rev_ends_for_scaffold = open(C.out_dir.joinpath("temp.scaffolding_revs.fa"), "w")
     fwd_scaffold_ends: dict[str, Sequence] = {}
     rev_scaffold_ends: dict[str, Sequence] = {}
-    for insert_id, fhits, rhits in _to_scaffold:
+    for insert_id, fhit_list, rhit_list in _to_scaffold:
         def _w(seq: RawSeq, k, file):
             file.write(f">{k}"+"\n")
             file.write(str(seq));file.write("\n")
-        fwd_list = [(True, hit, fwd_ends_for_scaffold, fwd_scaffold_ends) for hit in fhits.values()]
-        rev_list = [(False, hit, rev_ends_for_scaffold, rev_scaffold_ends) for hit in rhits.values()]
+        fwd_list = [(True, hit, fwd_ends_for_scaffold, fwd_scaffold_ends) for cid, hit in fhit_list]
+        rev_list = [(False, hit, rev_ends_for_scaffold, rev_scaffold_ends) for cid, hit in rhit_list]
         for is_fwd, hit, file, d in  fwd_list+rev_list:
             cid = hit.sseqid
             con = all_contigs[cid]
@@ -395,6 +434,7 @@ def Procedure(args):
             fwd_insert, fwd_contig = fwd_id.Split()
             rev_insert, rev_contig = rev_id.Split()
             if fwd_insert != rev_insert: continue
+            if fwd_contig == rev_contig: continue
             if h.length < MIN_SCAFFOLD_OVERLAP: continue
             scaffolding_hits[fwd_insert] = scaffolding_hits.get(fwd_insert, [])+[(h, fwd_contig, rev_contig)]
     except pd.errors.EmptyDataError:
@@ -403,7 +443,7 @@ def Procedure(args):
     # get longest scaffolds by joining overlaps if found
     # or concatenation with "-" otherwise
     num_merged = 0
-    for insert_id, fhits, rhits in _to_scaffold:
+    for insert_id, fhit_list, rhit_list in _to_scaffold:
         _candidates = []
         if insert_id in scaffolding_hits:
             s = _longest(Sequence("temp", hit.Union(), dict(f=f, r=r)) for hit, f, r in scaffolding_hits[insert_id])
@@ -411,19 +451,23 @@ def Procedure(args):
             _candidates.append(
                 Sequence(insert_id, s.Forward(), dict(
                     assembler=f"{_get_assembler(meta.get('f'))};{_get_assembler(meta.get('r'))}",
+                    contig=f"{meta.get('f')};{meta.get('r')}",
                     quality = QUALITY.FULL_SCAFFOLD,
                 ))
             )
             num_merged += 1
 
-        lf, lr = (_longest(Sequence(cid, h.AlignSubjectToQuery()) for cid, h in hits.items()) for hits in [fhits, rhits])
-        _candidates.append(
-            Sequence(insert_id, lf.Forward()+GAP_CHAR+lr.ReverseCompliment(), dict(
-                assembler=f"{_get_assembler(lf.id)};{_get_assembler(lr.id)}",
-                quality = QUALITY.GAPPED_SCAFFOLD,
-            ))
-        )
-        mapped_contigs[insert_id] = _candidates
+        lfs, lrs = ([Sequence(cid, h.AlignSubjectToQuery()) for cid, h in hits] for hits in [fhit_list, rhit_list])
+        for lf in lfs:
+            for lr in lrs:
+                _candidates.append(
+                    Sequence(insert_id, lf.Forward()+GAP_CHAR+lr.ReverseCompliment(), dict(
+                        assembler=f"{_get_assembler(lf.id)};{_get_assembler(lr.id)}",
+                        contig=f"{lf.id};{lr.id}",
+                        quality = QUALITY.GAPPED_SCAFFOLD,
+                    ))
+                )
+        mapped_contigs[insert_id] = mapped_contigs.get(insert_id,[]) + _candidates # candidates may have been added before
     C.log.info(f"[{num_merged}] scaffolded without gaps")
 
     ######################################
@@ -431,16 +475,28 @@ def Procedure(args):
     # write resolved scaffolds and report stats
 
     # heurstic for choosing best-guess scaffold
-    def calc_score(q: QUALITY, length: int):
-        b = expected_insert_length_transition_range/4
-        def _sigmoid(x): # smooth transition from favouring length to quality across the expected insert length
-            if b == 0:
-                return 1 if x >= expected_insert_length else 0
-            else:
-                return 1/(1+np.exp(-(x-expected_insert_length)/b)) # default is +- ~5kbp at 30kbp 
-        qfrac = _sigmoid(length)
-        score = ((q.value)/len(QUALITY)*qfrac)+(min(length, expected_insert_length)/expected_insert_length*(1-qfrac))
-        # print(score, q, length)
+    def calc_score(q: QUALITY, length: int, debug=False):
+        # def _sigmoid(x): # smooth transition from favouring length to quality across the expected insert length
+        #     if b == 0:
+        #         return 1 if x >= expected_insert_length else 0
+        #     else:
+        #         return 1/(1+np.exp(-(x-expected_insert_length)/b)) # default is +- ~5kbp at 20kbp 
+
+        def _guassian(x): # prioritize quality when in expected range
+            r = expected_insert_length_range
+            if r == 0: return 0
+            k = 1.75 # this makes the bump drop below 0.5 at +-r
+            n = (x-expected_insert_length)/(k*r) # normal distribution, 2r to cross 0.5 at +-r
+            return np.exp(-(n**2))
+        
+        # qfrac = _sigmoid(length)
+        qfrac = _guassian(length)
+
+        qscore = q.value/QUALITY.FULL_MATCH.value
+        deviation = abs(expected_insert_length-length)
+        lscore = max(0, 1-(deviation/expected_insert_length))
+        score = (qscore*qfrac) + (lscore*(1-qfrac))
+        if debug: print(score, qfrac, qscore, lscore)
         return score
     
     num_hits = len([lst for lst in mapped_contigs.values() if len(lst)>0])
@@ -455,23 +511,27 @@ def Procedure(args):
         _mapped = [(k, v) for k, v in mapped_contigs.items()]
         for insert_id, _candidates in sorted(_mapped, key=lambda t: t[0]):
             if len(_candidates) == 0:
-                row = (insert_id, QUALITY.NO_HITS.name.lower(), False, 0, None)
+                row = (insert_id, QUALITY.NO_HITS.name.lower(), False, 0, None, None)
                 _rows.append(row); _full_rows.append(row)
                 continue
 
-            def _get_meta(s: Sequence) -> tuple[QUALITY, str]:
+            def _get_meta(s: Sequence) -> tuple[QUALITY, str, str]:
                 meta = s.meta if s.meta is not None else {}
-                return meta["quality"], meta["assembler"]
+                return meta["quality"], meta["assembler"], meta["contig"]
 
             _scored_candidates: list[tuple[float, Sequence, tuple, QUALITY, str]] = []
             for _s in _candidates:
-                quality, assembler = _get_meta(_s)
+                quality, assembler, contig_id = _get_meta(_s)
                 paired = (quality == QUALITY.FULL_MATCH) or (quality == QUALITY.FULL_SCAFFOLD) or (quality == QUALITY.GAPPED_SCAFFOLD)
                 seq = _s.Forward()
-                row = (insert_id, quality.name.lower(), paired, len(seq), assembler)
+                orig_id = ';'.join(original_contig_id.get(_k, _k) for _k in contig_id.split(';'))
+                row = (insert_id, quality.name.lower(), paired, len(seq), assembler, contig_id, orig_id)
                 _full_rows.append(row)
-                # print(_s.id, end="::")
                 score = calc_score(quality, len(seq))
+                # if insert_id == "case_facing_but_past":
+                #     print(_s.id, score, quality, len(seq))
+                #     calc_score(quality, len(seq), debug=True)
+                #     print()
                 _scored_candidates.append((score, _s, row, quality, assembler))
             _, best_seq, best_row, quality, assembler = sorted(_scored_candidates, key=lambda t: t[0], reverse=True)[0]
             _rows.append(best_row)
@@ -480,7 +540,7 @@ def Procedure(args):
             f.write(str(best_seq.Forward()) if quality != QUALITY.REVERSE_END_ONLY else str(best_seq.ReverseCompliment())); f.write("\n")
     C.log.info(f"[{num_full_hits}] were considered a [{QUALITY.FULL_MATCH.name.lower()}]")
 
-    _cols = "id, mapping_quality, paired, resolved_length, assemblers".split(", ")
+    _cols = "id, mapping_quality, paired, resolved_length, assemblers, contig_id, original_id".split(", ")
     report = pd.DataFrame(_rows, columns=_cols)
     report.to_csv(report_file, index=False)
     pd.DataFrame(_full_rows, columns=_cols).to_csv(full_report_file, index=False)

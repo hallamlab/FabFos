@@ -15,6 +15,15 @@ class Sequence:
 def Procedure(args):
     C = Init(args, __file__)
     raw_contigs = RawContigs.Load(C.NextArg())
+    subject = Path() # query
+
+    # contig i:
+    # |----k------m---|
+    #---sub| or   |sub---
+    
+    # create
+    # k------m
+
 
     MIN_LEN = C.params.get("min_length", 1000)
 

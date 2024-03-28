@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import logging
 import json
 from typing import Callable, Iterable
+import shutil
 
 from ..models import ReadsManifest
 from ..process_management import Shell, ShellResult
@@ -100,7 +101,7 @@ def AggregateReads(fwd, rev, singles, out_dir):
         if out_dir not in p.parents: return p
         name = p.name.removeprefix("temp.")
         newp = p.parent.joinpath(name)
-        os.system(f"mv {p} {newp}")
+        os.rename(p, newp)
         return newp
         
     for files, name, out in [
@@ -115,10 +116,14 @@ def AggregateReads(fwd, rev, singles, out_dir):
         else:
             agg = out_dir.joinpath(out)
             aggregates[name]=[agg]
-            for r in files:
-                os.system(f"cat {r} >> {agg}")
+            with open(agg, "wb") as out:
+                for r in files:
+                    # os.system(f"cat {r} >> {agg}")
+                    with open(r, "rb") as f:
+                        shutil.copyfileobj(f, out)
     return ReadsManifest(**aggregates)
 
 def ClearTemp(folder: Path):
     if any(f.startswith("temp") for f in os.listdir(folder)):
-        os.system(f"rm -r {folder}/temp*")
+        # os.system(f"rm -r {folder}/temp*")
+        shutil.rmtree(f"{folder}/temp", ignore_errors=True)

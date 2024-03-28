@@ -1,4 +1,5 @@
 __pycache__
+**/cache
 
 .idea/
 *_env/
@@ -18,4 +19,3 @@ trim_sequences.fasta.*
 /scratch
 /docker/src
 /secrets
-/tests/cache

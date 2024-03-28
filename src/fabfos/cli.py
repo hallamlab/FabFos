@@ -46,6 +46,10 @@ class CommandLineInterface:
             prog = f'{CLI_ENTRY} {self._get_fn_name()}',
         )
 
+
+        # TODO: include original contig name in outputs, incase used for mapping ends to contigs
+
+
         # the arguments here are tightly coupled to models.py, sorry
         DEFAULT_ASSEMBLY_MODES = Assembly.CHOICES[:2]
         paths = parser.add_argument_group(title="main")
@@ -85,10 +89,14 @@ class CommandLineInterface:
         # "options" group
         parser.add_argument("-a", "--assemblies", nargs='*', required=False, default=[],
             help=f"pre-assembled contigs or assembly modes to use, pick any combination of {Assembly.CHOICES}, default:{DEFAULT_ASSEMBLY_MODES}")
-        parser.add_argument("--min_length", metavar="INT", required=False, default=20_000,
-            help="expected min. length of fosmid inserts, default=30000")
-        parser.add_argument("--min_length_range", metavar="INT", required=False, default=2000,
-            help="smooth transition range (+- value in bp) from preferring length to quality, default=5000")
+        parser.add_argument("--min_contig_length", metavar="INT", required=False, default=1000,
+            help="min. length of contigs to use, default=1000")
+        parser.add_argument("--exp_length", metavar="INT", required=False, default=35_000,
+            help="expected length of fosmid inserts, default=35kbp")
+        parser.add_argument("--exp_length_range", metavar="INT", required=False, default=15_000,
+            help="range to prioritize selecting scaffolds with quality over sensible lengths, default=(+-)15kbp")
+        parser.add_argument("--pident", metavar="INT", required=False, default=90,
+            help="percent identity threshold to accept end mapping, default=90")
         parser.add_argument("--gap_str", metavar="STR", required=False, default="N",
             help="string to indicate gap in scaffold. default:\"N\"")
         parser.add_argument("--overwrite", action="store_true", default=False, required=False,
@@ -121,13 +129,12 @@ class CommandLineInterface:
         if not output.exists(): os.makedirs(output)
         if not logs.exists(): os.makedirs(logs)
 
-        try: # this is a bit tacked on, should move to input model as complexity increases
-            args.min_length = int(args.min_length)
-            args.min_length_range = int(args.min_length)
-            assert args.min_length > 0
-            assert args.min_length_range > 0
-        except (ValueError, AssertionError):
-            _error("--min_length and --min_length_range must be positive integers")
+        integers = ["min_contig_length", "exp_length", "exp_length_range", "pident", "threads"]
+        for k in integers:
+            try: # this is a bit tacked on, should move to input model as complexity increases
+                setattr(args, k, int(getattr(args, k)))
+            except ValueError:
+                _error(f"[--{k}] must be an integer")
 
         with open(output.joinpath("params.json"), "w") as j:
             d = args.__dict__|dict(

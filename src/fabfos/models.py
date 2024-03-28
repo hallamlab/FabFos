@@ -154,7 +154,7 @@ class Assembly(Saveable):
         for asm_lst in _given.values():
             if len(asm_lst) == 1:
                 a = asm_lst[0]
-                _make_local(a, _remove_extension(a.name))
+                _make_local(a, f"given_{_remove_extension(a.name)}")
             else:
                 for i, apath in enumerate(asm_lst):
                     _make_local(apath, f"{_remove_extension(apath.name)}_{i+1:04}")
