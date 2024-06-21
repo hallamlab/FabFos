@@ -41,7 +41,7 @@ if __name__ == "__main__":
             # "test_package": ["res/*.txt"],
         },
         entry_points={
-            'console_scripts': [f"{e} = {NAME}.cli:main" for e in ENTRY_POINTS],
+            'console_scripts': ENTRY_POINTS,
         },
         python_requires=">=3.10",
         install_requires=[

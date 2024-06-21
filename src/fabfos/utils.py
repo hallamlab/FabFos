@@ -8,7 +8,7 @@ from typing import Iterable, Sequence
 USER = "hallamlab" # github id
 MODULE_ROOT = Path("/".join(os.path.realpath(__file__).split('/')[:-1]))
 NAME = MODULE_ROOT.name.lower()
-ENTRY_POINTS = [NAME, "ffs"]
+ENTRY_POINTS = [f"{e} = {NAME}.cli:main" for e in [NAME, "ffs"]]
 
 def _get_version() -> str:
     with open(MODULE_ROOT.joinpath("version.txt")) as v:
