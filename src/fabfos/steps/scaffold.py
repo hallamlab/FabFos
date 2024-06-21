@@ -150,6 +150,7 @@ def Procedure(args):
     end_seqs = EndSequences.Load(C.NextArg())
     expected_insert_length = C.params["exp_length"]
     expected_insert_length_range = C.params["exp_length_range"]
+    min_contig_length = C.params["min_contig_length"]
     GAP_CHAR = C.params["gap_str"]
     ends_facing = C.params.get("ends_facing", False)
     PIDENT_THRESH = C.params.get("pident", 90)
@@ -169,8 +170,6 @@ def Procedure(args):
     ######################################
     # load end seqs and contigs as @Sequence
 
-    MIN_CONTIG_LENGTH = 1000
-
     all_contigs: dict[str, Sequence] = {}
     original_contig_id = {}
     all_contigs_path = C.out_dir.joinpath("all_contigs.fa")
@@ -189,10 +188,10 @@ def Procedure(args):
 
         for asm, file_path in raw_contigs.contigs.items():
             for e in SeqIO.parse(file_path, "fasta"):
-                if len(e.seq)<MIN_CONTIG_LENGTH: continue
+                if len(e.seq)<min_contig_length: continue
                 k = f"C{i:0{digits}}"
                 original_contig_id[k] = e.id
-                f.write(f">{k} asm={asm} length={len(e.seq)}"+"\n")
+                f.write(f">{k} asm={asm} length={len(e.seq)} | {e.description}"+"\n")
                 f.write(str(e.seq)); f.write("\n")
                 all_contigs[k] = Sequence(k, e.seq, dict(assembler=asm))
                 i += 1
