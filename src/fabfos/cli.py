@@ -16,14 +16,231 @@
 # copyright 2023 Tony Liu, Connor Morgan-Lang, Avery Noonan,
 # Zach Armstrong, and Steven J. Hallam
 
-
+import json
 import os, sys
-from .fabfos import fabfos_main
+from pathlib import Path
+import argparse
+import inspect
+from dataclasses import dataclass
+import multiprocessing
+import importlib
 
-# this is just an entry point
+from .models import Assembly, BackgroundGenome, EndSequences, MetapathwaysArgs, ReadsManifest, VectorBackbone
+from .utils import NAME, USER, VERSION, ENTRY_POINTS, MODULE_ROOT, StdTime
+from .process_management import Shell
+
+CLI_ENTRY = ENTRY_POINTS[0]
+    
+class ArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        self.print_help(sys.stderr)
+        self.exit(2, '\n%s: error: %s\n' % (self.prog, message))
+
+
+class CommandLineInterface:
+    def _get_fn_name(self):
+        return inspect.stack()[1][3]
+
+    def run(self, raw_args):
+        parser = ArgumentParser(
+            prog = f'{CLI_ENTRY} {self._get_fn_name()}',
+        )
+
+
+        # TODO: include original contig name in outputs, incase used for mapping ends to contigs
+
+
+        # the arguments here are tightly coupled to models.py, sorry
+        DEFAULT_ASSEMBLY_MODES = Assembly.CHOICES[:2]
+        paths = parser.add_argument_group(title="main")
+        paths.add_argument("-1", "--forward", metavar="FASTQ", nargs='*', required=False, default=[],
+            help="forward paired-end reads")
+        paths.add_argument("-2", "--reverse", metavar="FASTQ", nargs='*', required=False, default=[],
+            help="reverse paired-end reads in the same order")
+        paths.add_argument("-s", "--single", metavar="FASTQ", nargs='*', required=False, default=[],
+            help="single-end reads")
+        paths.add_argument("-i", "--interleaved", metavar="FASTQ", nargs='*', required=False, default=[],
+            help="interleaved reads")
+        paths.add_argument("-o", "--output", metavar="PATH", required=True,
+            help="path to output folder, will be created if non-existent")
+        
+        fos = parser.add_argument_group(title="fosmid pool specific")
+        fos.add_argument("--no_trim", action="store_true", default=False, required=False,
+            help="skip read trimming with trimmomatic")
+        fos.add_argument("-b", "--background", metavar="FASTA", required=False,
+            help="host background to filter out")
+        fos.add_argument("--endf", metavar="FASTA", nargs='*', required=False,
+            help="sanger end sequences")
+        fos.add_argument("--endr", metavar="FASTA", nargs='*', required=False,
+            help="sanger end sequences from the other end, IDs must match those from --endf")
+        fos.add_argument("--end_regex", metavar="STR", required=False,
+            help="regex for getting ID of end seq., default: \"%s\", ex. \"\\w+_\\d+\" would get ABC_123 from ABC_123_FW" % EndSequences.DEFAULT_REGEX)
+        fos.add_argument("--ends_facing", action="store_true", default=False, required=False,
+            help="indicate reverse ends are on the complimentary strand of forward ends")
+        fos.add_argument("--vector", metavar="FASTA", required=False,
+            help="the vector backbone sequence for pool size estimation")
+
+        ann = parser.add_argument_group(title="annotation with metapathways")
+        ann.add_argument("-d", "--reference_databases", metavar="PATH", required=False,
+            help="path to metapathways reference database folder")
+        ann.add_argument("--metapathways", nargs='*', required=False, default=[],
+            help="additional metapathways cli args in the form of KEY=\"VALUE\" or KEY (no leading dashes)")
+
+        # "options" group
+        parser.add_argument("-a", "--assemblies", nargs='*', required=False, default=[],
+            help=f"pre-assembled contigs or assembly modes to use, pick any combination of {Assembly.CHOICES}, default:{DEFAULT_ASSEMBLY_MODES}")
+        parser.add_argument("--min_contig_length", metavar="INT", required=False, default=1000,
+            help="min. length of contigs to use, default=1000")
+        parser.add_argument("--exp_length", metavar="INT", required=False, default=35_000,
+            help="expected length of fosmid inserts, default=35kbp")
+        parser.add_argument("--exp_length_range", metavar="INT", required=False, default=15_000,
+            help="range to prioritize selecting scaffolds with quality over sensible lengths, default=(+-)15kbp")
+        parser.add_argument("--pident", metavar="INT", required=False, default=90,
+            help="percent identity threshold to accept end mapping, default=90")
+        parser.add_argument("--gap_str", metavar="STR", required=False, default="N",
+            help="string to indicate gap in scaffold. default:\"N\"")
+        parser.add_argument("--overwrite", action="store_true", default=False, required=False,
+            help="overwrite previous output, if given same output path")
+        parser.add_argument("-t", "--threads", metavar="INT", type=int,
+            help="threads, default:ALL", default=multiprocessing.cpu_count())
+        parser.add_argument("--dryrun", action="store_true", default=False, required=False,
+            help="dry run snakemake")
+        parser.add_argument("--snakemake", nargs='*', required=False, default=[],
+            help="additional snakemake cli args in the form of KEY=\"VALUE\" or KEY (no leading dashes)")
+        args = parser.parse_args(raw_args)
+
+        #########################
+        # verify & parse inputs
+        #########################
+        timestamp = StdTime.Timestamp()
+        input_error = False
+        _printed = False
+        def _error(message: str):
+            nonlocal input_error, _printed
+            if not _printed:
+                parser.print_help()
+                print()
+                _printed = True
+            print(f"Invalid input: {message}")
+            input_error = True
+
+        output = Path(args.output).absolute()
+        logs = output.joinpath(f"logs/{timestamp}")
+        if not output.exists(): os.makedirs(output)
+        if not logs.exists(): os.makedirs(logs)
+
+        integers = ["min_contig_length", "exp_length", "exp_length_range", "pident", "threads"]
+        for k in integers:
+            try: # this is a bit tacked on, should move to input model as complexity increases
+                setattr(args, k, int(getattr(args, k)))
+            except ValueError:
+                _error(f"[--{k}] must be an integer")
+
+        with open(output.joinpath("params.json"), "w") as j:
+            d = args.__dict__|dict(
+                initial_directory=os.getcwd(),
+                log_folder=str(logs.absolute()),
+            )
+            for k in list(d):
+                if isinstance(d[k], list) and len(d[k]) == 0: del d[k]
+                elif d[k] is None: del d[k]
+            json.dump(d, j, indent=4)
+
+        input_models = {}
+        for model_class in [
+            ReadsManifest, BackgroundGenome, Assembly, EndSequences, VectorBackbone, MetapathwaysArgs
+        ]:
+            input_models[model_class] = model_class.Parse(args, output, _error)
+        has_reads = len([r for g in input_models[ReadsManifest].AllReads() for r in g])>0
+        selected_modes = len(input_models[Assembly].modes)>0
+        given_assemblies = len(input_models[Assembly].given)>0
+        if not has_reads and selected_modes:
+            _error(f"selected assembly modes without giving reads")
+        if not has_reads and not given_assemblies:
+            _error(f"must provide reads, previously assembled contigs, or both")
+        if has_reads and not selected_modes:
+            input_models[Assembly].modes = DEFAULT_ASSEMBLY_MODES
+            input_models[Assembly].Save(output.joinpath(Assembly.ARG_FILE))
+
+        smk_args = ["--latency-wait 0"]
+        for a in args.snakemake:
+            if "=" in a:
+                toks = a.split("=")
+                pa = f"--{toks[0]} {'='.join(toks[1:])}"
+            else:
+                pa = f"--{a}"
+            smk_args.append(pa)
+
+        #########################
+        # run snakemake
+        #########################
+        if input_error: return
+        smk_log = logs.parent.joinpath("snakemake")
+        link_log_cmd = "" if smk_log.exists() else f'ln -s ../.snakemake/log {smk_log}'
+        params = dict(
+            src=MODULE_ROOT,
+            log=logs,
+            threads=args.threads,
+        )
+
+        params_str = ' '.join(f"{k}={v}" for k, v in params.items())
+        cache = output.joinpath("internals/temp_cache")
+        cmd = f"""\
+            {link_log_cmd}
+            mkdir -p {cache}
+            export XDG_CACHE_HOME={cache}
+            snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} --rerun-incomplete \
+                {'--forceall' if args.overwrite else ''} \
+                {' '.join(smk_args)} \
+                {"--dryrun" if args.dryrun else ""} \
+                --config {params_str} \
+                --keep-going --keep-incomplete --cores {args.threads}
+        """
+        Shell(cmd, on_out=lambda x: print(x, end=""), on_err=lambda x: print(x, end=""))
+
+    def api(self, raw_args=None):
+        parser = ArgumentParser(
+            prog = f'{CLI_ENTRY} {self._get_fn_name()}',
+            description=f"Snakemake uses this to call the python script for each step"
+        )
+
+        parser.add_argument("--step", required=True)
+        parser.add_argument("--args", nargs='*', required=False, default=[])
+        args = parser.parse_args(raw_args)
+
+        mo = importlib.import_module(name=f".steps.{args.step}", package=NAME)
+        try:
+            mo.Procedure(args.args)
+        except KeyboardInterrupt:
+            exit()
+
+    def help(self, args=None):
+        help = [
+            f"{NAME} v{VERSION}",
+            f"https://github.com/{USER}/{NAME}",
+            f"",
+            f"Syntax: {CLI_ENTRY} COMMAND [OPTIONS]",
+            f"",
+            f"Where COMMAND is one of:",
+        ]+[f"- {k}" for k in COMMANDS]+[
+            f"",
+            f"for additional help, use:",
+            f"{CLI_ENTRY} COMMAND -h/--help",
+        ]
+        help = "\n".join(help)
+        print(help)
+COMMANDS = {k:v for k, v in CommandLineInterface.__dict__.items() if k[0]!="_"}
+
 def main():
-    try:
-        fabfos_main(sys.argv[1:])
-    except KeyboardInterrupt:
-        print("\nkilled")
-        sys.exit(1)
+    cli = CommandLineInterface()
+    if len(sys.argv) <= 1:
+        cli.help()
+        return
+
+    COMMANDS.get(# calls command function with args
+        sys.argv[1], 
+        CommandLineInterface.help # default
+    )(cli, sys.argv[2:]) # cli is instance of "self"
+
+if __name__ == "__main__":
+    main()

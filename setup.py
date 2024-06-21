@@ -1,17 +1,14 @@
 import os, sys
 from pathlib import Path
-import setuptools
-
 HERE = Path(os.path.realpath(__file__)).parent
-NAME = "fabfos".lower()
-ENTRY_POINTS =  [
-    'fabfos = fabfos.cli:main',
-]
+sys.path = [str(p) for p in set([
+    HERE.joinpath("src")
+]+sys.path)]
+import setuptools
+from fabfos.utils import USER, NAME, ENTRY_POINTS, VERSION
+SHORT_SUMMARY = "A pipeline for the analysis of pooled fosmid data"
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
-
-with open(HERE.joinpath(f"src/{NAME}/version.txt")) as f:
-    VERSION = f.read()
 
 if __name__ == "__main__":
     setuptools.setup(
@@ -19,17 +16,17 @@ if __name__ == "__main__":
         version=VERSION,
         author="Tony Liu, Connor Morgan-Lang, Avery Noonan, Zach Armstrong, and Steven J. Hallam",
         author_email="shallam@mail.ubc.ca",
-        description="Analysis pipeline for pooled fosmids",
+        description=SHORT_SUMMARY,
         long_description=long_description,
         long_description_content_type="text/markdown",
         license_files = ('LICENSE',),
-        url=f"https://github.com/hallamlab/{NAME}",
+        url=f"https://github.com/{USER}/{NAME}",
         project_urls={
-            "Bug Tracker": f"https://github.com/hallamlab/{NAME}/issues",
+            "Bug Tracker": f"https://github.com/{USER}/{NAME}/issues",
         },
         classifiers=[
             "Programming Language :: Python :: 3",
-            "Operating System :: OS Independent",
+            "Operating System :: Unix",
         ],
         package_dir={"": "src"},
         packages=setuptools.find_packages(where="src"),
@@ -37,7 +34,7 @@ if __name__ == "__main__":
         package_data={
             "":[ # "" is all packages
                 "version.txt",
-                "deinterleave_fastq.sh",
+                "steps/deinterleave_fastq.sh",
             ],
             # examples
             # "package-name": ["*.txt"],
@@ -46,8 +43,7 @@ if __name__ == "__main__":
         entry_points={
             'console_scripts': ENTRY_POINTS,
         },
-        python_requires=">=3.11",
+        python_requires=">=3.10",
         install_requires=[
-            "packaging >=21.0",
         ]
     )

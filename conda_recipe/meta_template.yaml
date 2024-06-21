@@ -8,29 +8,29 @@ source:
 build:
   noarch: python
   number: 0
-  script: {{ PYTHON }} -m pip install . -vv
+  script: {{ PYTHON }} -m pip install . -v
   entry_points:
 <ENTRY>
 
 test:
   imports:
-    - fabfos
+    - <NAME>
   commands:
     - pip check
-    - fabfos --help
+    - <NAME> --help
   requires:
     - pip
 
 requirements:
   host:
-    - python=3.11
     - pip
+<PYTHON>
 
   run:
 <REQUIREMENTS>
 
 about:
-  home: https://github.com/hallamlab/fabfos
-  summary: Analysis pipeline for pooled fosmids
+  home: https://github.com/<USER>/<NAME>
+  summary: <SHORT_SUMMARY>
   license: 'gpl-v3'
   license_file: ../LICENSE
