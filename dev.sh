@@ -1,8 +1,10 @@
 HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
 NAME=fabfos
-DOCKER_IMAGE=quay.io/hallamlab/$NAME
-VER=$(cat $HERE/src/$NAME/version.txt)
+UTILS=$HERE/src/$NAME/utils.py
+DEV_USER=$(python $UTILS USER)
+VER=$(python $UTILS VERSION)
+DOCKER_IMAGE=quay.io/$USER/$NAME
+
 # CONDA=conda
 CONDA=mamba # https://mamba.readthedocs.io/en/latest/mamba-installation.html#mamba-install
 echo image: $DOCKER_IMAGE:$VER
@@ -30,7 +32,7 @@ echo ""
 # dev.sh --idev # create a local conda dev env
 # dev.sh -bd # build docker image
 # dev.sh -ud # publish to quay.io
-# dev.sh -bs # build singularity image from local docker image
+# dev.sh -bs # build apptainer image from local docker image
 
 case $1 in
     ###################################################
@@ -38,11 +40,16 @@ case $1 in
 
     --idev) # with dev tools for packaging
         cd $HERE/envs
-        $CONDA env create --no-default-packages -n $NAME -f ./base.yml
-        $CONDA env update -n $NAME -f ./dev.yml
+        echo "creating new conda env: $NAME"
+        echo "WARNING: you will need to install docker and apptainer individually"
+        sleep 2
+        $CONDA env create --no-default-packages -n $NAME -f ./base.yml \
+        && $CONDA env update -n $NAME -f ./dev.yml
     ;;
     --ibase) # base only
         cd $HERE/envs
+        echo "creating new conda env: $NAME"
+        sleep 2
         $CONDA env create --no-default-packages -n $NAME -f ./base.yml
     ;;
 
@@ -56,12 +63,13 @@ case $1 in
         python -m build
     ;;
     -bpi) # pip - test install
-        python setup.py install
+        pip install $HERE/dist/$NAME-$VER-py3-none-any.whl
     ;;
     -bpx) # pip - remove package
         pip uninstall -y $NAME
     ;;
     -bc) # conda
+        # requires built pip package
         rm -r $HERE/conda_build
         python ./conda_recipe/compile_recipe.py
         $HERE/conda_recipe/call_build.sh
@@ -69,8 +77,8 @@ case $1 in
     -bd) # docker
         docker build -t $DOCKER_IMAGE:$VER .
     ;;
-    -bs) # singularity image *from docker*
-        singularity build $NAME.sif docker-daemon://$DOCKER_IMAGE:$VER
+    -bs) # apptainer image *from docker*
+        apptainer build $NAME.sif docker-daemon://$DOCKER_IMAGE:$VER
     ;;
 
     ###################################################
@@ -89,7 +97,7 @@ case $1 in
     ;;
     -uc) # conda (personal channel)
         # run `anaconda login` first
-        find ./conda_build -name *.tar.bz2 | xargs -I % anaconda upload %
+        find ./conda_build -name *.tar.bz2 | xargs -I % anaconda upload -u $DEV_USER %
     ;;
     -ud) # docker
         # login and push image to quay.io
@@ -117,39 +125,156 @@ case $1 in
             --workdir="/ws" \
             $DOCKER_IMAGE:$VER /bin/bash
     ;;
-    -rs) # singularity
+    -rs) # apptainer
             # -e XDG_CACHE_HOME="/ws"\
         shift
-        singularity exec \
+        apptainer exec \
             --bind ./:/ws \
             --workdir /ws \
             $HERE/$NAME.sif fabfos /bin/bash
     ;;
-    -rt) # single manual test
+
+    ###################################################
+    # test
+
+    -t) # single manual test
             # --size 20 \
 
+        # --overwrite \
+            # -a spades_meta \
+            # --endf ../data/beaver/endseq_CEC_FW.fa \
+            # --endr ../data/beaver/endseq_CEC_RE.fa \
+            # --endf ../data/beaver/endseq_COL_FW.fa \
+            # --endr ../data/beaver/endseq_COL_RE.fa \
+            # -s ./inputs/ss01.fastq \
+            # -i ../data/beaver/Beaver_colon/2nd_hits/EKL/Raw_Data/EKL_Colon_ligninases_pool_secondary_hits.fastq ../data/beaver/Beaver_colon/2nd_hits/EOL/Raw_Data/EOL_Colon_ligninases_pool_secondary_hits.fastq \
+            # -i ../data/beaver/Beaver_colon/2nd_hits/EKL/Raw_Data/EKL_Colon_ligninases_pool_secondary_hits.fastq \
+            # -a megahit \
+            # --overwrite \
+            # -a megahit_sensitive megahit_meta spades_isolate spades_meta \
+        # /home/tony/workspace/grad/tools/fabfos/scratch/test01_assemblies/spades_isolate/contigs.fasta
+        # /home/tony/workspace/grad/tools/fabfos/scratch/test01_assemblies/spades_isolate/contigs.fasta
+        # /home/tony/workspace/grad/tools/FabFos/scratch/test01_assemblies/spades_isolate/contigs.fasta
+            # -b ./ecoli_k12_mg1655.fasta \
+            # -a \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/megahit_sensitive/final.contigs.fa \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/megahit_meta/final.contigs.fa \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/spades_isolate/contigs.fasta \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_1/temp_assembly/spades_meta/contigs.fasta \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/megahit_sensitive/final.contigs.fa \
+            # /home/tony/workspace/grad/tools/FabFos/data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/megahit_meta/final.contigs.fa \
+            # --endf ../data/beaver/endseq_CEC_FW.fa \
+            # --endr ../data/beaver/endseq_CEC_RE.fa \
+            # -a megahit_sensitive \
+            # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_isolate/contigs.fasta \
+            # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
+            # ../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/cec_2/temp_assembly/spades_meta/contigs.fasta \
+            # -i ./inputs/ss10.fastq.gz \
+            # --dryrun \
+        # python -m $NAME run -t 12 \
+        #     -d ../../../resources/mp3db \
+        #     -i ./mpwi/reads/ss10.fastq \
+        #     --vector ./inputs/pcc1.fasta \
+        #     --end_regex "\w+_\d+" \
+        #     --endf ../data/beaver/endseq_CEC_FW.fa \
+        #     --endr ../data/beaver/endseq_CEC_RE.fa \
+        #     -o ./test01
         export PYTHONPATH=$HERE/src:$PYTHONPATH
         cd scratch
-        python -m $NAME \
+        BVR=../data/beaver/112.bvr_compound_assembly.2023-11-22-23-18/col_all/temp_assembly
+        python -m $NAME run \
             --overwrite \
-            --threads 12 \
-            --output ./manual_test \
-            --assembler megahit \
-            -i --reads ./EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
-            -b ./ecoli_k12_mg1655.fasta \
-            --ends ./endseqs_cec.fasta \
-            --ends-name-regex "\\w+_\\d+" \
-            --ends-fw-flag "FW" \
-            --vector ./pcc1.fasta
+            -t 14 \
+            -a \
+                $BVR/megahit_sensitive/final.contigs.fa \
+                $BVR/megahit_meta/final.contigs.fa \
+                $BVR/spades_isolate/contigs.fasta \
+                $BVR/spades_meta/contigs.fasta \
+            --endf ../data/beaver/endseq_COL_FW.fa \
+            --endr ../data/beaver/endseq_COL_RE.fa \
+            --end_regex "\w+_\d+" \
+            -o ./test_scaffold01
 
-            # --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
-            # --parity se \
-
-            # --pool-size 20
-
-            # -i --reads ./beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss10.fastq \
-            # --nanopore_reads beaver_cecum_2ndhits/EKL/Raw_Data/EKL_Cecum_ligninases_pool_secondary_hits_ss01.fastq \
     ;;
+
+    --check)
+
+        cd scratch
+        mkdir -p ./check_scaffold
+        cd ./check_scaffold
+        rm -r *
+
+        PIDENT_THRESH=90
+        BLAST_DB="./scaffolds"
+        COLS="qseqid sseqid nident length qlen slen qstart qend sstart send"
+        makeblastdb \
+            -dbtype nucl \
+            -in ../test_scaffold01/scaffolds.fna \
+            -out ${BLAST_DB} >>./build.log 2>&1
+            
+        blastn \
+            -perc_identity ${PIDENT_THRESH} \
+            -num_threads 14 \
+            -query ../../data/beaver/endseq_COL_FW.fa \
+            -db ${BLAST_DB} \
+            -outfmt "6 ${COLS}" \
+            -out ./hits_fwd.tsv >>./blast_fwd.log 2>&1
+
+        blastn \
+            -perc_identity ${PIDENT_THRESH} \
+            -num_threads 14 \
+            -query ../../data/beaver/endseq_COL_RE.fa \
+            -db ${BLAST_DB} \
+            -outfmt "6 ${COLS}" \
+            -out ./hits_rev.tsv >>./blast_rev.log 2>&1
+
+    ;;
+
+    -tm) # metapathways
+    cd scratch
+    metapathways run -t 12 \
+        -i ./mpwi/asdf.fna \
+        --interleaved -1 ./mpwi/reads/ss10.fastq \
+        -d ../../../resources/mp3db \
+        --annotation_dbs metacyc\
+        -o ./mpw_test
+    ;;
+
+    -td) # test docker
+        shift
+        docker run -it --rm \
+            -u $(id -u):$(id -g) \
+            --mount type=bind,source="$HERE",target="/ws"\
+            --mount type=bind,source="$HERE/src/fabfos",target="/app/fabfos"\
+            --mount type=bind,source="/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos",target="/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos"\
+            --workdir="/ws" \
+            $DOCKER_IMAGE:$VER fabfos run -t 12 \
+                -a megahit \
+                --overwrite \
+                -i /ws/scratch/inputs/ss01.fastq.gz \
+                -b /ws/scratch/ecoli_k12_mg1655.fasta \
+                --endf /ws/data/beaver/endseq_COL_FW.fa \
+                --endr /ws/data/beaver/endseq_COL_RE.fa \
+                --end_regex "\\w+_\\d+" \
+                -o /ws/scratch/test_docker01
+    ;;
+
+    -ts) # test apptainer
+        shift
+        apptainer run -B $HERE:/ws,"/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos":"/home/tony/workspace/grad/analysis/beaver_microbiome/data/fabfos" \
+        $HERE/fabfos.sif fabfos run -t 12 \
+            -a megahit \
+            --overwrite \
+            -i /ws/scratch/inputs/ss10.fastq.gz \
+            -b /ws/scratch/ecoli_k12_mg1655.fasta \
+            --endf /ws/data/beaver/endseq_COL_FW.fa \
+            --endr /ws/data/beaver/endseq_COL_RE.fa \
+            --end_regex "\\w+_\\d+" \
+            -o /ws/scratch/test_apptainer01
+    ;;
+
+    ###################################################
+
     *)
         echo "bad option"
         echo $1

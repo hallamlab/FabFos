@@ -54,7 +54,7 @@ Pick one of Conda, Singularity, Docker, or Manual.
 
 ```bash
 conda install \
-    -c txyliu \
+    -c hallamlab \
     -c imperial-college-research-computing \
     -c bioconda \
     -c conda-forge \
