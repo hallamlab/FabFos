@@ -4,7 +4,7 @@ Tony Liu, Connor Morgan-Lang, Joe Ho, Avery Noonan, Kateryna Ievdokymenko, Zach 
 
 ## For the impatient
 ```bash
-conda install -c txyliu \
+conda install -c hallamlab \
     -c imperial-college-research-computing \
     -c bioconda -c conda-forge fabfos
 
