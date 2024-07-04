@@ -1,10 +1,10 @@
 # FabFos: an automated pipeline for resolving inserts from pooled fosmid DNA
 
-Tony Liu, Connor Morgan-Lang, Joe Ho, Avery Noonan, Kateryna Ievdokymenko, Zach Armstrong, Steven Hallam
+Tony Liu, Mahan Rafiee, Connor Morgan-Lang, Joe Ho, Avery Noonan, Kateryna Ievdokymenko, Zach Armstrong, Steven Hallam
 
 ## For the impatient
 ```bash
-conda install -c txyliu \
+conda install -c hallamlab \
     -c imperial-college-research-computing \
     -c bioconda -c conda-forge fabfos
 
