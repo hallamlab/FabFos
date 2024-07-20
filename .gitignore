@@ -17,5 +17,5 @@ trim_sequences.fasta.*
 !/conda_recipe/meta_template.yaml
 /data
 /scratch
-/docker/src
 /secrets
+/lib/tini

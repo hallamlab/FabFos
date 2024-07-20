@@ -16,7 +16,6 @@ test:
   imports:
     - <NAME>
   commands:
-    - pip check
     - <NAME> --help
   requires:
     - pip

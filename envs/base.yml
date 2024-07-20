@@ -19,4 +19,3 @@ dependencies:
   - bedtools=2.31
   - samtools=1.18
   - quast=5.2
-  - metapathways=3.5

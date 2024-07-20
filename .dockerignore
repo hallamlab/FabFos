@@ -1,5 +1,8 @@
 /*
+
 !/src
-/src/**/__pycache__
-/src/*.egg-info
 !/envs
+!/lib
+
+**/__pycache__
+*.egg-info

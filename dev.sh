@@ -3,7 +3,7 @@ NAME=fabfos
 UTILS=$HERE/src/$NAME/utils.py
 DEV_USER=$(python $UTILS USER)
 VER=$(python $UTILS VERSION)
-DOCKER_IMAGE=quay.io/$USER/$NAME
+DOCKER_IMAGE=quay.io/$DEV_USER/$NAME
 
 # CONDA=conda
 CONDA=mamba # https://mamba.readthedocs.io/en/latest/mamba-installation.html#mamba-install
@@ -75,7 +75,17 @@ case $1 in
         $HERE/conda_recipe/call_build.sh
     ;;
     -bd) # docker
-        docker build -t $DOCKER_IMAGE:$VER .
+        # pre-download requirements
+        cd $HERE/lib
+        TINI_VERSION=v0.19.0
+        ! [ -f tini ] && wget https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini
+        cd $HERE
+
+        # build the docker container locally
+        export DOCKER_BUILDKIT=1
+        docker build \
+            --build-arg="CONDA_ENV=${NAME}_env" \
+            -t $DOCKER_IMAGE:$VER .
     ;;
     -bs) # apptainer image *from docker*
         apptainer build $NAME.sif docker-daemon://$DOCKER_IMAGE:$VER
@@ -131,7 +141,7 @@ case $1 in
         apptainer exec \
             --bind ./:/ws \
             --workdir /ws \
-            $HERE/$NAME.sif fabfos /bin/bash
+            $HERE/$NAME.sif /bin/bash
     ;;
 
     ###################################################
