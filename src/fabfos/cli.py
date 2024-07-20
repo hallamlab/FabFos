@@ -29,7 +29,7 @@ from .models import Assembly, BackgroundGenome, EndSequences, MetapathwaysArgs, 
 from .utils import NAME, USER, VERSION, ENTRY_POINTS, MODULE_ROOT, StdTime
 from .process_management import Shell
 
-CLI_ENTRY = ENTRY_POINTS[0]
+CLI_ENTRY = [e.split("=")[0].strip() for e in ENTRY_POINTS][0]
     
 class ArgumentParser(argparse.ArgumentParser):
     def error(self, message):
