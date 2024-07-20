@@ -1,11 +1,11 @@
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from re import L
 from typing import Callable, Any
 from Bio import SeqIO
 import json
-
-from pysam import reference
+import pandas as pd
 
 from .utils import regex
 
@@ -176,66 +176,117 @@ class EndSequences(Saveable):
     reverse: Path|None
     insert_ids: list[str] # as in fosmid inserts
 
+    MANIFEST_COLUMNS = ["file", "sequence_id", "name", "is_forward"]
     ARG_FILE = Path("internals/temp_scaffold/endseqs.json")
     SKIP = "SKIP"
-    DEFAULT_REGEX = r'\w+'
 
     @classmethod
     def Parse(cls, args, out_dir: Path, on_error: Callable):
-        _pathify = lambda l: [Path(p).absolute() for p in l] if l is not None else None
-        forwards = _pathify(args.endf)
-        reverses = _pathify(args.endr)
-        id_regex = args.end_regex if args.end_regex is not None else cls.DEFAULT_REGEX
+        NULL_MODEL = cls(False, None, None, [])
         save_path = out_dir.joinpath(cls.ARG_FILE)
+        NULL_MODEL.Save(save_path)
+        if args.ends_manifest is None:
+            return NULL_MODEL
 
-        if len([v for v in [forwards, reverses] if v is None])==1:
-            on_error(f"both --endf and --endr must be given or omitted together")
-
-        if forwards is None or reverses is None: # skip id match check
-            model = cls(False, None, None, [])
-            model.Save(save_path)
-            return model
-
-        # ensure ids are in pairs and unique + aggregate to 2 files
-        for e, p in [(e, p) for e, l in [("endf", forwards), ("endr", reverses)] for p in l]:
-            if p.exists(): continue
-            on_error(f"--{e} file doesn't exist [{p}]")
+        try:
+            ends_man = Path(args.ends_manifest)
+        except ValueError:
+            on_error("given ends manifest not a valid file path")
+            return NULL_MODEL
+        if not ends_man.exists():
+            on_error(f"given path to ends manifest doesn't point to a file")
+            return NULL_MODEL
         
-        # _no_pair = lambda p, x: f"{p} [{x}] has no matching pair"
-        _dup = lambda p, x: f"{p} [{x}] is duplicate"
-        
+        file_type = ends_man.suffix
+        if file_type == ".csv":
+            dfman = pd.read_csv(ends_man)
+        elif file_type == ".tsv":
+            dfman = pd.read_csv(ends_man, sep="\t")
+        elif file_type in {".xlsx", ".xls"}:
+            dfman = pd.read_excel(ends_man)
+        else:
+            on_error(f"ends manifest file type [{file_type}] not recognized")
+            return NULL_MODEL
+
+        columns = dfman.columns
+        for c in cls.MANIFEST_COLUMNS:
+            if c not in columns:
+                on_error(f"ends manifest missing column [{c}]")
+                return NULL_MODEL
+            
+        positive = ["yes", "y", "true", 1]
+        negative = ["no", "n", "false", 0]
+        pos_neg = positive+negative
+        for _, r in dfman.iterrows():
+            is_forward = r["is_forward"]
+            if isinstance(is_forward, str): is_forward = is_forward.lower()
+            if is_forward not in pos_neg:
+                on_error(f"ends manifest is_forward column must be in the form: yes/no, y/n, true/false, 1/0, got [{is_forward}]")
+                return NULL_MODEL
+            
+        WS = cls.ARG_FILE.parent
+        if not WS.exists(): os.makedirs(WS)
+
+        seqs = {}
+        _err = False        
+        for fpath in dfman["file"].unique():
+            try:
+                file_path = Path(fpath)
+                if not file_path.exists():
+                    on_error(f"ends file [{fpath}] doesn't exist")
+                    _err = True; continue
+            except ValueError:
+                on_error(f"ends file [{fpath}] is not valid")
+                _err = True; continue
+            ext = file_path.suffix
+            if ext in {".fasta", ".fa", ".fna"}:
+                ext = "fasta"
+            elif ext in {".fastq", ".fq"}:
+                ext = "fastq"
+            elif ext in {".ab1"}:
+                ext = "ab1"
+            else:
+                on_error(f"ends file [{file_path}] has unrecognized extension [{ext}]")
+                _err = True; continue
+            for e in SeqIO.parse(file_path, ext):
+                seqs[fpath, str(e.id)] = e
+        if _err: return NULL_MODEL
+
         allf_p, allr_p = [out_dir.joinpath(cls.ARG_FILE.parent).joinpath(f).absolute() for f in ["endf.fa", "endr.fa"]]
         if not allf_p.parent.exists(): os.makedirs(allf_p.parent)
         allf, allr = [open(p, "w") for p in [allf_p, allr_p]]
 
-        def _get(lst):
-            for p in lst:
-                if not p.exists(): continue
-                for e in SeqIO.parse(p, "fasta"):
-                    try:
-                        next(regex(id_regex, e.id))
-                        yield next(regex(id_regex, e.id)), (p, e)
-                    except StopIteration:
-                        on_error(f"ID [{e.id}] in {p} doesn't match regex [{id_regex}]")
+        fids = []
+        rids = []
+        for _, r in dfman.iterrows():
+            is_forward = r["is_forward"]
+            if isinstance(is_forward, str): is_forward = is_forward.lower()
+            out = fids if is_forward in positive else rids
+            file_path = r["file"]
+            header = str(r["sequence_id"])
+            out.append((str(r["name"]), (Path(file_path), seqs[(file_path, header)])))
 
-        fids = list(_get(forwards))
-        rids = list(_get(reverses))
-        all_ids = set()
-        for this, other, out in [
-            (fids, rids, allf),
-            (rids, fids, allr),
-        ]:  
-            _seen = set()
-            other = set(id for id, _ in other)
-            for id, (p, e) in this:
-                all_ids.add(id)
-                if id in _seen: on_error(_dup(p, id))
-                if id not in other: print(f"WARNING: {p} [{id}] has no matching pair")
-                _seen.add(id)
-                out.write(f">{id}"+"\n")
-                out.write(str(e.seq))
-                out.write("\n")
-            out.close()
+        # _no_pair = lambda p, x: f"{p} [{x}] has no matching pair"
+        _dup = lambda p, x: f"{p} [{x}] is duplicate"
+        try:
+            all_ids = set()
+            for this, other, out in [
+                (fids, rids, allf),
+                (rids, fids, allr),
+            ]:  
+                _seen = set()
+                other = set(id for id, _ in other)
+                for id, (p, e) in this:
+                    all_ids.add(id)
+                    if id in _seen: on_error(_dup(p, id))
+                    if id not in other: print(f"WARNING: {p} [>{e.id}]:[{id}] has no matching pair")
+                    _seen.add(id)
+                    out.write(f">{id}"+"\n")
+                    out.write(str(e.seq))
+                    out.write("\n")
+        finally:
+            allf.close()
+            allr.close()
         
         model = cls(True, allf_p, allr_p, list(all_ids))
         model.Save(save_path)

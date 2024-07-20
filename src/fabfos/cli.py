@@ -69,12 +69,8 @@ class CommandLineInterface:
             help="skip read trimming with trimmomatic")
         fos.add_argument("-b", "--background", metavar="FASTA", required=False,
             help="host background to filter out")
-        fos.add_argument("--endf", metavar="FASTA", nargs='*', required=False,
-            help="sanger end sequences")
-        fos.add_argument("--endr", metavar="FASTA", nargs='*', required=False,
-            help="sanger end sequences from the other end, IDs must match those from --endf")
-        fos.add_argument("--end_regex", metavar="STR", required=False,
-            help="regex for getting ID of end seq., default: \"%s\", ex. \"\\w+_\\d+\" would get ABC_123 from ABC_123_FW" % EndSequences.DEFAULT_REGEX)
+        fos.add_argument("-e", "--ends_manifest", metavar="TABLE", required=False,
+            help=f"table of fosmid end sequences with headers [{', '.join(EndSequences.MANIFEST_COLUMNS)}]")
         fos.add_argument("--ends_facing", action="store_true", default=False, required=False,
             help="indicate reverse ends are on the complimentary strand of forward ends")
         fos.add_argument("--vector", metavar="FASTA", required=False,
