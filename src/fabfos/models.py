@@ -269,6 +269,7 @@ class EndSequences(Saveable):
         # _no_pair = lambda p, x: f"{p} [{x}] has no matching pair"
         _dup = lambda p, x: f"{p} [{x}] is duplicate"
         try:
+            unmatched = 0
             all_ids = set()
             for this, other, out in [
                 (fids, rids, allf),
@@ -279,11 +280,12 @@ class EndSequences(Saveable):
                 for id, (p, e) in this:
                     all_ids.add(id)
                     if id in _seen: on_error(_dup(p, id))
-                    if id not in other: print(f"WARNING: {p} [>{e.id}]:[{id}] has no matching pair")
+                    if id not in other: unmatched += 1
                     _seen.add(id)
                     out.write(f">{id}"+"\n")
                     out.write(str(e.seq))
                     out.write("\n")
+            if unmatched > 0: print(f"WARNING: [{unmatched}] ends had no matching pair")
         finally:
             allf.close()
             allr.close()
