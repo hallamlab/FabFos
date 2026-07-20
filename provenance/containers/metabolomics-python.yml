@@ -1,0 +1,10 @@
+id: containers.metabolomics-python
+name: metabolomics-python
+kind: container
+resource: resources/containers/metabolomics-python.oci
+reference: quay.io/hallamlab/metabolomics-python:0.1.0
+resolved: false
+blocker: >-
+  no such manifest: quay.io/hallamlab/metabolomics-python:0.1.0
+origin: public-registry
+built_by_us: false

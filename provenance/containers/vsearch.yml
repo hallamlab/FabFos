@@ -1,0 +1,10 @@
+id: containers.vsearch
+name: vsearch
+kind: container
+resource: resources/containers/vsearch.oci
+reference: quay.io/biocontainers/vsearch:2.30.6--h0bb26bb_0
+resolved: true
+digest: sha256:25ca79c33765a23966e8a543ecfcbc0d42f7bb4a2d31a4e3a78df3c4e13fcdbb
+pinned_reference: quay.io/biocontainers/vsearch@sha256:25ca79c33765a23966e8a543ecfcbc0d42f7bb4a2d31a4e3a78df3c4e13fcdbb
+origin: public-registry
+built_by_us: false

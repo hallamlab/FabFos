@@ -1,0 +1,10 @@
+id: containers.gtdbtk
+name: gtdbtk
+kind: container
+resource: resources/containers/gtdbtk.oci
+reference: quay.io/biocontainers/gtdbtk:2.6.1--pyh1f0d9b5_2
+resolved: true
+digest: sha256:1ae5c83da136866b57dfc267cc662e7f7762ed3e9af40416f9e7e2f196a2a0de
+pinned_reference: quay.io/biocontainers/gtdbtk@sha256:1ae5c83da136866b57dfc267cc662e7f7762ed3e9af40416f9e7e2f196a2a0de
+origin: public-registry
+built_by_us: false

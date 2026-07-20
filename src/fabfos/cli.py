@@ -1,246 +1,216 @@
-# This file is part of FabFos.
-# 
-# FabFos is free software: you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-# 
-# FabFos is distributed in the hope that it will be useful, but 
-# WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License
-# along with FabFos. If not, see <https://www.gnu.org/licenses/>.
+"""FabFos command line — a thin front end over the metasmith planner.
 
-# copyright 2023 Tony Liu, Connor Morgan-Lang, Avery Noonan,
-# Zach Armstrong, and Steven J. Hallam
-
-import json
-import os, sys
-from pathlib import Path
+``fabfos`` builds a metasmith workflow that resolves fosmid inserts from
+pooled reads and runs it through the chosen container runtime (apptainer by
+default, which is what the cluster provides). Use ``--plan-only`` to just
+resolve and print the DAG without executing.
+"""
 import argparse
-import inspect
-from dataclasses import dataclass
 import multiprocessing
-import importlib
+import sys
+from pathlib import Path
 
-from .models import Assembly, BackgroundGenome, EndSequences, MetapathwaysArgs, ReadsManifest, VectorBackbone
-from .utils import NAME, USER, VERSION, ENTRY_POINTS, MODULE_ROOT, StdTime
-from .process_management import Shell
+from metasmith.python_api import ContainerRuntime
 
-CLI_ENTRY = ENTRY_POINTS[0]
-    
-class ArgumentParser(argparse.ArgumentParser):
-    def error(self, message):
-        self.print_help(sys.stderr)
-        self.exit(2, '\n%s: error: %s\n' % (self.prog, message))
+from . import __version__, NAME, SHORT_SUMMARY
+from .pipeline import FabFosInputs, generate_workflow, run_pipeline
 
 
-class CommandLineInterface:
-    def _get_fn_name(self):
-        return inspect.stack()[1][3]
+def _build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog=NAME, description=SHORT_SUMMARY)
+    io = p.add_argument_group("inputs")
+    io.add_argument("-r", "--reads", metavar="FASTQ", required=True,
+                    help="forward (paired) or interleaved or single-end reads, fastq[.gz]")
+    io.add_argument("-2", "--reverse", metavar="FASTQ", default=None,
+                    help="reverse reads for paired-end input")
+    io.add_argument("-i", "--interleaved", action="store_true", default=False,
+                    help="--reads holds interleaved paired-end reads")
+    io.add_argument("-o", "--output", metavar="PATH", required=True,
+                    help="output directory")
 
-    def run(self, raw_args):
-        parser = ArgumentParser(
-            prog = f'{CLI_ENTRY} {self._get_fn_name()}',
+    fos = p.add_argument_group("fosmid pool")
+    fos.add_argument("-b", "--background", metavar="FASTA", default=None,
+                     help="host background genome to filter out")
+    fos.add_argument("--vector", metavar="FASTA", default=None,
+                     help="vector backbone fasta; enables pool-size estimation")
+    fos.add_argument("--endf", metavar="FASTA", default=None,
+                     help="forward-junction end sequences fasta")
+    fos.add_argument("--endr", metavar="FASTA", default=None,
+                     help="reverse-junction end sequences fasta")
+    fos.add_argument("--ends-facing", action="store_true", default=False,
+                     help="end sequences face inward across both junctions")
+
+    ec = p.add_argument_group("ecspr (metabolic graph prerequisite)")
+    ec.add_argument("--ecspr", action="store_true", default=False,
+                    help="also build per-fosmid bipartite metabolic graphs (stops before the axis/conductance step)")
+    ec.add_argument("--base-graphs", metavar="DIR", default=None,
+                    help="reference dir of base_{C,N,S,P}.pkl host graphs")
+    ec.add_argument("--element-bipartite", metavar="DIR", default=None,
+                    help="reference dir of mnx_bipartite_{C,N,S,P}.pkl universe graphs")
+    ec.add_argument("--reaction-db", metavar="DIR", default=None,
+                    help="reference dir with reactions.dmnd + bridge.tsv")
+
+    run = p.add_argument_group("execution")
+    run.add_argument("--runtime", choices=[r.value for r in ContainerRuntime],
+                     default=ContainerRuntime.APPTAINER.value,
+                     help="container runtime (default: apptainer)")
+    run.add_argument("--solve-lane", choices=["directed", "undirected"], default=None,
+                     help="which ECSPr solve lane to offer the planner; both produce "
+                          "the same axes report, so leaving this unset offers neither "
+                          "rather than letting the planner pick by tiebreak")
+    run.add_argument("--network-lane", choices=["A", "B", "benchmark"], default=None,
+                     help="which ECSPr base-graph lane to offer the planner")
+    run.add_argument("-t", "--threads", type=int, default=multiprocessing.cpu_count(),
+                     help="max threads per step")
+    run.add_argument("--plan-only", action="store_true", default=False,
+                     help="resolve and print the workflow DAG without executing")
+    run.add_argument("--dag", metavar="PATH", default=None,
+                     help="render the resolved DAG to PATH.svg. The render comes "
+                          "from the SAME planner call the run makes, so it documents "
+                          "what would actually execute, not a hand-drawn idea of it")
+    run.add_argument("--provision-only", action="store_true", default=False,
+                     help="create the per-tool mamba envs from the library *.env.yml specs, then exit")
+    run.add_argument("--no-provision", action="store_true", default=False,
+                     help="accepted and ignored: no runtime on the pinned engine needs "
+                          "per-tool mamba envs, so nothing is auto-created. Use "
+                          "--provision-only to stand them up explicitly")
+    p.add_argument("-v", "--version", action="version", version=f"{NAME} {__version__}")
+
+    # The METHOD version, distinct from the package version above. The package
+    # is the CLI; the method is the composition (canon + library commit +
+    # container digests + type contract + data-library index) that decides what
+    # a number out of this pipeline means. A CLI bugfix is not a new method.
+    meth = p.add_argument_group("method version")
+    meth.add_argument("--method-version", action="store_true", default=False,
+                      help="print the method id (version+hash) and exit")
+    meth.add_argument("--describe-method", action="store_true", default=False,
+                      help="print the full hashed method document and exit; "
+                           "diff two of these to see WHICH component moved")
+    meth.add_argument("--require-method", metavar="ID", default=None,
+                      help="fail unless the live method matches ID "
+                           "(full '0.3.0+abc1234' or bare '0.3.0')")
+    return p
+
+
+def _inputs_from_args(a: argparse.Namespace) -> FabFosInputs:
+    return FabFosInputs(
+        reads=Path(a.reads).resolve(),
+        output=Path(a.output).resolve(),
+        reverse=Path(a.reverse).resolve() if a.reverse else None,
+        interleaved=a.interleaved,
+        background=Path(a.background).resolve() if a.background else None,
+        vector=Path(a.vector).resolve() if a.vector else None,
+        end_forward=Path(a.endf).resolve() if a.endf else None,
+        end_reverse=Path(a.endr).resolve() if a.endr else None,
+        ends_facing=a.ends_facing,
+        runtime=ContainerRuntime(a.runtime),
+        threads=a.threads,
+        solve_lane=a.solve_lane,
+        network_lane=a.network_lane,
+        ecspr=a.ecspr,
+        base_graphs=Path(a.base_graphs).resolve() if a.base_graphs else None,
+        element_bipartite=Path(a.element_bipartite).resolve() if a.element_bipartite else None,
+        reaction_db=Path(a.reaction_db).resolve() if a.reaction_db else None,
+    )
+
+
+def _method_query(argv: list[str] | None) -> str | None:
+    """Answer --method-version / --describe-method BEFORE the main parser.
+
+    The main parser requires --reads and --output. Asking what method this is
+    is a question about the installation, not about a run, so it must not
+    require a runnable set of reads to answer.
+    """
+    import sys as _sys
+
+    args = list(_sys.argv[1:] if argv is None else argv)
+    for flag, key in (("--method-version", "version"), ("--describe-method", "describe")):
+        if flag in args:
+            return key
+    return None
+
+
+def _render_dag(task, base: Path) -> Path:
+    """Render the resolved plan, refusing to draw an incomplete one.
+
+    A renderer will happily draw a disconnected graph for a plan that never
+    resolved, and the picture looks authoritative either way. If the plan is
+    not ok, that is the thing worth reporting -- not a diagram of it.
+    """
+    if not getattr(task, "ok", False):
+        raise RuntimeError(
+            "refusing to render a DAG for a plan that did not resolve -- "
+            "the drawing would look complete regardless. Fix the plan first."
         )
+    base = base.resolve()
+    base.parent.mkdir(parents=True, exist_ok=True)
+    stem = base.with_suffix("") if base.suffix else base
+    task.plan.RenderDAG(stem)
+    out = stem.with_suffix(".svg")
+    if not out.exists():
+        raise RuntimeError(f"RenderDAG reported success but {out} is absent")
+    return out
 
 
-        # TODO: include original contig name in outputs, incase used for mapping ends to contigs
+def main(argv: list[str] | None = None) -> int:
+    query = _method_query(argv)
+    if query is not None:
+        from .method import describe_method
 
+        desc = describe_method()
+        if query == "version":
+            print(desc.method_id)
+            if desc.unresolved_containers:
+                print(
+                    "  NOT STAMPABLE -- unresolved containers: "
+                    f"{', '.join(sorted(desc.unresolved_containers))}",
+                    file=sys.stderr,
+                )
+                return 1
+            return 0
+        import yaml
 
-        # the arguments here are tightly coupled to models.py, sorry
-        DEFAULT_ASSEMBLY_MODES = Assembly.CHOICES[:2]
-        paths = parser.add_argument_group(title="main")
-        paths.add_argument("-1", "--forward", metavar="FASTQ", nargs='*', required=False, default=[],
-            help="forward paired-end reads")
-        paths.add_argument("-2", "--reverse", metavar="FASTQ", nargs='*', required=False, default=[],
-            help="reverse paired-end reads in the same order")
-        paths.add_argument("-s", "--single", metavar="FASTQ", nargs='*', required=False, default=[],
-            help="single-end reads")
-        paths.add_argument("-i", "--interleaved", metavar="FASTQ", nargs='*', required=False, default=[],
-            help="interleaved reads")
-        paths.add_argument("-o", "--output", metavar="PATH", required=True,
-            help="path to output folder, will be created if non-existent")
-        
-        fos = parser.add_argument_group(title="fosmid pool specific")
-        fos.add_argument("--no_trim", action="store_true", default=False, required=False,
-            help="skip read trimming with trimmomatic")
-        fos.add_argument("-b", "--background", metavar="FASTA", required=False,
-            help="host background to filter out")
-        fos.add_argument("--endf", metavar="FASTA", nargs='*', required=False,
-            help="sanger end sequences")
-        fos.add_argument("--endr", metavar="FASTA", nargs='*', required=False,
-            help="sanger end sequences from the other end, IDs must match those from --endf")
-        fos.add_argument("--end_regex", metavar="STR", required=False,
-            help="regex for getting ID of end seq., default: \"%s\", ex. \"\\w+_\\d+\" would get ABC_123 from ABC_123_FW" % EndSequences.DEFAULT_REGEX)
-        fos.add_argument("--ends_facing", action="store_true", default=False, required=False,
-            help="indicate reverse ends are on the complimentary strand of forward ends")
-        fos.add_argument("--vector", metavar="FASTA", required=False,
-            help="the vector backbone sequence for pool size estimation")
+        print(yaml.safe_dump(desc.to_dict(), sort_keys=False, default_flow_style=False))
+        return 0
 
-        ann = parser.add_argument_group(title="annotation with metapathways")
-        ann.add_argument("-d", "--reference_databases", metavar="PATH", required=False,
-            help="path to metapathways reference database folder")
-        ann.add_argument("--metapathways", nargs='*', required=False, default=[],
-            help="additional metapathways cli args in the form of KEY=\"VALUE\" or KEY (no leading dashes)")
+    args = _build_parser().parse_args(argv)
 
-        # "options" group
-        parser.add_argument("-a", "--assemblies", nargs='*', required=False, default=[],
-            help=f"pre-assembled contigs or assembly modes to use, pick any combination of {Assembly.CHOICES}, default:{DEFAULT_ASSEMBLY_MODES}")
-        parser.add_argument("--min_contig_length", metavar="INT", required=False, default=1000,
-            help="min. length of contigs to use, default=1000")
-        parser.add_argument("--exp_length", metavar="INT", required=False, default=35_000,
-            help="expected length of fosmid inserts, default=35kbp")
-        parser.add_argument("--exp_length_range", metavar="INT", required=False, default=15_000,
-            help="range to prioritize selecting scaffolds with quality over sensible lengths, default=(+-)15kbp")
-        parser.add_argument("--pident", metavar="INT", required=False, default=90,
-            help="percent identity threshold to accept end mapping, default=90")
-        parser.add_argument("--gap_str", metavar="STR", required=False, default="N",
-            help="string to indicate gap in scaffold. default:\"N\"")
-        parser.add_argument("--overwrite", action="store_true", default=False, required=False,
-            help="overwrite previous output, if given same output path")
-        parser.add_argument("-t", "--threads", metavar="INT", type=int,
-            help="threads, default:ALL", default=multiprocessing.cpu_count())
-        parser.add_argument("--dryrun", action="store_true", default=False, required=False,
-            help="dry run snakemake")
-        parser.add_argument("--snakemake", nargs='*', required=False, default=[],
-            help="additional snakemake cli args in the form of KEY=\"VALUE\" or KEY (no leading dashes)")
-        args = parser.parse_args(raw_args)
+    if args.require_method is not None:
+        from .method import MethodError, check_required
 
-        #########################
-        # verify & parse inputs
-        #########################
-        timestamp = StdTime.Timestamp()
-        input_error = False
-        _printed = False
-        def _error(message: str):
-            nonlocal input_error, _printed
-            if not _printed:
-                parser.print_help()
-                print()
-                _printed = True
-            print(f"Invalid input: {message}")
-            input_error = True
-
-        output = Path(args.output).absolute()
-        logs = output.joinpath(f"logs/{timestamp}")
-        if not output.exists(): os.makedirs(output)
-        if not logs.exists(): os.makedirs(logs)
-
-        integers = ["min_contig_length", "exp_length", "exp_length_range", "pident", "threads"]
-        for k in integers:
-            try: # this is a bit tacked on, should move to input model as complexity increases
-                setattr(args, k, int(getattr(args, k)))
-            except ValueError:
-                _error(f"[--{k}] must be an integer")
-
-        with open(output.joinpath("params.json"), "w") as j:
-            d = args.__dict__|dict(
-                initial_directory=os.getcwd(),
-                log_folder=str(logs.absolute()),
-            )
-            for k in list(d):
-                if isinstance(d[k], list) and len(d[k]) == 0: del d[k]
-                elif d[k] is None: del d[k]
-            json.dump(d, j, indent=4)
-
-        input_models = {}
-        for model_class in [
-            ReadsManifest, BackgroundGenome, Assembly, EndSequences, VectorBackbone, MetapathwaysArgs
-        ]:
-            input_models[model_class] = model_class.Parse(args, output, _error)
-        has_reads = len([r for g in input_models[ReadsManifest].AllReads() for r in g])>0
-        selected_modes = len(input_models[Assembly].modes)>0
-        given_assemblies = len(input_models[Assembly].given)>0
-        if not has_reads and selected_modes:
-            _error(f"selected assembly modes without giving reads")
-        if not has_reads and not given_assemblies:
-            _error(f"must provide reads, previously assembled contigs, or both")
-        if has_reads and not selected_modes:
-            input_models[Assembly].modes = DEFAULT_ASSEMBLY_MODES
-            input_models[Assembly].Save(output.joinpath(Assembly.ARG_FILE))
-
-        smk_args = ["--latency-wait 0"]
-        for a in args.snakemake:
-            if "=" in a:
-                toks = a.split("=")
-                pa = f"--{toks[0]} {'='.join(toks[1:])}"
-            else:
-                pa = f"--{a}"
-            smk_args.append(pa)
-
-        #########################
-        # run snakemake
-        #########################
-        if input_error: return
-        smk_log = logs.parent.joinpath("snakemake")
-        link_log_cmd = "" if smk_log.exists() else f'ln -s ../.snakemake/log {smk_log}'
-        params = dict(
-            src=MODULE_ROOT,
-            log=logs,
-            threads=args.threads,
-        )
-
-        params_str = ' '.join(f"{k}={v}" for k, v in params.items())
-        cache = output.joinpath("internals/temp_cache")
-        cmd = f"""\
-            {link_log_cmd}
-            mkdir -p {cache}
-            export XDG_CACHE_HOME={cache}
-            snakemake -s {MODULE_ROOT.joinpath('main.smk')} -d {output} --rerun-incomplete \
-                {'--forceall' if args.overwrite else ''} \
-                {' '.join(smk_args)} \
-                {"--dryrun" if args.dryrun else ""} \
-                --config {params_str} \
-                --keep-going --keep-incomplete --cores {args.threads}
-        """
-        Shell(cmd, on_out=lambda x: print(x, end=""), on_err=lambda x: print(x, end=""))
-
-    def api(self, raw_args=None):
-        parser = ArgumentParser(
-            prog = f'{CLI_ENTRY} {self._get_fn_name()}',
-            description=f"Snakemake uses this to call the python script for each step"
-        )
-
-        parser.add_argument("--step", required=True)
-        parser.add_argument("--args", nargs='*', required=False, default=[])
-        args = parser.parse_args(raw_args)
-
-        mo = importlib.import_module(name=f".steps.{args.step}", package=NAME)
         try:
-            mo.Procedure(args.args)
-        except KeyboardInterrupt:
-            exit()
+            check_required(args.require_method)
+        except MethodError as e:
+            print(f"fabfos: {e}", file=sys.stderr)
+            return 1
 
-    def help(self, args=None):
-        help = [
-            f"{NAME} v{VERSION}",
-            f"https://github.com/{USER}/{NAME}",
-            f"",
-            f"Syntax: {CLI_ENTRY} COMMAND [OPTIONS]",
-            f"",
-            f"Where COMMAND is one of:",
-        ]+[f"- {k}" for k in COMMANDS]+[
-            f"",
-            f"for additional help, use:",
-            f"{CLI_ENTRY} COMMAND -h/--help",
-        ]
-        help = "\n".join(help)
-        print(help)
-COMMANDS = {k:v for k, v in CommandLineInterface.__dict__.items() if k[0]!="_"}
+    inp = _inputs_from_args(args)
 
-def main():
-    cli = CommandLineInterface()
-    if len(sys.argv) <= 1:
-        cli.help()
-        return
+    if args.provision_only:
+        from .provision import provision_tool_environments
+        from .library import resolve_library_root
+        rep = provision_tool_environments(resolve_library_root())
+        print(f"provision: created={rep.created} skipped={rep.skipped} failed={[n for n,_ in rep.failed]}")
+        return 1 if rep.failed else 0
 
-    COMMANDS.get(# calls command function with args
-        sys.argv[1], 
-        CommandLineInterface.help # default
-    )(cli, sys.argv[2:]) # cli is instance of "self"
+    if args.plan_only:
+        inp.output.mkdir(parents=True, exist_ok=True)
+        _agent, task = generate_workflow(inp, inp.output / "_fabfos")
+        if not task.ok:
+            print("workflow generation FAILED; planner hints:", file=sys.stderr)
+            print(task.plan.RenderHints() if hasattr(task.plan, "RenderHints") else task, file=sys.stderr)
+            return 1
+        print(f"resolved workflow: {len(task.plan.steps)} steps")
+        for i, step in enumerate(task.plan.steps):
+            name = getattr(getattr(step, "transform", None), "name", None) or f"step{i}"
+            print(f"  [{i}] {name}")
+        if args.dag:
+            print(f"DAG -> {_render_dag(task, Path(args.dag))}")
+        return 0
+
+    run_pipeline(inp, provision=not args.no_provision)
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

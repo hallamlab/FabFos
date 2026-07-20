@@ -1,0 +1,10 @@
+id: containers.metabuli
+name: metabuli
+kind: container
+resource: resources/containers/metabuli.oci
+reference: quay.io/biocontainers/metabuli:1.1.0--pl5321hd6d6fdc_0
+resolved: true
+digest: sha256:660c9964b84f2929eb83d40bf2ddbcc9e6c1394cd66340ddfe4ce95b867a1f1e
+pinned_reference: quay.io/biocontainers/metabuli@sha256:660c9964b84f2929eb83d40bf2ddbcc9e6c1394cd66340ddfe4ce95b867a1f1e
+origin: public-registry
+built_by_us: false

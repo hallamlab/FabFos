@@ -1,0 +1,10 @@
+id: containers.blast
+name: blast
+kind: container
+resource: resources/containers/blast.oci
+reference: quay.io/biocontainers/blast:2.16.0--hc155240_2
+resolved: true
+digest: sha256:6bfbeaf46e4cee643727af00aae3b5f1466d73e6dc01d44805f24c108d208418
+pinned_reference: quay.io/biocontainers/blast@sha256:6bfbeaf46e4cee643727af00aae3b5f1466d73e6dc01d44805f24c108d208418
+origin: public-registry
+built_by_us: false

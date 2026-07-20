@@ -1,0 +1,10 @@
+id: containers.skani
+name: skani
+kind: container
+resource: resources/containers/skani.oci
+reference: staphb/skani:0.2.2
+resolved: true
+digest: sha256:d358216da117d5bcab912e95be25bd1fd295381a8e43c621babdfb7228ad8299
+pinned_reference: staphb/skani@sha256:d358216da117d5bcab912e95be25bd1fd295381a8e43c621babdfb7228ad8299
+origin: public-registry
+built_by_us: false

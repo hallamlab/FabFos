@@ -1,0 +1,11 @@
+{
+  "version": "v3",
+  "gates": {
+    "Y independence from ECSPr output": true,
+    "X sufficiency for Y": true,
+    "LOF uniformity": true,
+    "answer-key precedence": true
+  },
+  "failures": [],
+  "n_files": 14
+}

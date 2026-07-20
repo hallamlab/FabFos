@@ -1,0 +1,10 @@
+id: containers.star
+name: star
+kind: container
+resource: resources/containers/star.oci
+reference: quay.io/biocontainers/star:2.7.11b--h5ca1c30_8
+resolved: true
+digest: sha256:c43295cdbc28a7be7d88296775a29cc65b30296c996d8242ef90c031c8b9739b
+pinned_reference: quay.io/biocontainers/star@sha256:c43295cdbc28a7be7d88296775a29cc65b30296c996d8242ef90c031c8b9739b
+origin: public-registry
+built_by_us: false

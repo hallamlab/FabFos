@@ -1,0 +1,10 @@
+id: containers.bbtools
+name: bbtools
+kind: container
+resource: resources/containers/bbtools.oci
+reference: staphb/bbtools:39.49
+resolved: true
+digest: sha256:6db0dcb9b12aa2f16d041533205d20cedae0d4708e7e01ba982c74b39f2733ef
+pinned_reference: staphb/bbtools@sha256:6db0dcb9b12aa2f16d041533205d20cedae0d4708e7e01ba982c74b39f2733ef
+origin: public-registry
+built_by_us: false

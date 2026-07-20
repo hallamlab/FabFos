@@ -1,0 +1,10 @@
+id: containers.samtools
+name: samtools
+kind: container
+resource: resources/containers/samtools.oci
+reference: staphb/samtools:1.23
+resolved: true
+digest: sha256:511fc0995351357c33a989af588cd8d11729a6dab8a32402cd300cbe866924e3
+pinned_reference: staphb/samtools@sha256:511fc0995351357c33a989af588cd8d11729a6dab8a32402cd300cbe866924e3
+origin: public-registry
+built_by_us: false

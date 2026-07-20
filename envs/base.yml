@@ -1,22 +1,14 @@
+name: fabfos
 channels:
   - hallamlab
-  - imperial-college-research-computing
   - bioconda
   - conda-forge
 dependencies:
-  - python=3.10
-  - snakemake=7.32
-  - pigz=2.8
-  - trimmomatic=0.39
-  - blast=2.14
-  - megahit=1.2
-  - spades=3.15
-  - biopython=1.81
-  - numpy=1.26
-  - vsearch=2.25
-  - fastqc=0.12
-  - minimap2=2.26
-  - bedtools=2.31
-  - samtools=1.18
-  - quast=5.2
-  - metapathways=3.5
+  - python=3.12
+  # the planner/executor; provides the `metasmith`/`msm` CLI and python_api.
+  - metasmith
+  # caching backend deps (canonical CBOR + blake3 multihash cache keys). The
+  # merged metasmith declares these itself; pinned here too so a dev/source
+  # install of FabFos against an older metasmith build still resolves them.
+  - cbor2=5.6.5
+  - blake3=0.4.1

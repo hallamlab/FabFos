@@ -1,0 +1,10 @@
+id: containers.diamond
+name: diamond
+kind: container
+resource: resources/containers/diamond.oci
+reference: quay.io/biocontainers/diamond:2.1.11--h5ca1c30_0
+resolved: true
+digest: sha256:b15db7a8300fbc65954a33675e15c9f2caa6f36b2ef0ff7e1bd76615f6472a2d
+pinned_reference: quay.io/biocontainers/diamond@sha256:b15db7a8300fbc65954a33675e15c9f2caa6f36b2ef0ff7e1bd76615f6472a2d
+origin: public-registry
+built_by_us: false

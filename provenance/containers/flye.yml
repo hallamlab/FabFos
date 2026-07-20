@@ -1,0 +1,10 @@
+id: containers.flye
+name: flye
+kind: container
+resource: resources/containers/flye.oci
+reference: staphb/flye:2.9.6
+resolved: true
+digest: sha256:fa29831a5efd36be8623e3ded1c80bd5d7fb52b444349261de46f766cae398de
+pinned_reference: staphb/flye@sha256:fa29831a5efd36be8623e3ded1c80bd5d7fb52b444349261de46f766cae398de
+origin: public-registry
+built_by_us: false

@@ -1,0 +1,50 @@
+element	anchor	mnxm	label	tier	carrier_contaminated	deg_netA_iML1515	w_netA_iML1515	live_netA_iML1515	deg_netA_iECDH10B	w_netA_iECDH10B	live_netA_iECDH10B	deg_netB_iML1515	w_netB_iML1515	live_netB_iML1515	deg_netB_iECDH10B	w_netB_iECDH10B	live_netB_iECDH10B
+C	OAA	MNXM46	oxaloacetate	primary	False	13	52	True	14	60	True	57	58.6272	True	53	57.7545	True
+C	pyruvate	MNXM23	pyruvate	primary	False	68	208	True	62	192	True	198	233.961	True	190	193.294	True
+C	AcCoA	MNXM1104266	acetyl-CoA	carrier	True	40	936	True	36	851	True	242	1861.35	True	239	1776.21	True
+C	succCoA	MNXM1104774	succinyl-CoA	carrier	True	8	200	True	9	225	True	33	284.23	True	28	241.224	True
+C	2OG	MNXM1368744	2-oxoglutarate	gradient	False	28	145	True	26	135	True	114	171.052	True	114	161.01	True
+C	PEP	MNXM73	phosphoenolpyruvate	gradient	False	34	102	True	29	87	True	43	56.8607	True	43	47.5607	True
+C	F6P	MNXM1107898	fructose-6-phosphate	gradient	False	16	102	True	16	102	True	27	138.336	True	27	109.777	True
+C	E4P	MNXM258	erythrose-4-phosphate	gradient	False	5	20	True	5	20	True	20	43.7652	True	20	34.3453	True
+C	R5P	MNXM1363910	ribose-5-phosphate	gradient	False	12	60	True	12	60	True	26	47.0183	True	26	44.6149	True
+C	3PG	MNXM727604	3-phosphoglycerate	gradient	False	4	12	True	4	12	True	30	20.6412	True	30	14.6414	True
+C	G6P	MNXM1364111	glucose-6-phosphate	gradient	False	12	78	True	11	72	True	33	45.3241	True	33	47.1682	True
+C	G3P	MNXM1372044	glyceraldehyde-3-phosphate	gradient	False	15	45	True	14	42	True	18	8.77938	True	18	7.33547	True
+N	glutamine	MNXM37	L-glutamine	primary	False	14	30	True	15	31	True	41	55.9002	True	39	53.8384	True
+N	glutamate	MNXM741173	L-glutamate	hub	False	49	54	True	50	55	True	140	68.8621	True	138	66.0299	True
+N	aspartate	MNXM1364497	L-aspartate	gradient	False	20	25	True	21	26	True	43	26.4535	True	43	27.0535	True
+N	serine	MNXM737787	L-serine	gradient	False	19	21	True	21	23	True	71	20.9014	True	70	20.4102	True
+N	glycine	MNXM29	glycine	gradient	False	13	15	True	13	15	True	70	20.3799	True	68	19.024	True
+N	alanine	MNXM1105732	L-alanine	gradient	False	13	16	True	14	16	True	68	23.2974	True	67	23.1729	True
+N	lysine	MNXM1364268	L-lysine	gradient	False	8	24	True	8	23	True	21	23.9789	True	21	24.6393	True
+N	ATP	MNXM3	ATP	hub	False	326	1640	True	342	1719	True	1090	4152.13	True	1068	4232.87	True
+N	AcCoA	MNXM1104266	acetyl-CoA	carrier	True	40	287	True	36	259	True	240	582.405	True	238	557.142	True
+N	succCoA	MNXM1104774	succinyl-CoA	carrier	True	8	56	True	9	63	True	33	80.2599	True	28	68.2182	True
+N	CoA	MNXM727276	coenzyme A	carrier	True	75	519	True	75	519	True	606	867.955	True	605	839.977	True
+S	cysteine	MNXM738068	L-cysteine	primary	False	9	11	True	10	12	True	54	7.48285	True	54	7.30723	True
+S	sulfate	MNXM58	sulfate	gradient	False	4	6	True	4	6	True	20	6.48274	True	20	6.47697	True
+S	APS	MNXM1103086	adenosine 5'-phosphosulfate	gradient	False	2	2	True	2	2	True	5	2.18452	True	4	2.04167	True
+S	PAPS	MNXM1104555	3'-phosphoadenylyl sulfate	gradient	False	3	3	True	3	3	True	37	2.27953	True	12	1.86036	True
+S	sulfite	MNXM726339	sulfite	gradient	False	9	9	True	9	9	True	34	9.16919	True	34	9.00253	True
+S	sulfide	MNXM1366460	hydrogen sulfide	gradient	False	4	4	True	4	4	True	23	4.82878	True	22	5.11836	True
+S	homocysteine	MNXM123	L-homocysteine	gradient	False	5	5	True	5	5	True	19	5.06468	True	19	4.73135	True
+S	methionine	MNXM738804	L-methionine	gradient	False	14	19	True	15	19	True	141	37.1636	True	135	37.8395	True
+S	glutathione	MNXM490899	glutathione	gradient	False	18	28	True	18	28	True	104	29.7579	True	104	29.6451	True
+S	SAM	MNXM1363767	S-adenosyl-L-methionine	gradient	False	20	27	True	21	28	True	329	139.986	True	329	133.446	True
+S	AcCoA	MNXM1104266	acetyl-CoA	carrier	True	40	41	True	36	37	True	240	83.6796	True	238	80.1016	True
+S	CoA	MNXM727276	coenzyme A	carrier	True	75	75	True	75	75	True	555	123.514	True	555	119.267	True
+P	3PG	MNXM727604	3-phosphoglycerate	primary	False	4	4	True	4	4	True	30	6.8804	True	30	4.88047	True
+P	E4P	MNXM258	erythrose-4-phosphate	primary	False	6	6	True	5	5	True	19	10.9232	True	19	8.57183	True
+P	G6P	MNXM1364111	glucose-6-phosphate	gradient	False	12	13	True	11	12	True	32	7.54939	True	32	7.85673	True
+P	R5P	MNXM1363910	ribose-5-phosphate	gradient	False	12	12	True	12	12	True	26	9.40365	True	26	8.92298	True
+P	F6P	MNXM1107898	fructose-6-phosphate	gradient	False	16	17	True	16	17	True	26	23.0176	True	26	18.2577	True
+P	PEP	MNXM73	phosphoenolpyruvate	gradient	False	34	34	True	28	28	True	41	18.6755	True	41	14.6755	True
+P	G3Pglyc	MNXM66	sn-glycerol-3-phosphate	gradient	False	37	39	True	37	39	True	127	18.1036	True	127	18.5957	True
+P	AMP	MNXM728294	AMP	hub	False	69	69	True	88	88	True	503	109.023	True	501	107.371	True
+P	PPi	MNXM11	diphosphate	hub	False	124	255	True	144	295	True	803	859.29	True	797	888.873	True
+P	ADP	MNXM40333	ADP	hub	False	262	529	True	258	521	True	646	1465.02	True	625	1491.75	True
+P	phosphate	MNXM9	phosphate	hub	False	294	316	True	286	308	True	699	392.37	True	684	380.799	True
+P	ATP	MNXM3	ATP	hub	False	327	981	True	344	1005	True	1142	2284.61	True	1119	2331.63	True
+P	AcCoA	MNXM1104266	acetyl-CoA	carrier	True	40	123	True	36	111	True	240	249.638	True	238	238.809	True
+P	CoA	MNXM727276	coenzyme A	carrier	True	75	223	True	75	223	True	614	372.721	True	613	360.677	True

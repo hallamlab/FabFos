@@ -1,0 +1,10 @@
+id: containers.gfatools
+name: gfatools
+kind: container
+resource: resources/containers/gfatools.oci
+reference: dnalinux/gfatools:final-gt
+resolved: true
+digest: sha256:685a9536c30b5238a3d10f740e425f635efe1b2e422546bd13ad06a4cd72b2ac
+pinned_reference: dnalinux/gfatools@sha256:685a9536c30b5238a3d10f740e425f635efe1b2e422546bd13ad06a4cd72b2ac
+origin: public-registry
+built_by_us: false

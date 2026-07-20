@@ -1,0 +1,10 @@
+id: containers.gffread
+name: gffread
+kind: container
+resource: resources/containers/gffread.oci
+reference: quay.io/biocontainers/gffread:0.12.7--hdcf5f25_4
+resolved: true
+digest: sha256:88df8382561fbe6b8ad43279c649d0139fbee022127ebdff4608da845d703bab
+pinned_reference: quay.io/biocontainers/gffread@sha256:88df8382561fbe6b8ad43279c649d0139fbee022127ebdff4608da845d703bab
+origin: public-registry
+built_by_us: false

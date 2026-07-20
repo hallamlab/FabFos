@@ -1,0 +1,10 @@
+id: containers.antismash
+name: antismash
+kind: container
+resource: resources/containers/antismash.oci
+reference: antismash/standalone:7.1.0
+resolved: true
+digest: sha256:83ffb2818ae8e8fa4c4e3421d8f66a02ac48a81ed4d5fbda67b249b411271af6
+pinned_reference: antismash/standalone@sha256:83ffb2818ae8e8fa4c4e3421d8f66a02ac48a81ed4d5fbda67b249b411271af6
+origin: public-registry
+built_by_us: false

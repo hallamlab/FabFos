@@ -1,0 +1,10 @@
+id: containers.fastani
+name: fastani
+kind: container
+resource: resources/containers/fastani.oci
+reference: staphb/fastani:1.34
+resolved: true
+digest: sha256:d2c1bf7f1792c7d371904e8744f1a974535f0814d29212b254411e78c1436f59
+pinned_reference: staphb/fastani@sha256:d2c1bf7f1792c7d371904e8744f1a974535f0814d29212b254411e78c1436f59
+origin: public-registry
+built_by_us: false

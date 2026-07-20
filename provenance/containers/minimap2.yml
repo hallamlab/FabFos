@@ -1,0 +1,10 @@
+id: containers.minimap2
+name: minimap2
+kind: container
+resource: resources/containers/minimap2.oci
+reference: biocontainers/minimap2:v2.15dfsg-1-deb_cv1
+resolved: true
+digest: sha256:3a8701348038b21714e38fe1f13a0f8da01cbae11dd330e004bead8a6edce0af
+pinned_reference: biocontainers/minimap2@sha256:3a8701348038b21714e38fe1f13a0f8da01cbae11dd330e004bead8a6edce0af
+origin: public-registry
+built_by_us: false

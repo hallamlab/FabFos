@@ -1,0 +1,26 @@
+{
+  "version": "v3",
+  "facets": [
+    "netA_iML1515",
+    "netA_iECDH10B",
+    "netB_iML1515",
+    "netB_iECDH10B"
+  ],
+  "n_anchors": 49,
+  "n_edges": 3865,
+  "per_element": {
+    "C": 2508,
+    "N": 751,
+    "S": 176,
+    "P": 430
+  },
+  "product_sources": [
+    "v1 frozen panel product set (set4 axes + LOF auxotrophy + GOF near-products)",
+    "v3 mechanical near-products: non-currency products of every inserted reaction",
+    "v3 resolved free-text targets (target_resolution.tsv)"
+  ],
+  "base_graphs": "/home/tony/agentic_workspace/projects/fabfos/scadc/.claude/worktrees/benchmark-v3/.awm/data/ref/validation/benchmark/v3/base_graphs",
+  "gate": "every anchor re-measured live in every facet's LCC against v3's own declared base graphs; exits 1 on a dead anchor",
+  "liveness_policy": "product liveness is a coverage OUTPUT, never a filter -- Y declares biology, the scorer reports representability",
+  "independence": "base graphs are network construction, not ECSPr output; no expectation is read from v1, only the product coordinate set"
+}

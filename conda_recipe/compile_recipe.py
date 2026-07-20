@@ -4,61 +4,39 @@ from pathlib import Path
 import yaml
 
 HERE = Path(os.path.realpath(__file__)).parent
-sys.path = list(set([
-    str(HERE.joinpath("../").absolute())
-]+sys.path))
+sys.path = list({str(HERE.joinpath("../").absolute())} | set(sys.path))
 
-# import constants from setup.py
-from setup import USER, NAME, VERSION, ENTRY_POINTS, SHORT_SUMMARY
+# constants from the package
+from setup import USER, NAME, __version__ as VERSION, ENTRY_POINTS, SHORT_SUMMARY  # type: ignore
 
-# ======================================================
-# parse dependencies
-with open(HERE.joinpath(f"../envs/base.yml")) as y:
+# ------------------------------------------------------------------
+# dependencies (from envs/base.yml). conda recipes can't carry pip deps.
+with open(HERE.joinpath("../envs/base.yml")) as y:
     raw_deps = yaml.safe_load(y)
+
+
 def _parse_deps(level: list, compiled: str, depth: int):
-    tabs_space = "  "*depth
+    tabs = "  " * depth
     for item in level:
-        # conda recipes can't have pip
-        # instead, a few can be added into the template, but these will not be tracked!
-        if not isinstance(item, str) or item in {"pip"}: continue
-        if isinstance(item, str):
-            compiled += f"{tabs_space}- {item}\n"
-        else:
-            k, v = list(item.items())[0]
-            compiled += f"{tabs_space}- {k}:\n"
-            compiled = _parse_deps(v, compiled, depth+1)
-    compiled = compiled[:-1] # remove trailing \n
-    return compiled
+        if not isinstance(item, str) or item in {"pip"}:
+            continue
+        compiled += f"{tabs}- {item}\n"
+    return compiled[:-1]
+
+
 reqs = _parse_deps(raw_deps["dependencies"], "", 2)
 python_dep = [d for d in raw_deps["dependencies"] if isinstance(d, str) and d.startswith("python=")]
-if len(python_dep) < 1:
-    python_dep = ["python=3.11"]
-python_ver = _parse_deps(python_dep, "", 2)
+python_ver = _parse_deps(python_dep or ["python=3.12"], "", 2)
 
-# ======================================================
+# ------------------------------------------------------------------
 # entry points
+entry_points = "".join(f"{'  '*2}- {e}\n" for e in ENTRY_POINTS)[:-1]
 
-entry_points = ""
-for e in ENTRY_POINTS:
-    tabs_space = "  "*2
-    entry_points += f"{tabs_space}- {e}\n"
-entry_points = entry_points[:-1] # remove trailing \n
-
-
-# ======================================================
-# path to tar archive of source code
-
-dist_path = Path(os.path.abspath(HERE.joinpath("../dist")))
-assert dist_path.exists(), f"did you forget to build the pip package first?"
-tar_path = [dist_path.joinpath(f) for f in os.listdir(dist_path) if VERSION in f and ".tar.gz" in f][0]
-
-
-# ======================================================
-# generate recipe files
-
+# ------------------------------------------------------------------
+# render recipe
 with open(HERE.joinpath("meta_template.yaml")) as f:
-    template = "".join(f.readlines())
-meta_values = {
+    template = f.read()
+for k, v in {
     "USER": USER,
     "NAME": NAME,
     "SHORT_SUMMARY": SHORT_SUMMARY,
@@ -66,20 +44,17 @@ meta_values = {
     "ENTRY": entry_points,
     "REQUIREMENTS": reqs,
     "PYTHON": python_ver,
-    "TAR": f"file://{tar_path}",
-}
-for k, v in meta_values.items():
+}.items():
     template = template.replace(f"<{k}>", v)
 with open(HERE.joinpath("meta.yaml"), "w") as f:
     f.write(template)
 
 build_file = HERE.joinpath("call_build.sh")
+channels = " ".join(f"-c {ch}" for ch in raw_deps["channels"])
 with open(build_file, "w") as f:
-    channels = " ".join(f"-c {ch}" for ch in raw_deps["channels"])
-    _here = 'HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )'
-    f.write(f"""\
-        {_here}
-        conda mambabuild {channels} --output-folder $HERE/../conda_build $HERE/
-    """.replace("    ", ""))
-st = os.stat(build_file)
-os.chmod(build_file, st.st_mode | stat.S_IEXEC)
+    f.write(
+        'HERE=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )\n'
+        f"conda mambabuild {channels} --output-folder $HERE/../conda_build $HERE/\n"
+    )
+os.chmod(build_file, os.stat(build_file).st_mode | stat.S_IEXEC)
+print(f"wrote {HERE/'meta.yaml'} and {build_file}")

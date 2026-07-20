@@ -1,0 +1,10 @@
+id: containers.stringtie
+name: stringtie
+kind: container
+resource: resources/containers/stringtie.oci
+reference: quay.io/biocontainers/stringtie:2.2.3--h43eeafb_1
+resolved: false
+blocker: >-
+  no such manifest: quay.io/biocontainers/stringtie:2.2.3--h43eeafb_1
+origin: public-registry
+built_by_us: false

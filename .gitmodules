@@ -1,0 +1,8 @@
+[submodule "src/metasmith"]
+	path = src/metasmith
+	url = git@github.com:phy0x1a79ed/Metasmith.git
+	branch = release
+[submodule "src/metasmith_libraries"]
+	path = src/metasmith_libraries
+	url = git@github.com:phy0x1a79ed/MetasmithLibraries.git
+	branch = feat/fabfos

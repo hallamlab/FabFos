@@ -1,0 +1,10 @@
+id: containers.busco
+name: busco
+kind: container
+resource: resources/containers/busco.oci
+reference: quay.io/biocontainers/busco:5.8.3--pyhdfd78af_0
+resolved: true
+digest: sha256:74dfa85a259b578bfefd7d34d96dcc2434f1999f73663f8c5cf5227066251757
+pinned_reference: quay.io/biocontainers/busco@sha256:74dfa85a259b578bfefd7d34d96dcc2434f1999f73663f8c5cf5227066251757
+origin: public-registry
+built_by_us: false

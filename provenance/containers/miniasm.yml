@@ -1,0 +1,10 @@
+id: containers.miniasm
+name: miniasm
+kind: container
+resource: resources/containers/miniasm.oci
+reference: quay.io/biocontainers/miniasm:0.2_r168--ha92aebf_3
+resolved: true
+digest: sha256:2bcfa3f3d9532976dc8b42a155b61e6eea561e068d5518eb4264112ca41e8fc2
+pinned_reference: quay.io/biocontainers/miniasm@sha256:2bcfa3f3d9532976dc8b42a155b61e6eea561e068d5518eb4264112ca41e8fc2
+origin: public-registry
+built_by_us: false

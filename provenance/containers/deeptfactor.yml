@@ -1,0 +1,10 @@
+id: containers.deeptfactor
+name: deeptfactor
+kind: container
+resource: resources/containers/deeptfactor.oci
+reference: deeptfactor:latest
+resolved: false
+blocker: >-
+  bare `:latest` on no registry -- this image exists only in the local docker daemon and is unobtainable on a fresh machine
+origin: public-registry
+built_by_us: false

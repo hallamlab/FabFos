@@ -1,0 +1,10 @@
+id: containers.sra-tools
+name: sra-tools
+kind: container
+resource: resources/containers/sra-tools.oci
+reference: quay.io/hallamlab/sra-tools
+resolved: false
+blocker: >-
+  no tag -- the reference floats on the registry's implicit :latest and pins nothing
+origin: public-registry
+built_by_us: false

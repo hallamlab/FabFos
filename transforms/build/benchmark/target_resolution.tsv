@@ -1,0 +1,342 @@
+arm	raw_string	component	mnxm	mnxm_name	method	reason	is_compound_cell
+gof	(+)-catechin	(+)-catechin			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	(2S)-naringenin	(2S)-naringenin	MNXM738152	(2S)-naringenin	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	(2S)-pinocembrin	(2S)-pinocembrin			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	(4S)-limonene	(4S)-limonene	MNXM1372148	(4S)-limonene	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	(R)-acetoin	(R)-acetoin	MNXM664	(R)-acetoin	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	1-propanol	1-propanol	MNXM6396	1-propanol	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	1_2-Propanediol	1_2-Propanediol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	1_2-propanediol	1_2-propanediol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	1_2_4-butanetriol	1_2_4-butanetriol	MNXM1106823	1,2,4-butanetriol	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	1_3-propanediol	1_3-propanediol	MNXM2861	propane-1,3-diol	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	1_4-butanediol	1_4-butanediol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	2-(4-hydroxyphenyl)ethanol	2-(4-hydroxyphenyl)ethanol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	2-methylbut-3-en-2-ol	2-methylbut-3-en-2-ol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	2-oxoglutarate	2-oxoglutarate	MNXM1368744	2-oxoglutarate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	2-phenylethanol	2-phenylethanol	MNXM2476	2-phenylethanol	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	2-pyrone-4_6-dicarboxylic acid	2-pyrone-4_6-dicarboxylic acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	3-HP	3-HP			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	3-Methyl-1-butanol	3-Methyl-1-butanol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	3-hydroxy-gamma-butyrolactone	3-hydroxy-gamma-butyrolactone			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	3-methyl-1-butanol	3-methyl-1-butanol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	4-aminobenzoate	4-aminobenzoate	MNXM421	4-aminobenzoate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	4-courmaric acid	4-courmaric acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	4-hydroxycoumarin	4-hydroxycoumarin			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	4-hydroxyphenylacetic acid	4-hydroxyphenylacetic acid	MNXM735208	4-hydroxyphenylacetate	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	4-hydroxyphenyllactic acid	4-hydroxyphenyllactic acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	5-aminolevulinic acid	5-aminolevulinic acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	5-aminovalerate	5-aminovalerate			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	6-Deoxyerythronolide B	6-Deoxyerythronolide B			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Abietadiene	Abietadiene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Adipic Acid	Adipic Acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Alanine-Glutamine	Alanine-Glutamine			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Anteiso-branched Fatty Acids	Anteiso-branched Fatty Acids			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	AvnD	AvnD			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	B-ALANINE	B-ALANINE	MNXM144	beta-alanine	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	Biodiesel	Biodiesel			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Biomass	Biomass			curated	growth itself, not a metabolite; carries no target cell	False
+gof	Butyrate	Butyrate	MNXM458	butanoate	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	CIS-CIS-MUCONATE	CIS-CIS-MUCONATE			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Cadaverine	Cadaverine	MNXM943	cadaverine	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	Carboxylic acids	Carboxylic acids			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Carotenoids	Carotenoids			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Cytoplasmic disulfide-bonded proteins	Cytoplasmic disulfide-bonded proteins			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	D-cycloserine	D-cycloserine	MNXM59345	D-cycloserine	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	D-galactonate	D-galactonate	MNXM1734	D-galactonate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	D-lactate	D-lactate	MNXM1371362	(R)-lactate	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	DHAP	DHAP			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Deoxycytidine	Deoxycytidine	MNXM704	2'-deoxycytidine	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	Eriodictyol	Eriodictyol	MNXM1326	(S)-eriodictyol	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	Ethanol	Ethanol	MNXM1108092	ethanol	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	Ethyl butyrate	Ethyl butyrate			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	FAEE	FAEE			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Fatty Acids	Fatty Acids	MNXM728578	Fatty-Acids	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	Fatty acids	Fatty acids	MNXM728578	Fatty-Acids	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	Flavonoids	Flavonoids			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Fumaric acid	Fumaric acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	GFP	GFP			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	GLYCOLLATE	GLYCOLLATE			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Glucaric Acid	Glucaric Acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Glucaric acid	Glucaric acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	H2	H2	MNXM1108018	H2	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	H2;ethanol	H2	MNXM1108018	H2	exact_name_in_X	verbatim match on the X metabolite name	True
+gof	H2;ethanol	ethanol	MNXM1108092	ethanol	exact_name_in_X	verbatim match on the X metabolite name	True
+gof	Hydroxyfatty acids	Hydroxyfatty acids	MNXM1101109	Hydroxy-fatty-acids	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	IMP	IMP	MNXM1101868	IMP	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	Isoprene	Isoprene	MNXM3288	isoprene	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	L-DOPA	L-DOPA	MNXM279	L-dopa	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	L-Methionine	L-Methionine	MNXM738804	L-methionine	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	L-Serine	L-Serine	MNXM737787	L-serine	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	L-alanine	L-alanine	MNXM1105732	L-alanine	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	L-aspartate	L-aspartate	MNXM1364497	L-aspartate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	L-erythro-5,6,7,8-tetrahydrobiopterin	L-erythro-5,6,7,8-tetrahydrobiopterin			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	L-fumarate	L-fumarate			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	L-glutamine	L-glutamine	MNXM37	L-glutamine	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	L-lactate	L-lactate			ambiguous	MetaNetX cross-reference synonym, and the id is present in X matched 2 distinct metabolites (MNXM1371363, MNXM733758...); refused rather than guessed	False
+gof	L-lysine	L-lysine	MNXM1364268	L-lysine	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	L-phenylalanine	L-phenylalanine	MNXM741664	L-phenylalanine	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	L-serine	L-serine	MNXM737787	L-serine	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	L-threonine	L-threonine	MNXM142	L-threonine	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	L-tyrosine	L-tyrosine	MNXM76	L-tyrosine	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	L-valine	L-valine	MNXM199	L-valine	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	Lycopene	Lycopene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	N-acetylglucosamine	N-acetylglucosamine	MNXM2138	N-acetyl-beta-D-glucosamine	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	N-acetylneuraminic acid	N-acetylneuraminic acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	NADPH	NADPH	MNXM738702	NADPH	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	Naringenin	Naringenin	MNXM738153	naringenin	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	PHA	PHA			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	PHB	PHB			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Pinosylvin	Pinosylvin			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Protein	Protein			ambiguous	case/punctuation fold of the X metabolite name matched 2 distinct metabolites (MNXM733321, MNXM733324...); refused rather than guessed	False
+gof	Protein-Glycosylation	Protein-Glycosylation			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Proteins	Proteins			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Putrescine	Putrescine	MNXM118	putrescine	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	R-3HB	R-3HB			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	R-3HV	R-3HV			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	S-3HB	S-3HB			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	S-3HV	S-3HV			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Serine-rich proteins	Serine-rich proteins			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Shikimate	Shikimate	MNXM602	shikimate	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	Shikimic Acid	Shikimic Acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Shikimic acid	Shikimic acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Silk	Silk			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	Taxadiene	Taxadiene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	a-farnesene	a-farnesene	MNXM1368127	(3E,6E)-alpha-farnesene	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	acetalaldehyde	acetalaldehyde			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	acetate	acetate	MNXM26	acetate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	acetol	acetol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	acetone	acetone	MNXM398	acetone	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	acetyl-CoA; palmitoyl-ACP C16:0; hexadec-2-enoyl-ACP C16:1; octadec-2-enoyl-ACP C18:1	acetyl-CoA	MNXM1104266	acetyl-CoA	exact_name_in_X	verbatim match on the X metabolite name	True
+gof	acetyl-CoA; palmitoyl-ACP C16:0; hexadec-2-enoyl-ACP C16:1; octadec-2-enoyl-ACP C18:1	palmitoyl-ACP C16:0			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+gof	acetyl-CoA; palmitoyl-ACP C16:0; hexadec-2-enoyl-ACP C16:1; octadec-2-enoyl-ACP C18:1	hexadec-2-enoyl-ACP C16:1			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+gof	acetyl-CoA; palmitoyl-ACP C16:0; hexadec-2-enoyl-ACP C16:1; octadec-2-enoyl-ACP C18:1	octadec-2-enoyl-ACP C18:1			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+gof	all-trans-retinol	all-trans-retinol	MNXM1363773	all-trans-retinol	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	alpha-pinene	alpha-pinene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	aminovalerate	aminovalerate			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	amorphadiene	amorphadiene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	astragalin	astragalin			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	beta-carotene	beta-carotene	MNXM1108250	all-trans-beta-carotene	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	biodiesel	biodiesel			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	biomass	biomass			curated	growth itself, not a metabolite; carries no target cell	False
+gof	bisabolene	bisabolene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	butanol	butanol	MNXM3230	butan-1-ol	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	butyrate	butyrate	MNXM458	butanoate	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	caffeic acid	caffeic acid	MNXM1370996	caffeic acid	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	d-lactate	d-lactate	MNXM1371362	(R)-lactate	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	deoxyviolacein	deoxyviolacein			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	dihydroxyacetone	dihydroxyacetone	MNXM460	dihydroxyacetone	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	ethanol	ethanol	MNXM1108092	ethanol	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	ethanol;h2	ethanol	MNXM1108092	ethanol	exact_name_in_X	verbatim match on the X metabolite name	True
+gof	ethanol;h2	h2	MNXM1108018	H2	normalized_name_in_X	case/punctuation fold of the X metabolite name	True
+gof	ethylene	ethylene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	ethylene glycol	ethylene glycol	MNXM1107139	an alditol	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	fatty acids	fatty acids	MNXM728578	Fatty-Acids	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	fatty alcohols	fatty alcohols			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	ferulic acid	ferulic acid	MNXM573	(E)-ferulate	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	geraniol	geraniol	MNXM740315	(2E)-geraniol	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	glucose-6P	glucose-6P			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	glutarate	glutarate	MNXM1021	glutarate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	glutaric acid	glutaric acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	glycoglycerolipids	glycoglycerolipids			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	hexanoate	hexanoate	MNXM1653	hexanoate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	hydroxytyrosol	hydroxytyrosol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	indigoidine	indigoidine			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	isobutanol	isobutanol	MNXM5188	isobutanol	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	isopentanol	isopentanol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	isoprenol	isoprenol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	isopropanol	isopropanol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	itaconate	itaconate	MNXM1747	itaconate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	l-alanine	l-alanine	MNXM1105732	L-alanine	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	l-arginine	l-arginine	MNXM739527	L-arginine	normalized_name_in_X	case/punctuation fold of the X metabolite name	False
+gof	lactic acid	lactic acid	MNXM733758	lactate	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	levopimaradiene	levopimaradiene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	lycopene	lycopene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	malonyl-CoA; phosphatidylglycerol; phosphatidylethanolamine; PG(16:0) dipalmitoyl; PG(16:1) palmitoleoyl; PE(16:1)	malonyl-CoA	MNXM1106093	malonyl-CoA	exact_name_in_X	verbatim match on the X metabolite name	True
+gof	malonyl-CoA; phosphatidylglycerol; phosphatidylethanolamine; PG(16:0) dipalmitoyl; PG(16:1) palmitoleoyl; PE(16:1)	phosphatidylglycerol			ambiguous	case/punctuation fold of the X metabolite name matched 3 distinct metabolites (MNXM1107655, MNXM1107660, MNXM725992...); refused rather than guessed	True
+gof	malonyl-CoA; phosphatidylglycerol; phosphatidylethanolamine; PG(16:0) dipalmitoyl; PG(16:1) palmitoleoyl; PE(16:1)	phosphatidylethanolamine	MNXM115	phosphatidylethanolamine	exact_name_in_X	verbatim match on the X metabolite name	True
+gof	malonyl-CoA; phosphatidylglycerol; phosphatidylethanolamine; PG(16:0) dipalmitoyl; PG(16:1) palmitoleoyl; PE(16:1)	PG(16:0) dipalmitoyl			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+gof	malonyl-CoA; phosphatidylglycerol; phosphatidylethanolamine; PG(16:0) dipalmitoyl; PG(16:1) palmitoleoyl; PE(16:1)	PG(16:1) palmitoleoyl			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+gof	malonyl-CoA; phosphatidylglycerol; phosphatidylethanolamine; PG(16:0) dipalmitoyl; PG(16:1) palmitoleoyl; PE(16:1)	PE(16:1)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+gof	membrane protein	membrane protein			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	methyl ketones	methyl ketones			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	mevalonate_phosphate	mevalonate_phosphate			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	muconic acid	muconic acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	myo-inositol	myo-inositol	MNXM1105941	myo-inositol	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	n-butanol	n-butanol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	n-hexanol	n-hexanol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	omega-hydroxyacids	omega-hydroxyacids			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	pDNA	pDNA			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	penicillin G	penicillin G	MNXM1812	penicillin G	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	perillyl_alcohol	perillyl_alcohol	MNXM731537	(4S)-perillyl alcohol	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	phenol	phenol	MNXM320	phenol	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	phenylacetic acid	phenylacetic acid	MNXM737265	2-phenylacetate	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	phenyllactic acid	phenyllactic acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	phosphatidylglycerol C16:0; cardiolipin C16:0	phosphatidylglycerol C16:0			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+gof	phosphatidylglycerol C16:0; cardiolipin C16:0	cardiolipin C16:0			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+gof	plasmidDNA	plasmidDNA			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	poly (3-hydroxybutyrate-co-3-hydroxypropionate)	poly (3-hydroxybutyrate-co-3-hydroxypropionate)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	prenol	prenol	MNXM737751	prenol	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	propane	propane			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	propanol	propanol			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	propionate	propionate	MNXM1094052	propanoate	metanetx_xref	MetaNetX cross-reference synonym, and the id is present in X	False
+gof	pyruvate	pyruvate	MNXM23	pyruvate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	quercetin 3-O-xyloside	quercetin 3-O-xyloside			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	riboflavin	riboflavin	MNXM270	riboflavin	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	rosmarinate	rosmarinate			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	rr-2_3-BDO	rr-2_3-BDO			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	sabinene	sabinene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	salvianic acid	salvianic acid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	shikimate	shikimate	MNXM602	shikimate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	styrene	styrene			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	succinate	succinate	MNXM25	succinate	exact_name_in_X	verbatim match on the X metabolite name	False
+gof	succinyl-CoA; acetyl-CoA	succinyl-CoA	MNXM1104774	succinyl-CoA	exact_name_in_X	verbatim match on the X metabolite name	True
+gof	succinyl-CoA; acetyl-CoA	acetyl-CoA	MNXM1104266	acetyl-CoA	exact_name_in_X	verbatim match on the X metabolite name	True
+gof	taxanes	taxanes			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	trans-cinnamate	trans-cinnamate			ambiguous	MetaNetX cross-reference synonym, and the id is present in X matched 2 distinct metabolites (MNXM1371727, MNXM1371728...); refused rather than guessed	False
+gof	violacein	violacein			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+gof	xylitol	xylitol	MNXM737068	xylitol	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	FMN/FAD (essential; riboflavin kinase/FAD synthetase)	FMN			ambiguous	case/punctuation fold of the X metabolite name matched 2 distinct metabolites (MNXM1364147, MNXM1364148...); refused rather than guessed	True
+lof	FMN/FAD (essential; riboflavin kinase/FAD synthetase)	FAD (essential			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	FMN/FAD (essential; riboflavin kinase/FAD synthetase)	riboflavin kinase			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	FMN/FAD (essential; riboflavin kinase/FAD synthetase)	FAD synthetase)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-arginine	L-arginine	MNXM739527	L-arginine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-cysteine	L-cysteine	MNXM738068	L-cysteine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-cysteine (siroheme cofactor for sulfite reductase)	L-cysteine (siroheme cofactor for sulfite reductase)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	L-cysteine (sulfate assimilation; M9 sulfate sole S source)	L-cysteine (sulfate assimilation			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-cysteine (sulfate assimilation; M9 sulfate sole S source)	M9 sulfate sole S source)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-glutamine	L-glutamine	MNXM37	L-glutamine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-histidine	L-histidine	MNXM1107769	L-histidine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-isoleucine	L-isoleucine	MNXM728337	L-isoleucine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-isoleucine + L-valine	L-isoleucine	MNXM728337	L-isoleucine	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	L-isoleucine + L-valine	L-valine	MNXM199	L-valine	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	L-isoleucine + L-valine (leucine partly)	L-isoleucine	MNXM728337	L-isoleucine	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	L-isoleucine + L-valine (leucine partly)	L-valine (leucine partly)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-leucine	L-leucine	MNXM1106761	L-leucine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-lysine	L-lysine	MNXM1364268	L-lysine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-lysine + meso-DAP	L-lysine	MNXM1364268	L-lysine	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	L-lysine + meso-DAP	meso-DAP			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-lysine + meso-diaminopimelate (cell-wall; mutants lyse)	L-lysine	MNXM1364268	L-lysine	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	L-lysine + meso-diaminopimelate (cell-wall; mutants lyse)	meso-diaminopimelate (cell-wall			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-lysine + meso-diaminopimelate (cell-wall; mutants lyse)	mutants lyse)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-methionine	L-methionine	MNXM738804	L-methionine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-methionine (unless coenzyme B12 provided)	L-methionine (unless coenzyme B12 provided)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	L-phenylalanine	L-phenylalanine	MNXM741664	L-phenylalanine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-proline	L-proline	MNXM114	L-proline	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-serine	L-serine	MNXM737787	L-serine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-serine (also glycine & C1/THF units)	L-serine (also glycine & C1			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-serine (also glycine & C1/THF units)	THF units)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-serine (also pyridoxal-5-P/vitamin B6)	L-serine (also pyridoxal-5-P			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-serine (also pyridoxal-5-P/vitamin B6)	vitamin B6)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	L-threonine	L-threonine	MNXM142	L-threonine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-tryptophan	L-tryptophan	MNXM741553	L-tryptophan	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	L-tyrosine	L-tyrosine	MNXM76	L-tyrosine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	adenine (AMP branch)	adenine (AMP branch)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	aromatic amino acids (Phe+Tyr+Trp)	aromatic amino acids (Phe+Tyr+Trp)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	aromatic amino acids (Phe+Tyr+Trp) + folate/PABA	aromatic amino acids (Phe+Tyr+Trp)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	aromatic amino acids (Phe+Tyr+Trp) + folate/PABA	folate	MNXM617	folate	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	aromatic amino acids (Phe+Tyr+Trp) + folate/PABA	PABA			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	biotin	biotin	MNXM304	biotin	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	essential (glycerophospholipid)	essential (glycerophospholipid)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	essential (glycerophospholipid; acyl-G3P)	essential (glycerophospholipid			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	essential (glycerophospholipid; acyl-G3P)	acyl-G3P)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	essential (phosphatidylethanolamine; conditional rescue by divalent cations)	essential (phosphatidylethanolamine			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	essential (phosphatidylethanolamine; conditional rescue by divalent cations)	conditional rescue by divalent cations)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	essential (phosphatidylethanolamine; only conditional rescue by Mg2+/Ca2+)	essential (phosphatidylethanolamine			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	essential (phosphatidylethanolamine; only conditional rescue by Mg2+/Ca2+)	only conditional rescue by Mg2+			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	essential (phosphatidylethanolamine; only conditional rescue by Mg2+/Ca2+)	Ca2+)	MNXM128	Ca(2+)	normalized_name_in_X	case/punctuation fold of the X metabolite name	True
+lof	folate/THF (essential; not rescued by exogenous folate)	folate	MNXM617	folate	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	folate/THF (essential; not rescued by exogenous folate)	THF (essential			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	folate/THF (essential; not rescued by exogenous folate)	not rescued by exogenous folate)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	folate/THF (essential; not rescued)	folate	MNXM617	folate	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	folate/THF (essential; not rescued)	THF (essential			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	folate/THF (essential; not rescued)	not rescued)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	folate/THF (essential; poorly rescued)	folate	MNXM617	folate	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	folate/THF (essential; poorly rescued)	THF (essential			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	folate/THF (essential; poorly rescued)	poorly rescued)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	folate/tetrahydrofolate (biosynthesis; poorly rescued -> effectively essential)	folate	MNXM617	folate	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	folate/tetrahydrofolate (biosynthesis; poorly rescued -> effectively essential)	tetrahydrofolate (biosynthesis			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	folate/tetrahydrofolate (biosynthesis; poorly rescued -> effectively essential)	poorly rescued -> effectively essential)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	glycine (also C1/tetrahydrofolate one-carbon units)	glycine (also C1			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	glycine (also C1/tetrahydrofolate one-carbon units)	tetrahydrofolate one-carbon units)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	guanine (GMP)	guanine (GMP)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	heme / protoporphyrin IX	heme	MNXM78362	Heme	normalized_name_in_X	case/punctuation fold of the X metabolite name	True
+lof	heme / protoporphyrin IX	protoporphyrin IX	MNXM1364476	protoporphyrin IX	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	heme / protoporphyrin IX (or 5-aminolevulinate)	heme	MNXM78362	Heme	normalized_name_in_X	case/punctuation fold of the X metabolite name	True
+lof	heme / protoporphyrin IX (or 5-aminolevulinate)	protoporphyrin IX (or 5-aminolevulinate)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	lipoate (or acetate + succinate to bypass PDH/oGDH)	lipoate (or acetate			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	lipoate (or acetate + succinate to bypass PDH/oGDH)	succinate to bypass PDH			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	lipoate (or acetate + succinate to bypass PDH/oGDH)	oGDH)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	lipoate (or acetate + succinate)	lipoate (or acetate			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	lipoate (or acetate + succinate)	succinate)	MNXM25	succinate	normalized_name_in_X	case/punctuation fold of the X metabolite name	True
+lof	nicotinate (niacin) / NAD	nicotinate (niacin)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	nicotinate (niacin) / NAD	NAD			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (MetE substitutes; MetH only used when B12 present)	none (MetE substitutes			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (MetE substitutes; MetH only used when B12 present)	MetH only used when B12 present)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (Mo-cofactor not required for aerobic glucose growth)	none (Mo-cofactor not required for aerobic glucose growth)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (Moco dispensable aerobic glucose)	none (Moco dispensable aerobic glucose)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (glutamate still made via GDH gdhA on ammonia; slow on poor N)	none (glutamate still made via GDH gdhA on ammonia			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (glutamate still made via GDH gdhA on ammonia; slow on poor N)	slow on poor N)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (glutamate still made via GOGAT gltBD)	none (glutamate still made via GOGAT gltBD)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (ketopantoate reductase; redundant with ilvC)	none (ketopantoate reductase			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (ketopantoate reductase; redundant with ilvC)	redundant with ilvC)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant AHAS I small subunit)	none (redundant AHAS I small subunit)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant AHAS III small subunit)	none (redundant AHAS III small subunit)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant AHAS III; AHAS-I ilvBN compensates)	none (redundant AHAS III			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant AHAS III; AHAS-I ilvBN compensates)	AHAS-I ilvBN compensates)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant DAHP synthase isozyme; aroF/aroG)	none (redundant DAHP synthase isozyme			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant DAHP synthase isozyme; aroF/aroG)	aroF			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant DAHP synthase isozyme; aroF/aroG)	aroG)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant DAHP synthase isozyme; aroF/aroH)	none (redundant DAHP synthase isozyme			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant DAHP synthase isozyme; aroF/aroH)	aroF			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant DAHP synthase isozyme; aroF/aroH)	aroH)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant DAHP synthase isozyme; aroG/aroH)	none (redundant DAHP synthase isozyme			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant DAHP synthase isozyme; aroG/aroH)	aroG			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant DAHP synthase isozyme; aroG/aroH)	aroH)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant GAR transformylase with purN)	none (redundant GAR transformylase with purN)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant GAR transformylase with purT)	none (redundant GAR transformylase with purT)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant acetohydroxyacid synthase I; AHAS-III ilvIH compensates)	none (redundant acetohydroxyacid synthase I			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant acetohydroxyacid synthase I; AHAS-III ilvIH compensates)	AHAS-III ilvIH compensates)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant aminotransferase with tyrB)	none (redundant aminotransferase with tyrB)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant aromatic aminotransferase with aspC)	none (redundant aromatic aminotransferase with aspC)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant asparagine synthetase with asnA)	none (redundant asparagine synthetase with asnA)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant asparagine synthetase with asnB)	none (redundant asparagine synthetase with asnB)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant aspartokinase I / homoserine DH I; metL compensates)	none (redundant aspartokinase I			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant aspartokinase I / homoserine DH I; metL compensates)	homoserine DH I			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant aspartokinase I / homoserine DH I; metL compensates)	metL compensates)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant aspartokinase II / homoserine DH II with thrA, lysC)	none (redundant aspartokinase II			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant aspartokinase II / homoserine DH II with thrA, lysC)	homoserine DH II with thrA			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant aspartokinase II / homoserine DH II with thrA, lysC)	lysC)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant aspartokinase III with thrA, metL)	none (redundant aspartokinase III with thrA			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant aspartokinase III with thrA, metL)	metL)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	none (redundant isozyme with cysK)	none (redundant isozyme with cysK)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant isozyme with cysM)	none (redundant isozyme with cysM)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant ornithine transcarbamylase isozyme with argF)	none (redundant ornithine transcarbamylase isozyme with argF)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant ornithine transcarbamylase isozyme with argI)	none (redundant ornithine transcarbamylase isozyme with argI)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant shikimate kinase with aroK)	none (redundant shikimate kinase with aroK)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant shikimate kinase with aroL)	none (redundant shikimate kinase with aroL)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	none (redundant with gdhA on ammonia)	none (redundant with gdhA on ammonia)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	p-aminobenzoate (PABA) -> folate	p-aminobenzoate (PABA) -> folate			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	pantothenate	pantothenate			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	pantothenate (beta-alanine)	pantothenate (beta-alanine)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	purines (adenine + guanine; hypoxanthine)	purines (adenine			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	purines (adenine + guanine; hypoxanthine)	guanine	MNXM733114	guanine	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	purines (adenine + guanine; hypoxanthine)	hypoxanthine)	MNXM732487	hypoxanthine	normalized_name_in_X	case/punctuation fold of the X metabolite name	True
+lof	purines (adenine)	purines (adenine)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	purines (hypoxanthine)	purines (hypoxanthine)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	pyridoxine / PLP (vitamin B6)	pyridoxine	MNXM419	pyridoxine	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	pyridoxine / PLP (vitamin B6)	PLP (vitamin B6)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	pyridoxine / pyridoxal-5-phosphate (vitamin B6)	pyridoxine	MNXM419	pyridoxine	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	pyridoxine / pyridoxal-5-phosphate (vitamin B6)	pyridoxal-5-phosphate (vitamin B6)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	riboflavin	riboflavin	MNXM270	riboflavin	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	sn-glycerol-3-phosphate (glycerol)	sn-glycerol-3-phosphate (glycerol)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	thiamine	thiamine	MNXM730135	thiamine	exact_name_in_X	verbatim match on the X metabolite name	False
+lof	thiamine (thiamine-PP synthesis)	thiamine (thiamine-PP synthesis)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	thiamine (thiazole salvage kinase; likely dispensable for de novo -- treat as uncertain)	thiamine (thiazole salvage kinase			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	thiamine (thiazole salvage kinase; likely dispensable for de novo -- treat as uncertain)	likely dispensable for de novo -- treat as uncertain)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	thymine / thymidine	thymine	MNXM1369302	thymine	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	thymine / thymidine	thymidine	MNXM420	thymidine	exact_name_in_X	verbatim match on the X metabolite name	True
+lof	unsaturated fatty acid (oleate)	unsaturated fatty acid (oleate)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	unsaturated fatty acid (oleate) (essential-conditional)	unsaturated fatty acid (oleate) (essential-conditional)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	uracil (pyrimidines)	uracil (pyrimidines)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	False
+lof	uracil (pyrimidines) + L-arginine	uracil (pyrimidines)			unresolved	no exact, folded, MetaNetX or cross-reference name matched an X metabolite	True
+lof	uracil (pyrimidines) + L-arginine	L-arginine	MNXM739527	L-arginine	exact_name_in_X	verbatim match on the X metabolite name	True

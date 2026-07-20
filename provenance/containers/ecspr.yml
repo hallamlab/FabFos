@@ -1,0 +1,42 @@
+id: containers.ecspr
+name: ecspr
+kind: container
+reference: quay.io/hallamlab/ecspr:2026.07.14
+resolved: true
+digest: sha256:97f7afad99f55fe66a213851f48f6293f6b328ce7db4fe035a93de6f24f582db
+pinned_reference: quay.io/hallamlab/ecspr@sha256:97f7afad99f55fe66a213851f48f6293f6b328ce7db4fe035a93de6f24f582db
+resolved_on: 2026-07-19
+renamed_on: 2026-07-20
+resolution: >-
+  Remediation (a) was taken: the image held in the local daemon was tagged and
+  pushed to quay as-is, NOT rebuilt -- a rebuild would have resolved a
+  different torch off the unpinned cu128 index and so would not be the runtime
+  the frozen artifacts were produced under. The digest above is the amd64
+  Descriptor.digest read back FROM the registry after the push, matching how
+  the other resolved records are pinned; the enclosing OCI index digest is
+  sha256:795f38040040ffe1b4e1726d68d84a8b04b32be1e660bdb36fce543efd431f13,
+  which is also the local image id and is deliberately NOT what is pinned here.
+
+  Renamed 2026-07-20: the repo was originally published as
+  `quay.io/hallamlab/external_ecspr`, but the `external_` prefix denotes
+  third-party images and this one is built here (`built_by_us: true` below).
+  The new tag was created registry-side from the SAME manifest index
+  (`docker buildx imagetools create`), not by re-pushing a local image, so both
+  references resolve to byte-identical manifests and the digests above are
+  unchanged. `external_ecspr:2026.07.14` is left in place as an alias -- runs
+  already recorded against it stay resolvable, and the benchmark V3 result was
+  produced under that name.
+origin: built-here
+built_by_us: true
+recipe: containers/ecspr/
+recipe_files:
+  - containers/ecspr/Dockerfile
+  - containers/ecspr/dev.sh
+  - containers/ecspr/load/env.yml
+build_assertions: >-
+  The Dockerfile fails the build (not a queued GPU job six hours later) unless
+  numpy >= 2 and torch.version.cuda == '12.8'. The cu128 pin is load-bearing:
+  the default CUDA build breaks the V100 driver on the target cluster, and the
+  solve and ablation are CPU-intractable on the dense maps. The miniforge base
+  is pinned by tag because sibling recipes tracking :latest rotted when mamba
+  2.x dropped --no-default-packages. Preserve both verbatim.

@@ -1,0 +1,10 @@
+id: containers.salmon
+name: salmon
+kind: container
+resource: resources/containers/salmon.oci
+reference: quay.io/biocontainers/salmon:1.10.3--h45fbf2d_5
+resolved: true
+digest: sha256:3938cc6dfaca6f7ee14eac0cdc0f305fdff8faa7f14541c72e684feb1b443a74
+pinned_reference: quay.io/biocontainers/salmon@sha256:3938cc6dfaca6f7ee14eac0cdc0f305fdff8faa7f14541c72e684feb1b443a74
+origin: public-registry
+built_by_us: false

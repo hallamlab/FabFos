@@ -1,0 +1,10 @@
+id: containers.ncbi-datasets
+name: ncbi-datasets
+kind: container
+resource: resources/containers/ncbi-datasets.oci
+reference: staphb/ncbi-datasets:18.9.0
+resolved: true
+digest: sha256:c7016c8d94f25c33398241c986f501bdb9f2c3d1cbd084e2cb63136ae9e6f2bb
+pinned_reference: staphb/ncbi-datasets@sha256:c7016c8d94f25c33398241c986f501bdb9f2c3d1cbd084e2cb63136ae9e6f2bb
+origin: public-registry
+built_by_us: false

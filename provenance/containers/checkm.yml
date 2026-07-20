@@ -1,0 +1,10 @@
+id: containers.checkm
+name: checkm
+kind: container
+resource: resources/containers/checkm.oci
+reference: nanozoo/checkm:1.1.3--c79a047
+resolved: true
+digest: sha256:56b780ccb1846c73af4a2e745a2f10ec81ee09735bbf211bf2a3105a0a30bfae
+pinned_reference: nanozoo/checkm@sha256:56b780ccb1846c73af4a2e745a2f10ec81ee09735bbf211bf2a3105a0a30bfae
+origin: public-registry
+built_by_us: false

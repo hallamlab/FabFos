@@ -1,6 +1,7 @@
 __pycache__
 **/cache
 
+.awm
 .idea/
 *_env/
 *.sif
@@ -17,5 +18,8 @@ trim_sequences.fasta.*
 !/conda_recipe/meta_template.yaml
 /data
 /scratch
-/docker/src
 /secrets
+/lib/tini
+
+# benchmark solve outputs: multi-GB, reproducible from the pinned run
+transforms/build/benchmark/v3_build/run/

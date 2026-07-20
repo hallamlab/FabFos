@@ -1,0 +1,10 @@
+id: containers.pydeseq2
+name: pydeseq2
+kind: container
+resource: resources/containers/pydeseq2.oci
+reference: quay.io/biocontainers/pydeseq2:0.5.4--pyhdfd78af_0
+resolved: true
+digest: sha256:8576bff8378112fa6195caeeb64c76b46b4f8618f2a913b0c312eac9dcd26acb
+pinned_reference: quay.io/biocontainers/pydeseq2@sha256:8576bff8378112fa6195caeeb64c76b46b4f8618f2a913b0c312eac9dcd26acb
+origin: public-registry
+built_by_us: false

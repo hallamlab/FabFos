@@ -1,0 +1,10 @@
+id: containers.orad
+name: orad
+kind: container
+resource: resources/containers/orad.oci
+reference: quay.io/hallamlab/illumina-dragen-orad:2.7.0
+resolved: true
+digest: sha256:d723bf5828849505f45a15c2c41758e618ab7b9166cef33dab84323fd3557ed6
+pinned_reference: quay.io/hallamlab/illumina-dragen-orad@sha256:d723bf5828849505f45a15c2c41758e618ab7b9166cef33dab84323fd3557ed6
+origin: public-registry
+built_by_us: false

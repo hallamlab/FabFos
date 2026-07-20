@@ -1,0 +1,10 @@
+id: containers.bakta
+name: bakta
+kind: container
+resource: resources/containers/bakta.oci
+reference: quay.io/biocontainers/bakta:1.11.0--pyhdfd78af_0
+resolved: true
+digest: sha256:385c372907103549b647c4ae5839c04286b76ba816d81ffa0b6cd2a628f9cac7
+pinned_reference: quay.io/biocontainers/bakta@sha256:385c372907103549b647c4ae5839c04286b76ba816d81ffa0b6cd2a628f9cac7
+origin: public-registry
+built_by_us: false

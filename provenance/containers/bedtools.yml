@@ -1,0 +1,10 @@
+id: containers.bedtools
+name: bedtools
+kind: container
+resource: resources/containers/bedtools.oci
+reference: biocontainers/bedtools:v2.27.1dfsg-4-deb_cv1
+resolved: true
+digest: sha256:c042e405f356bb44cc0d7a87b4528d793afb581f0961db1d6da6e0a7e1fd3467
+pinned_reference: biocontainers/bedtools@sha256:c042e405f356bb44cc0d7a87b4528d793afb581f0961db1d6da6e0a7e1fd3467
+origin: public-registry
+built_by_us: false

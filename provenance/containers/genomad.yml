@@ -1,0 +1,10 @@
+id: containers.genomad
+name: genomad
+kind: container
+resource: resources/containers/genomad.oci
+reference: antoniopcamargo/genomad:1.11.0
+resolved: true
+digest: sha256:bc6bd515232e232ada6dacceb42fe434e8ccdac0f23ec771de31ae760fd1bac1
+pinned_reference: antoniopcamargo/genomad@sha256:bc6bd515232e232ada6dacceb42fe434e8ccdac0f23ec771de31ae760fd1bac1
+origin: public-registry
+built_by_us: false

@@ -1,0 +1,10 @@
+id: containers.filtlong
+name: filtlong
+kind: container
+resource: resources/containers/filtlong.oci
+reference: staphb/filtlong:0.3.1
+resolved: true
+digest: sha256:01b99a79b0028ee5588aa9dca700d74b7c6119c8a18386b073316cf67461c130
+pinned_reference: staphb/filtlong@sha256:01b99a79b0028ee5588aa9dca700d74b7c6119c8a18386b073316cf67461c130
+origin: public-registry
+built_by_us: false

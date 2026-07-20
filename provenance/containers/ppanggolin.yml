@@ -1,0 +1,10 @@
+id: containers.ppanggolin
+name: ppanggolin
+kind: container
+resource: resources/containers/ppanggolin.oci
+reference: staphb/ppanggolin:2.2.5
+resolved: true
+digest: sha256:14381bd1519cfd37a2b5e55eccc0121913225f1ffd87be61f7bca55748a7977b
+pinned_reference: staphb/ppanggolin@sha256:14381bd1519cfd37a2b5e55eccc0121913225f1ffd87be61f7bca55748a7977b
+origin: public-registry
+built_by_us: false

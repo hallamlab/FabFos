@@ -1,0 +1,10 @@
+id: containers.hifiasm-meta
+name: hifiasm-meta
+kind: container
+resource: resources/containers/hifiasm-meta.oci
+reference: quay.io/biocontainers/hifiasm_meta:hamtv0.3.5--h5ca1c30_0
+resolved: true
+digest: sha256:e1a7294c09ce2eaa31ed8bbc2b39fd1753310be1b3725979738588ee5e57e681
+pinned_reference: quay.io/biocontainers/hifiasm_meta@sha256:e1a7294c09ce2eaa31ed8bbc2b39fd1753310be1b3725979738588ee5e57e681
+origin: public-registry
+built_by_us: false

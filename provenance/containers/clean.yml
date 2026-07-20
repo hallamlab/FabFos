@@ -1,0 +1,22 @@
+id: containers.clean
+name: clean
+kind: container
+reference: quay.io/hallamlab/external_clean:2026.06.14
+resolved: true
+digest: sha256:687bd5c964b05b8acc4557e4f99cfacdf8ebebd1b3e9459f8633ef2e6efc35cf
+pinned_reference: quay.io/hallamlab/external_clean@sha256:687bd5c964b05b8acc4557e4f99cfacdf8ebebd1b3e9459f8633ef2e6efc35cf
+resolved_on: 2026-07-19
+resolution: >-
+  Pushed to quay from the local daemon as-is, 25.8 GB. This also resolves the
+  weights problem it used to state: CLEAN's weights are baked into the image
+  rather than shipped separately, so putting the image on a registry is the
+  only thing that makes the weights obtainable at all. The digest is the amd64
+  Descriptor.digest read back FROM the registry; the enclosing OCI index digest
+  is sha256:ac9bf1a3e51be674dd1e5902b905e3c776caa4361435d00f38298649831aa8a1,
+  which is also the local image id and is deliberately not what is pinned.
+  The recipe still lives in container_builds/main/clean and is SHARED with
+  metasmith-libraries/deep-learning and scadc/functional-analysis -- it is
+  pinned here, never vendored.
+origin: built-elsewhere
+built_by_us: true
+recipe: container_builds/main/clean   # shared; not vendored into this repo

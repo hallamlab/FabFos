@@ -1,0 +1,21 @@
+channels:
+  - hallamlab
+  - imperial-college-research-computing
+  - bioconda
+  - conda-forge
+dependencies:
+  - python=3.10
+  - snakemake=7.32
+  - pigz=2.8
+  - trimmomatic=0.39
+  - blast=2.14
+  - megahit=1.2
+  - spades=3.15
+  - biopython=1.81
+  - numpy=1.26
+  - vsearch=2.25
+  - fastqc=0.12
+  - minimap2=2.26
+  - bedtools=2.31
+  - samtools=1.18
+  - quast=5.2

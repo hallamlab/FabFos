@@ -1,22 +1,10 @@
-# This file is part of FabFos.
-# 
-# FabFos is free software: you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-# 
-# FabFos is distributed in the hope that it will be useful, but 
-# WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License
-# along with FabFos. If not, see <https://www.gnu.org/licenses/>.
+from pathlib import Path
 
-# copyright 2023 Tony Liu, Connor Morgan-Lang, Avery Noonan,
-# Zach Armstrong, and Steven J. Hallam
+_MODULE = Path(__file__).resolve().parent
+with open(_MODULE / "version.txt") as _f:
+    __version__ = _f.read().strip()
 
-
-# FabFos is a pipeline for automatically performing quality controls
-# and assembly for fosmid sequence information.
-# - Hallam Lab, UBC
+NAME = "fabfos"
+USER = "hallamlab"  # github id
+SHORT_SUMMARY = "A pipeline for the analysis of pooled fosmid data, run on metasmith"
+ENTRY_POINTS = [f"{e}={NAME}.cli:main" for e in (NAME, "ffs")]

@@ -1,0 +1,10 @@
+id: containers.python_for_data_science
+name: python_for_data_science
+kind: container
+resource: resources/containers/python_for_data_science.oci
+reference: quay.io/hallamlab/python_for_data_science:1.2.5
+resolved: true
+digest: sha256:9a77e933d2a1d98bd93739b4bfdfb0ddac3400c0888b76827b181a53f9fa5775
+pinned_reference: quay.io/hallamlab/python_for_data_science@sha256:9a77e933d2a1d98bd93739b4bfdfb0ddac3400c0888b76827b181a53f9fa5775
+origin: public-registry
+built_by_us: false

@@ -1,0 +1,10 @@
+id: containers.fastp
+name: fastp
+kind: container
+resource: resources/containers/fastp.oci
+reference: staphb/fastp:1.0.1
+resolved: true
+digest: sha256:d449d6de106f6b5ef32297ffe1e80c9ade059119da134bb8e1890efe59482c7c
+pinned_reference: staphb/fastp@sha256:d449d6de106f6b5ef32297ffe1e80c9ade059119da134bb8e1890efe59482c7c
+origin: public-registry
+built_by_us: false

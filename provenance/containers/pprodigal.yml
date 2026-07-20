@@ -1,0 +1,10 @@
+id: containers.pprodigal
+name: pprodigal
+kind: container
+resource: resources/containers/pprodigal.oci
+reference: quay.io/hallamlab/external_pprodigal:1.0.1
+resolved: true
+digest: sha256:1689836695a045d11d56540527a0897ec3aa826fcd9ddea6a9711370827381bf
+pinned_reference: quay.io/hallamlab/external_pprodigal@sha256:1689836695a045d11d56540527a0897ec3aa826fcd9ddea6a9711370827381bf
+origin: public-registry
+built_by_us: false

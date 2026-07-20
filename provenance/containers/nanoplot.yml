@@ -1,0 +1,10 @@
+id: containers.nanoplot
+name: nanoplot
+kind: container
+resource: resources/containers/nanoplot.oci
+reference: nanozoo/nanoplot:1.42.0--547049c
+resolved: true
+digest: sha256:777def14d1c8fc6d0bde1bd851c82f746fc5b2d00fece201929740f4f47399dd
+pinned_reference: nanozoo/nanoplot@sha256:777def14d1c8fc6d0bde1bd851c82f746fc5b2d00fece201929740f4f47399dd
+origin: public-registry
+built_by_us: false

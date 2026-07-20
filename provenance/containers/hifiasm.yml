@@ -1,0 +1,10 @@
+id: containers.hifiasm
+name: hifiasm
+kind: container
+resource: resources/containers/hifiasm.oci
+reference: quay.io/biocontainers/hifiasm:0.25.0--h5ca1c30_0
+resolved: true
+digest: sha256:5dc4c88cabceb56445f44e785dae252e13fb8131e9bde54028bfb4102a3f424d
+pinned_reference: quay.io/biocontainers/hifiasm@sha256:5dc4c88cabceb56445f44e785dae252e13fb8131e9bde54028bfb4102a3f424d
+origin: public-registry
+built_by_us: false

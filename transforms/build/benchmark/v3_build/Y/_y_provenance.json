@@ -1,0 +1,19 @@
+{
+  "version": "v3",
+  "n_conditions": 974,
+  "n_expectations": 24229,
+  "default_cell": "role=off_target, dir=0",
+  "direction_source": "the observations' `measured` column, NOT `expected` -- `expected` is populated on only 10 of 382 GOF rows",
+  "unknown_direction": "carries no direction and no target cell; reported as coverage, never scored as a null result",
+  "target_derivation": [
+    "mechanical: non-currency products of the reactions the condition inserts, from X",
+    "resolved: the free-text target string mapped via target_resolution.tsv"
+  ],
+  "lof_arm": "uniform dir=-, isozyme controls included; a conductance claim, not a growth claim",
+  "stratifiers": [
+    "essential_on_glucose_minimal",
+    "is_neg",
+    "host_gem_is_proxy"
+  ],
+  "independence": "no ECSPr output on any input path; enforced by 50_audit_v3.py"
+}

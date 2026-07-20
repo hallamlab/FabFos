@@ -1,0 +1,10 @@
+id: containers.megahit
+name: megahit
+kind: container
+resource: resources/containers/megahit.oci
+reference: biocontainers/megahit:1.2.9_cv1
+resolved: true
+digest: sha256:e4792b5aa64cf27e8a02602b8bed1127b77d80505187d5d397214c9c015aedff
+pinned_reference: biocontainers/megahit@sha256:e4792b5aa64cf27e8a02602b8bed1127b77d80505187d5d397214c9c015aedff
+origin: public-registry
+built_by_us: false

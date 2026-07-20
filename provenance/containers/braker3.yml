@@ -1,0 +1,10 @@
+id: containers.braker3
+name: braker3
+kind: container
+resource: resources/containers/braker3.oci
+reference: teambraker/braker3:v3.0.7.4
+resolved: true
+digest: sha256:60448aa9c29d72eb42d2b1bf869e3fa98acbaca5cc6fcad9b0f7097dbd847a8d
+pinned_reference: teambraker/braker3@sha256:60448aa9c29d72eb42d2b1bf869e3fa98acbaca5cc6fcad9b0f7097dbd847a8d
+origin: public-registry
+built_by_us: false

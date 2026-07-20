@@ -1,0 +1,342 @@
+arm	component	method	picked_mnxm	picked_in_candidates	n_candidates	n_skeletons	verdict	candidates	note
+gof	(+)-catechin	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	(2S)-naringenin	exact_name_in_X	MNXM738152	yes	1	1	UNIQUE	MNXM738152	1 candidate(s), one InChIKey (FTVWIRXFELQLPI) -- no other metabolite answers to this name
+gof	(2S)-pinocembrin	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	(4S)-limonene	exact_name_in_X	MNXM1372148	yes	1	1	UNIQUE	MNXM1372148	1 candidate(s), one InChIKey (XMGQYMWWDOXHJM) -- no other metabolite answers to this name
+gof	(R)-acetoin	exact_name_in_X	MNXM664	yes	1	1	UNIQUE	MNXM664	1 candidate(s), one InChIKey (ROWKJAVDOGWPAT) -- no other metabolite answers to this name
+gof	1-propanol	exact_name_in_X	MNXM6396	yes	1	1	UNIQUE	MNXM6396	1 candidate(s), one InChIKey (BDERNNFJNOPAEC) -- no other metabolite answers to this name
+gof	1_2-Propanediol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	1_2-propanediol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	1_2_4-butanetriol	normalized_name_in_X	MNXM1106823	yes	1	1	UNIQUE	MNXM1106823	1 candidate(s), one InChIKey (ARXKVVRQIIOZGF) -- no other metabolite answers to this name
+gof	1_3-propanediol	metanetx_xref	MNXM2861	yes	1	1	UNIQUE	MNXM2861	1 candidate(s), one InChIKey (YPFDHNVEDLHUCE) -- no other metabolite answers to this name
+gof	1_4-butanediol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	2-(4-hydroxyphenyl)ethanol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	2-methylbut-3-en-2-ol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	2-oxoglutarate	exact_name_in_X	MNXM1368744	yes	1	1	UNIQUE	MNXM1368744	1 candidate(s), one InChIKey (KPGXRSRHYNQIFN) -- no other metabolite answers to this name
+gof	2-phenylethanol	exact_name_in_X	MNXM2476	yes	1	1	UNIQUE	MNXM2476	1 candidate(s), one InChIKey (WRMNZCZEMHIOCP) -- no other metabolite answers to this name
+gof	2-pyrone-4_6-dicarboxylic acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	3-HP	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	3-Methyl-1-butanol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	3-hydroxy-gamma-butyrolactone	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	3-methyl-1-butanol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	4-aminobenzoate	exact_name_in_X	MNXM421	yes	1	1	UNIQUE	MNXM421	1 candidate(s), one InChIKey (ALYNCZNDIQEVRV) -- no other metabolite answers to this name
+gof	4-courmaric acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	4-hydroxycoumarin	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	4-hydroxyphenylacetic acid	metanetx_xref	MNXM735208	yes	1	1	UNIQUE	MNXM735208	1 candidate(s), one InChIKey (XQXPVVBIMDBYFF) -- no other metabolite answers to this name
+gof	4-hydroxyphenyllactic acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	5-aminolevulinic acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	5-aminovalerate	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	6-Deoxyerythronolide B	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Abietadiene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Adipic Acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Alanine-Glutamine	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Anteiso-branched Fatty Acids	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	AvnD	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	B-ALANINE	normalized_name_in_X	MNXM144	yes	1	1	UNIQUE	MNXM144	1 candidate(s), one InChIKey (UCMIRNVEIXFBKS) -- no other metabolite answers to this name
+gof	Biodiesel	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Biomass	curated			0	0	NOCAND		no tier offers a candidate for this string
+gof	Butyrate	metanetx_xref	MNXM458	yes	1	1	UNIQUE	MNXM458	1 candidate(s), one InChIKey (FERIUCNNQQJTOY) -- no other metabolite answers to this name
+gof	CIS-CIS-MUCONATE	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Cadaverine	normalized_name_in_X	MNXM943	yes	1	1	UNIQUE	MNXM943	1 candidate(s), one InChIKey (VHRGRCVQAFMJIZ) -- no other metabolite answers to this name
+gof	Carboxylic acids	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Carotenoids	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Cytoplasmic disulfide-bonded proteins	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	D-cycloserine	exact_name_in_X	MNXM59345	yes	1	1	UNIQUE	MNXM59345	1 candidate(s), one InChIKey (DYDCUQKUCUHJBH) -- no other metabolite answers to this name
+gof	D-galactonate	exact_name_in_X	MNXM1734	yes	1	1	UNIQUE	MNXM1734	1 candidate(s), one InChIKey (RGHNJXZEOKUKBD) -- no other metabolite answers to this name
+gof	D-lactate	metanetx_xref	MNXM1371362	yes	1	1	UNIQUE	MNXM1371362	1 candidate(s), one InChIKey (JVTAAEKCZFNVCJ) -- no other metabolite answers to this name
+gof	DHAP	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Deoxycytidine	metanetx_xref	MNXM704	yes	1	1	UNIQUE	MNXM704	1 candidate(s), one InChIKey (CKTSBUTUHBMZGZ) -- no other metabolite answers to this name
+gof	Eriodictyol	metanetx_xref	MNXM1326	yes	1	1	UNIQUE	MNXM1326	1 candidate(s), one InChIKey (SBHXYTNGIZCORC) -- no other metabolite answers to this name
+gof	Ethanol	normalized_name_in_X	MNXM1108092	yes	1	1	UNIQUE	MNXM1108092	1 candidate(s), one InChIKey (LFQSCWFLJHTTHZ) -- no other metabolite answers to this name
+gof	Ethyl butyrate	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	FAEE	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Fatty Acids	normalized_name_in_X	MNXM728578	yes	1	0	NOSTRUCT	MNXM728578	1 candidate(s), at least one with no InChIKey -- skeleton test cannot run
+gof	Fatty acids	normalized_name_in_X	MNXM728578	yes	1	0	NOSTRUCT	MNXM728578	1 candidate(s), at least one with no InChIKey -- skeleton test cannot run
+gof	Flavonoids	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Fumaric acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	GFP	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	GLYCOLLATE	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Glucaric Acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Glucaric acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	H2	exact_name_in_X	MNXM1108018	yes	1	1	UNIQUE	MNXM1108018	1 candidate(s), one InChIKey (UFHFLCQGNIYNRP) -- no other metabolite answers to this name
+gof	H2	exact_name_in_X	MNXM1108018	yes	1	1	UNIQUE	MNXM1108018	1 candidate(s), one InChIKey (UFHFLCQGNIYNRP) -- no other metabolite answers to this name
+gof	ethanol	exact_name_in_X	MNXM1108092	yes	1	1	UNIQUE	MNXM1108092	1 candidate(s), one InChIKey (LFQSCWFLJHTTHZ) -- no other metabolite answers to this name
+gof	Hydroxyfatty acids	normalized_name_in_X	MNXM1101109	yes	2	0	NOSTRUCT	MNXM1101109;MNXM56821	2 candidate(s), at least one with no InChIKey -- skeleton test cannot run
+gof	IMP	exact_name_in_X	MNXM1101868	yes	1	1	UNIQUE	MNXM1101868	1 candidate(s), one InChIKey (GRSZFWQUAKGDAV) -- no other metabolite answers to this name
+gof	Isoprene	normalized_name_in_X	MNXM3288	yes	1	1	UNIQUE	MNXM3288	1 candidate(s), one InChIKey (RRHGJUQNOFWUDK) -- no other metabolite answers to this name
+gof	L-DOPA	normalized_name_in_X	MNXM279	yes	1	1	UNIQUE	MNXM279	1 candidate(s), one InChIKey (WTDRDQBEARUVNC) -- no other metabolite answers to this name
+gof	L-Methionine	normalized_name_in_X	MNXM738804	yes	1	1	UNIQUE	MNXM738804	1 candidate(s), one InChIKey (FFEARJCKVFRZRR) -- no other metabolite answers to this name
+gof	L-Serine	normalized_name_in_X	MNXM737787	yes	1	1	UNIQUE	MNXM737787	1 candidate(s), one InChIKey (MTCFGRXMJLQNBG) -- no other metabolite answers to this name
+gof	L-alanine	exact_name_in_X	MNXM1105732	yes	1	1	UNIQUE	MNXM1105732	1 candidate(s), one InChIKey (QNAYBMKLOCPYGJ) -- no other metabolite answers to this name
+gof	L-aspartate	exact_name_in_X	MNXM1364497	yes	1	1	UNIQUE	MNXM1364497	1 candidate(s), one InChIKey (CKLJMWTZIZZHCS) -- no other metabolite answers to this name
+gof	L-erythro-5,6,7,8-tetrahydrobiopterin	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	L-fumarate	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	L-glutamine	exact_name_in_X	MNXM37	yes	1	1	UNIQUE	MNXM37	1 candidate(s), one InChIKey (ZDXPYRJPNDTMRX) -- no other metabolite answers to this name
+gof	L-lactate	ambiguous			2	1	STEREO_SPLIT	MNXM1371363;MNXM733758	2 candidate(s) share skeleton JVTAAEKCZFNVCJ but differ in the InChIKey stereo layer -- same connectivity, possibly different stereoisomer
+gof	L-lysine	exact_name_in_X	MNXM1364268	yes	1	1	UNIQUE	MNXM1364268	1 candidate(s), one InChIKey (KDXKERNSBIXSRK) -- no other metabolite answers to this name
+gof	L-phenylalanine	exact_name_in_X	MNXM741664	yes	1	1	UNIQUE	MNXM741664	1 candidate(s), one InChIKey (COLNVLDHVKWLRT) -- no other metabolite answers to this name
+gof	L-serine	exact_name_in_X	MNXM737787	yes	1	1	UNIQUE	MNXM737787	1 candidate(s), one InChIKey (MTCFGRXMJLQNBG) -- no other metabolite answers to this name
+gof	L-threonine	exact_name_in_X	MNXM142	yes	1	1	UNIQUE	MNXM142	1 candidate(s), one InChIKey (AYFVYJQAPQTCCC) -- no other metabolite answers to this name
+gof	L-tyrosine	exact_name_in_X	MNXM76	yes	1	1	UNIQUE	MNXM76	1 candidate(s), one InChIKey (OUYCCCASQSFEME) -- no other metabolite answers to this name
+gof	L-valine	exact_name_in_X	MNXM199	yes	1	1	UNIQUE	MNXM199	1 candidate(s), one InChIKey (KZSNJWFQEVHDMF) -- no other metabolite answers to this name
+gof	Lycopene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	N-acetylglucosamine	metanetx_xref	MNXM2138	yes	1	1	UNIQUE	MNXM2138	1 candidate(s), one InChIKey (OVRNDRQMDRJTHS) -- no other metabolite answers to this name
+gof	N-acetylneuraminic acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	NADPH	exact_name_in_X	MNXM738702	yes	3	1	NOSTRUCT	MNXM162231;MNXM588019;MNXM738702	3 candidate(s), at least one with no InChIKey -- skeleton test cannot run
+gof	Naringenin	normalized_name_in_X	MNXM738153	yes	2	1	STEREO_SPLIT	MNXM738152;MNXM738153	2 candidate(s) share skeleton FTVWIRXFELQLPI but differ in the InChIKey stereo layer -- same connectivity, possibly different stereoisomer
+gof	PHA	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	PHB	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Pinosylvin	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Protein	ambiguous			3	0	NOSTRUCT	MNXM733318;MNXM733321;MNXM733324	3 candidate(s), at least one with no InChIKey -- skeleton test cannot run
+gof	Protein-Glycosylation	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Proteins	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Putrescine	normalized_name_in_X	MNXM118	yes	1	1	UNIQUE	MNXM118	1 candidate(s), one InChIKey (KIDHWZJUCRJVML) -- no other metabolite answers to this name
+gof	R-3HB	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	R-3HV	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	S-3HB	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	S-3HV	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Serine-rich proteins	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Shikimate	normalized_name_in_X	MNXM602	yes	1	1	UNIQUE	MNXM602	1 candidate(s), one InChIKey (JXOHGGNKMLTUBP) -- no other metabolite answers to this name
+gof	Shikimic Acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Shikimic acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Silk	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	Taxadiene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	a-farnesene	metanetx_xref	MNXM1368127	yes	1	1	UNIQUE	MNXM1368127	1 candidate(s), one InChIKey (CXENHBSYCFFKJS) -- no other metabolite answers to this name
+gof	acetalaldehyde	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	acetate	exact_name_in_X	MNXM26	yes	1	1	UNIQUE	MNXM26	1 candidate(s), one InChIKey (QTBSBXVTEAMEQO) -- no other metabolite answers to this name
+gof	acetol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	acetone	exact_name_in_X	MNXM398	yes	1	1	UNIQUE	MNXM398	1 candidate(s), one InChIKey (CSCPPACGZOOCGX) -- no other metabolite answers to this name
+gof	acetyl-CoA	exact_name_in_X	MNXM1104266	yes	1	1	UNIQUE	MNXM1104266	1 candidate(s), one InChIKey (ZSLZBFCDCINBPY) -- no other metabolite answers to this name
+gof	palmitoyl-ACP C16:0	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	hexadec-2-enoyl-ACP C16:1	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	octadec-2-enoyl-ACP C18:1	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	all-trans-retinol	exact_name_in_X	MNXM1363773	yes	1	1	UNIQUE	MNXM1363773	1 candidate(s), one InChIKey (FPIPGXGPPPQFEQ) -- no other metabolite answers to this name
+gof	alpha-pinene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	aminovalerate	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	amorphadiene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	astragalin	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	beta-carotene	metanetx_xref	MNXM1108250	yes	1	1	UNIQUE	MNXM1108250	1 candidate(s), one InChIKey (OENHQHLEOONYIE) -- no other metabolite answers to this name
+gof	biodiesel	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	biomass	curated			0	0	NOCAND		no tier offers a candidate for this string
+gof	bisabolene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	butanol	metanetx_xref	MNXM3230	yes	1	1	UNIQUE	MNXM3230	1 candidate(s), one InChIKey (LRHPLDYGYMQRHN) -- no other metabolite answers to this name
+gof	butyrate	metanetx_xref	MNXM458	yes	1	1	UNIQUE	MNXM458	1 candidate(s), one InChIKey (FERIUCNNQQJTOY) -- no other metabolite answers to this name
+gof	caffeic acid	exact_name_in_X	MNXM1370996	yes	1	1	UNIQUE	MNXM1370996	1 candidate(s), one InChIKey (QAIPRVGONGVQAS) -- no other metabolite answers to this name
+gof	d-lactate	metanetx_xref	MNXM1371362	yes	1	1	UNIQUE	MNXM1371362	1 candidate(s), one InChIKey (JVTAAEKCZFNVCJ) -- no other metabolite answers to this name
+gof	deoxyviolacein	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	dihydroxyacetone	exact_name_in_X	MNXM460	yes	1	1	UNIQUE	MNXM460	1 candidate(s), one InChIKey (RXKJFZQQPQGTFL) -- no other metabolite answers to this name
+gof	ethanol	exact_name_in_X	MNXM1108092	yes	1	1	UNIQUE	MNXM1108092	1 candidate(s), one InChIKey (LFQSCWFLJHTTHZ) -- no other metabolite answers to this name
+gof	ethanol	exact_name_in_X	MNXM1108092	yes	1	1	UNIQUE	MNXM1108092	1 candidate(s), one InChIKey (LFQSCWFLJHTTHZ) -- no other metabolite answers to this name
+gof	h2	normalized_name_in_X	MNXM1108018	yes	1	1	UNIQUE	MNXM1108018	1 candidate(s), one InChIKey (UFHFLCQGNIYNRP) -- no other metabolite answers to this name
+gof	ethylene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	ethylene glycol	metanetx_xref	MNXM1107139	yes	1	0	NOSTRUCT	MNXM1107139	1 candidate(s), at least one with no InChIKey -- skeleton test cannot run
+gof	fatty acids	normalized_name_in_X	MNXM728578	yes	1	0	NOSTRUCT	MNXM728578	1 candidate(s), at least one with no InChIKey -- skeleton test cannot run
+gof	fatty alcohols	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	ferulic acid	metanetx_xref	MNXM573	yes	1	1	UNIQUE	MNXM573	1 candidate(s), one InChIKey (KSEBMYQBYZTDHS) -- no other metabolite answers to this name
+gof	geraniol	metanetx_xref	MNXM740315	yes	1	1	UNIQUE	MNXM740315	1 candidate(s), one InChIKey (GLZPCOQZEFWAFX) -- no other metabolite answers to this name
+gof	glucose-6P	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	glutarate	exact_name_in_X	MNXM1021	yes	1	1	UNIQUE	MNXM1021	1 candidate(s), one InChIKey (JFCQEDHGNNZCLN) -- no other metabolite answers to this name
+gof	glutaric acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	glycoglycerolipids	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	hexanoate	exact_name_in_X	MNXM1653	yes	1	1	UNIQUE	MNXM1653	1 candidate(s), one InChIKey (FUZZWVXGSFPDMH) -- no other metabolite answers to this name
+gof	hydroxytyrosol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	indigoidine	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	isobutanol	exact_name_in_X	MNXM5188	yes	1	1	UNIQUE	MNXM5188	1 candidate(s), one InChIKey (ZXEKIIBDNHEJCQ) -- no other metabolite answers to this name
+gof	isopentanol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	isoprenol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	isopropanol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	itaconate	exact_name_in_X	MNXM1747	yes	1	1	UNIQUE	MNXM1747	1 candidate(s), one InChIKey (LVHBHZANLOWSRM) -- no other metabolite answers to this name
+gof	l-alanine	normalized_name_in_X	MNXM1105732	yes	1	1	UNIQUE	MNXM1105732	1 candidate(s), one InChIKey (QNAYBMKLOCPYGJ) -- no other metabolite answers to this name
+gof	l-arginine	normalized_name_in_X	MNXM739527	yes	1	1	UNIQUE	MNXM739527	1 candidate(s), one InChIKey (ODKSFYDXXFIFQN) -- no other metabolite answers to this name
+gof	lactic acid	metanetx_xref	MNXM733758	yes	1	1	UNIQUE	MNXM733758	1 candidate(s), one InChIKey (JVTAAEKCZFNVCJ) -- no other metabolite answers to this name
+gof	levopimaradiene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	lycopene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	malonyl-CoA	exact_name_in_X	MNXM1106093	yes	1	1	UNIQUE	MNXM1106093	1 candidate(s), one InChIKey (LTYOQGRJFJAKNA) -- no other metabolite answers to this name
+gof	phosphatidylglycerol	ambiguous			3	0	NOSTRUCT	MNXM1107655;MNXM1107660;MNXM725992	3 candidate(s), at least one with no InChIKey -- skeleton test cannot run
+gof	phosphatidylethanolamine	exact_name_in_X	MNXM115	yes	1	0	NOSTRUCT	MNXM115	1 candidate(s), at least one with no InChIKey -- skeleton test cannot run
+gof	PG(16:0) dipalmitoyl	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	PG(16:1) palmitoleoyl	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	PE(16:1)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	membrane protein	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	methyl ketones	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	mevalonate_phosphate	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	muconic acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	myo-inositol	exact_name_in_X	MNXM1105941	yes	1	1	UNIQUE	MNXM1105941	1 candidate(s), one InChIKey (CDAISMWEOUEBRE) -- no other metabolite answers to this name
+gof	n-butanol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	n-hexanol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	omega-hydroxyacids	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	pDNA	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	penicillin G	exact_name_in_X	MNXM1812	yes	1	1	UNIQUE	MNXM1812	1 candidate(s), one InChIKey (JGSARLDLIJGVTE) -- no other metabolite answers to this name
+gof	perillyl_alcohol	metanetx_xref	MNXM731537	yes	1	1	UNIQUE	MNXM731537	1 candidate(s), one InChIKey (NDTYTMIUWGWIMO) -- no other metabolite answers to this name
+gof	phenol	exact_name_in_X	MNXM320	yes	1	1	UNIQUE	MNXM320	1 candidate(s), one InChIKey (ISWSIDIOOBJBQZ) -- no other metabolite answers to this name
+gof	phenylacetic acid	metanetx_xref	MNXM737265	yes	1	1	UNIQUE	MNXM737265	1 candidate(s), one InChIKey (WLJVXDMOQOGPHL) -- no other metabolite answers to this name
+gof	phenyllactic acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	phosphatidylglycerol C16:0	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	cardiolipin C16:0	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	plasmidDNA	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	poly (3-hydroxybutyrate-co-3-hydroxypropionate)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	prenol	exact_name_in_X	MNXM737751	yes	1	1	UNIQUE	MNXM737751	1 candidate(s), one InChIKey (ASUAYTHWZCLXAN) -- no other metabolite answers to this name
+gof	propane	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	propanol	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	propionate	metanetx_xref	MNXM1094052	yes	1	1	UNIQUE	MNXM1094052	1 candidate(s), one InChIKey (XBDQKXXYIPTUBI) -- no other metabolite answers to this name
+gof	pyruvate	exact_name_in_X	MNXM23	yes	1	1	UNIQUE	MNXM23	1 candidate(s), one InChIKey (LCTONWCANYUPML) -- no other metabolite answers to this name
+gof	quercetin 3-O-xyloside	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	riboflavin	exact_name_in_X	MNXM270	yes	1	1	UNIQUE	MNXM270	1 candidate(s), one InChIKey (AUNGANRZJHBGPY) -- no other metabolite answers to this name
+gof	rosmarinate	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	rr-2_3-BDO	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	sabinene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	salvianic acid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	shikimate	exact_name_in_X	MNXM602	yes	1	1	UNIQUE	MNXM602	1 candidate(s), one InChIKey (JXOHGGNKMLTUBP) -- no other metabolite answers to this name
+gof	styrene	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	succinate	exact_name_in_X	MNXM25	yes	1	1	UNIQUE	MNXM25	1 candidate(s), one InChIKey (KDYFGRWQOYBRFD) -- no other metabolite answers to this name
+gof	succinyl-CoA	exact_name_in_X	MNXM1104774	yes	1	1	UNIQUE	MNXM1104774	1 candidate(s), one InChIKey (VNOYUJKHFWYWIR) -- no other metabolite answers to this name
+gof	acetyl-CoA	exact_name_in_X	MNXM1104266	yes	1	1	UNIQUE	MNXM1104266	1 candidate(s), one InChIKey (ZSLZBFCDCINBPY) -- no other metabolite answers to this name
+gof	taxanes	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	trans-cinnamate	ambiguous			2	1	STEREO_SPLIT	MNXM1371727;MNXM1371728	2 candidate(s) share skeleton WBYWAXJHAXSJNI but differ in the InChIKey stereo layer -- same connectivity, possibly different stereoisomer
+gof	violacein	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+gof	xylitol	exact_name_in_X	MNXM737068	yes	1	1	UNIQUE	MNXM737068	1 candidate(s), one InChIKey (HEBKCHPVOIAQTA) -- no other metabolite answers to this name
+lof	FMN	ambiguous			2	2	COLLISION	MNXM1364147;MNXM1364148	2 candidate(s) span 2 distinct InChIKey skeletons -- different connectivity OR only different protonation; formula comparison decides which
+lof	FAD (essential	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	riboflavin kinase	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	FAD synthetase)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	L-arginine	exact_name_in_X	MNXM739527	yes	1	1	UNIQUE	MNXM739527	1 candidate(s), one InChIKey (ODKSFYDXXFIFQN) -- no other metabolite answers to this name
+lof	L-cysteine	exact_name_in_X	MNXM738068	yes	1	1	UNIQUE	MNXM738068	1 candidate(s), one InChIKey (XUJNEKJLAYXESH) -- no other metabolite answers to this name
+lof	L-cysteine (siroheme cofactor for sulfite reductase)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	L-cysteine (sulfate assimilation	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	M9 sulfate sole S source)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	L-glutamine	exact_name_in_X	MNXM37	yes	1	1	UNIQUE	MNXM37	1 candidate(s), one InChIKey (ZDXPYRJPNDTMRX) -- no other metabolite answers to this name
+lof	L-histidine	exact_name_in_X	MNXM1107769	yes	1	1	UNIQUE	MNXM1107769	1 candidate(s), one InChIKey (HNDVDQJCIGZPNO) -- no other metabolite answers to this name
+lof	L-isoleucine	exact_name_in_X	MNXM728337	yes	1	1	UNIQUE	MNXM728337	1 candidate(s), one InChIKey (AGPKZVBTJJNPAG) -- no other metabolite answers to this name
+lof	L-isoleucine	exact_name_in_X	MNXM728337	yes	1	1	UNIQUE	MNXM728337	1 candidate(s), one InChIKey (AGPKZVBTJJNPAG) -- no other metabolite answers to this name
+lof	L-valine	exact_name_in_X	MNXM199	yes	1	1	UNIQUE	MNXM199	1 candidate(s), one InChIKey (KZSNJWFQEVHDMF) -- no other metabolite answers to this name
+lof	L-isoleucine	exact_name_in_X	MNXM728337	yes	1	1	UNIQUE	MNXM728337	1 candidate(s), one InChIKey (AGPKZVBTJJNPAG) -- no other metabolite answers to this name
+lof	L-valine (leucine partly)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	L-leucine	exact_name_in_X	MNXM1106761	yes	1	1	UNIQUE	MNXM1106761	1 candidate(s), one InChIKey (ROHFNLRQFUQHCH) -- no other metabolite answers to this name
+lof	L-lysine	exact_name_in_X	MNXM1364268	yes	1	1	UNIQUE	MNXM1364268	1 candidate(s), one InChIKey (KDXKERNSBIXSRK) -- no other metabolite answers to this name
+lof	L-lysine	exact_name_in_X	MNXM1364268	yes	1	1	UNIQUE	MNXM1364268	1 candidate(s), one InChIKey (KDXKERNSBIXSRK) -- no other metabolite answers to this name
+lof	meso-DAP	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	L-lysine	exact_name_in_X	MNXM1364268	yes	1	1	UNIQUE	MNXM1364268	1 candidate(s), one InChIKey (KDXKERNSBIXSRK) -- no other metabolite answers to this name
+lof	meso-diaminopimelate (cell-wall	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	mutants lyse)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	L-methionine	exact_name_in_X	MNXM738804	yes	1	1	UNIQUE	MNXM738804	1 candidate(s), one InChIKey (FFEARJCKVFRZRR) -- no other metabolite answers to this name
+lof	L-methionine (unless coenzyme B12 provided)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	L-phenylalanine	exact_name_in_X	MNXM741664	yes	1	1	UNIQUE	MNXM741664	1 candidate(s), one InChIKey (COLNVLDHVKWLRT) -- no other metabolite answers to this name
+lof	L-proline	exact_name_in_X	MNXM114	yes	1	1	UNIQUE	MNXM114	1 candidate(s), one InChIKey (ONIBWKKTOPOVIA) -- no other metabolite answers to this name
+lof	L-serine	exact_name_in_X	MNXM737787	yes	1	1	UNIQUE	MNXM737787	1 candidate(s), one InChIKey (MTCFGRXMJLQNBG) -- no other metabolite answers to this name
+lof	L-serine (also glycine & C1	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	THF units)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	L-serine (also pyridoxal-5-P	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	vitamin B6)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	L-threonine	exact_name_in_X	MNXM142	yes	1	1	UNIQUE	MNXM142	1 candidate(s), one InChIKey (AYFVYJQAPQTCCC) -- no other metabolite answers to this name
+lof	L-tryptophan	exact_name_in_X	MNXM741553	yes	1	1	UNIQUE	MNXM741553	1 candidate(s), one InChIKey (QIVBCDIJIAJPQS) -- no other metabolite answers to this name
+lof	L-tyrosine	exact_name_in_X	MNXM76	yes	1	1	UNIQUE	MNXM76	1 candidate(s), one InChIKey (OUYCCCASQSFEME) -- no other metabolite answers to this name
+lof	adenine (AMP branch)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	aromatic amino acids (Phe+Tyr+Trp)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	aromatic amino acids (Phe+Tyr+Trp)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	folate	exact_name_in_X	MNXM617	yes	1	1	UNIQUE	MNXM617	1 candidate(s), one InChIKey (OVBPIULPVIDEAO) -- no other metabolite answers to this name
+lof	PABA	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	biotin	exact_name_in_X	MNXM304	yes	1	1	UNIQUE	MNXM304	1 candidate(s), one InChIKey (YBJHBAHKTGYVGT) -- no other metabolite answers to this name
+lof	essential (glycerophospholipid)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	essential (glycerophospholipid	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	acyl-G3P)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	essential (phosphatidylethanolamine	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	conditional rescue by divalent cations)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	essential (phosphatidylethanolamine	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	only conditional rescue by Mg2+	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	Ca2+)	normalized_name_in_X	MNXM128	yes	1	1	UNIQUE	MNXM128	1 candidate(s), one InChIKey (BHPQYMZQTOCNFJ) -- no other metabolite answers to this name
+lof	folate	exact_name_in_X	MNXM617	yes	1	1	UNIQUE	MNXM617	1 candidate(s), one InChIKey (OVBPIULPVIDEAO) -- no other metabolite answers to this name
+lof	THF (essential	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	not rescued by exogenous folate)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	folate	exact_name_in_X	MNXM617	yes	1	1	UNIQUE	MNXM617	1 candidate(s), one InChIKey (OVBPIULPVIDEAO) -- no other metabolite answers to this name
+lof	THF (essential	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	not rescued)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	folate	exact_name_in_X	MNXM617	yes	1	1	UNIQUE	MNXM617	1 candidate(s), one InChIKey (OVBPIULPVIDEAO) -- no other metabolite answers to this name
+lof	THF (essential	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	poorly rescued)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	folate	exact_name_in_X	MNXM617	yes	1	1	UNIQUE	MNXM617	1 candidate(s), one InChIKey (OVBPIULPVIDEAO) -- no other metabolite answers to this name
+lof	tetrahydrofolate (biosynthesis	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	poorly rescued -> effectively essential)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	glycine (also C1	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	tetrahydrofolate one-carbon units)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	guanine (GMP)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	heme	normalized_name_in_X	MNXM78362	yes	1	1	UNIQUE	MNXM78362	1 candidate(s), one InChIKey (KABFMIBPWCXCRK) -- no other metabolite answers to this name
+lof	protoporphyrin IX	exact_name_in_X	MNXM1364476	yes	1	1	UNIQUE	MNXM1364476	1 candidate(s), one InChIKey (KSFOVUSSGSKXFI) -- no other metabolite answers to this name
+lof	heme	normalized_name_in_X	MNXM78362	yes	1	1	UNIQUE	MNXM78362	1 candidate(s), one InChIKey (KABFMIBPWCXCRK) -- no other metabolite answers to this name
+lof	protoporphyrin IX (or 5-aminolevulinate)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	lipoate (or acetate	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	succinate to bypass PDH	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	oGDH)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	lipoate (or acetate	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	succinate)	normalized_name_in_X	MNXM25	yes	1	1	UNIQUE	MNXM25	1 candidate(s), one InChIKey (KDYFGRWQOYBRFD) -- no other metabolite answers to this name
+lof	nicotinate (niacin)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	NAD	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (MetE substitutes	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	MetH only used when B12 present)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (Mo-cofactor not required for aerobic glucose growth)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (Moco dispensable aerobic glucose)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (glutamate still made via GDH gdhA on ammonia	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	slow on poor N)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (glutamate still made via GOGAT gltBD)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (ketopantoate reductase	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	redundant with ilvC)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant AHAS I small subunit)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant AHAS III small subunit)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant AHAS III	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	AHAS-I ilvBN compensates)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant DAHP synthase isozyme	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	aroF	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	aroG)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant DAHP synthase isozyme	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	aroF	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	aroH)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant DAHP synthase isozyme	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	aroG	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	aroH)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant GAR transformylase with purN)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant GAR transformylase with purT)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant acetohydroxyacid synthase I	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	AHAS-III ilvIH compensates)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant aminotransferase with tyrB)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant aromatic aminotransferase with aspC)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant asparagine synthetase with asnA)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant asparagine synthetase with asnB)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant aspartokinase I	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	homoserine DH I	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	metL compensates)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant aspartokinase II	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	homoserine DH II with thrA	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	lysC)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant aspartokinase III with thrA	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	metL)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant isozyme with cysK)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant isozyme with cysM)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant ornithine transcarbamylase isozyme with argF)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant ornithine transcarbamylase isozyme with argI)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant shikimate kinase with aroK)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant shikimate kinase with aroL)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	none (redundant with gdhA on ammonia)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	p-aminobenzoate (PABA) -> folate	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	pantothenate	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	pantothenate (beta-alanine)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	purines (adenine	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	guanine	exact_name_in_X	MNXM733114	yes	1	1	UNIQUE	MNXM733114	1 candidate(s), one InChIKey (UYTPUPDQBNUYGX) -- no other metabolite answers to this name
+lof	hypoxanthine)	normalized_name_in_X	MNXM732487	yes	1	1	UNIQUE	MNXM732487	1 candidate(s), one InChIKey (FDGQSTZJBFJUBT) -- no other metabolite answers to this name
+lof	purines (adenine)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	purines (hypoxanthine)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	pyridoxine	exact_name_in_X	MNXM419	yes	1	1	UNIQUE	MNXM419	1 candidate(s), one InChIKey (LXNHXLLTXMVWPM) -- no other metabolite answers to this name
+lof	PLP (vitamin B6)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	pyridoxine	exact_name_in_X	MNXM419	yes	1	1	UNIQUE	MNXM419	1 candidate(s), one InChIKey (LXNHXLLTXMVWPM) -- no other metabolite answers to this name
+lof	pyridoxal-5-phosphate (vitamin B6)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	riboflavin	exact_name_in_X	MNXM270	yes	1	1	UNIQUE	MNXM270	1 candidate(s), one InChIKey (AUNGANRZJHBGPY) -- no other metabolite answers to this name
+lof	sn-glycerol-3-phosphate (glycerol)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	thiamine	exact_name_in_X	MNXM730135	yes	1	1	UNIQUE	MNXM730135	1 candidate(s), one InChIKey (JZRWCGZRTZMZEH) -- no other metabolite answers to this name
+lof	thiamine (thiamine-PP synthesis)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	thiamine (thiazole salvage kinase	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	likely dispensable for de novo -- treat as uncertain)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	thymine	exact_name_in_X	MNXM1369302	yes	2	2	COLLISION	MNXM1369302;MNXM1369303	2 candidate(s) span 2 distinct InChIKey skeletons -- different connectivity OR only different protonation; formula comparison decides which
+lof	thymidine	exact_name_in_X	MNXM420	yes	1	1	UNIQUE	MNXM420	1 candidate(s), one InChIKey (IQFYYKKMVGJFEH) -- no other metabolite answers to this name
+lof	unsaturated fatty acid (oleate)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	unsaturated fatty acid (oleate) (essential-conditional)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	uracil (pyrimidines)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	uracil (pyrimidines)	unresolved			0	0	NOCAND		no tier offers a candidate for this string
+lof	L-arginine	exact_name_in_X	MNXM739527	yes	1	1	UNIQUE	MNXM739527	1 candidate(s), one InChIKey (ODKSFYDXXFIFQN) -- no other metabolite answers to this name

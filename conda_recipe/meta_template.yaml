@@ -3,12 +3,12 @@ package:
   version: <VERSION>
 
 source:
-  url: <TAR>
-  
+  path: ../
+
 build:
   noarch: python
   number: 0
-  script: {{ PYTHON }} -m pip install . -v
+  script: {{ PYTHON }} -m pip install ./src/fabfos -v
   entry_points:
 <ENTRY>
 
